@@ -1,0 +1,31 @@
+{
+  "name": "sudoku-variant-solver",
+  "version": "1.0.0",
+  "description": "An extensible Sudoku solver that supports many common variants.",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dclamage/SudokuVariantSolverJS.git"
+  },
+  "keywords": [
+    "sudoku",
+    "puzzle",
+    "solver",
+    "variants",
+    "algorithm",
+    "logic",
+    "grid",
+    "game",
+    "programming",
+    "javascript"
+  ],
+  "author": "Rangsk",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/dclamage/SudokuVariantSolverJS/issues"
+  },
+  "homepage": "https://github.com/dclamage/SudokuVariantSolverJS#readme"
+}
