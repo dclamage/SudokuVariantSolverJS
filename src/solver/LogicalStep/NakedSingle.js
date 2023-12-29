@@ -1,5 +1,5 @@
-import { cellName, minValue } from '../SolveUtility.js';
-import { LogicalStep, LogicalStepResult } from './LogicalStep.js';
+import { cellName, minValue } from '../SolveUtility';
+import { LogicalStep, LogicalStepResult } from './LogicalStep';
 
 export class NakedSingle extends LogicalStep {
     constructor(board) {

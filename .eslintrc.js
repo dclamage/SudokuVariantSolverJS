@@ -14,6 +14,12 @@ module.exports = {
                 sourceType: 'script',
             },
         },
+        {
+            files: ['webpack.config.js'],
+            env: {
+                node: true, // This allows Node.js global variables and Node.js scoping.
+            },
+        },
     ],
     parserOptions: {
         ecmaVersion: 'latest',
@@ -36,5 +42,13 @@ module.exports = {
         'import/no-deprecated': 'warn',
         'import/no-named-as-default': 'error',
         'import/no-named-as-default-member': 'error',
+        'import/extensions': [
+            'error',
+            'always',
+            {
+                js: 'never',
+                jsx: 'never',
+            },
+        ],
     },
 };

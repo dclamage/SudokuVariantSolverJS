@@ -1,4 +1,3 @@
-import { registerConstraint } from '../ConstraintBuilder';
 import { cellIndexFromName, cellName, minValue, valueBit } from '../SolveUtility';
 import { SumGroup } from '../SumGroup';
 import { Constraint, ConstraintResult } from './Constraint';
@@ -174,4 +173,8 @@ export class RegionSumLinesConstraint extends Constraint {
     }
 }
 
-registerConstraint('regionsumline', (board, params) => params.lines.map(line => new RegionSumLinesConstraint(board, { cells: line })));
+export function register(constraintBuilder) {
+    constraintBuilder.registerConstraint('regionsumline', (board, params) =>
+        params.lines.map(line => new RegionSumLinesConstraint(board, { cells: line }))
+    );
+}

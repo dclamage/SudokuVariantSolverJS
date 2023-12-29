@@ -1,4 +1,3 @@
-import { registerConstraint } from '../ConstraintBuilder';
 import { cellIndexFromName, cellName, hasValue, valueBit } from '../SolveUtility';
 import { SumCellsHelper } from '../SumCellsHelper';
 import { Constraint, ConstraintResult } from './Constraint';
@@ -140,4 +139,6 @@ export class KillerCageConstraint extends Constraint {
     }
 }
 
-registerConstraint('killercage', (board, params) => new KillerCageConstraint(board, params));
+export function register(constraintBuilder) {
+    constraintBuilder.registerConstraint('killercage', (board, params) => new KillerCageConstraint(board, params));
+}

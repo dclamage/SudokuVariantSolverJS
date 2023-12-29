@@ -1,6 +1,6 @@
-import { combinations, maskToString, popcount, valueBit, valuesList } from '../SolveUtility.js';
-import { LogicResult } from '../Enums/LogicResult.js';
-import { LogicalStep } from './LogicalStep.js';
+import { combinations, maskToString, popcount, valueBit, valuesList } from '../SolveUtility';
+import { LogicResult } from '../Enums/LogicResult';
+import { LogicalStep } from './LogicalStep';
 
 export class NakedTupleAndPointing extends LogicalStep {
     constructor(board) {

@@ -1,6 +1,6 @@
-import { ConstraintResult } from './Constraint/Constraint.js';
-import { cellsKey, minValue, valueBit } from './SolveUtility.js';
-import { SumGroup } from './SumGroup.js';
+import { ConstraintResult } from './Constraint/Constraint';
+import { cellsKey, minValue, valueBit } from './SolveUtility';
+import { SumGroup } from './SumGroup';
 
 export class SumCellsHelper {
     constructor(board, cells) {

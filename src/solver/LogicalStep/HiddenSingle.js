@@ -1,6 +1,6 @@
-import { LogicResult } from '../Enums/LogicResult.js';
-import { cellName, maskToString, minValue } from '../SolveUtility.js';
-import { LogicalStep } from './LogicalStep.js';
+import { LogicResult } from '../Enums/LogicResult';
+import { cellName, maskToString, minValue } from '../SolveUtility';
+import { LogicalStep } from './LogicalStep';
 
 export class HiddenSingle extends LogicalStep {
     constructor(board) {

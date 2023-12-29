@@ -1,7 +1,6 @@
-import { cellIndexFromName, cellName, minValue, valueBit, valuesList, removeDuplicates } from '../SolveUtility.js';
-import { SumCellsHelper } from '../SumCellsHelper.js';
-import { registerConstraint } from '../ConstraintBuilder.js';
-import { Constraint, ConstraintResult } from './Constraint.js';
+import { cellIndexFromName, cellName, minValue, valueBit, valuesList, removeDuplicates } from '../SolveUtility';
+import { SumCellsHelper } from '../SumCellsHelper';
+import { Constraint, ConstraintResult } from './Constraint';
 
 export class ArrowSumConstraint extends Constraint {
     constructor(board, params) {
@@ -437,14 +436,16 @@ export class ArrowSumConstraint extends Constraint {
     }
 }
 
-registerConstraint('arrow', (board, params) => {
-    const constraints = [];
-    for (let line of params.lines) {
-        const arrowParams = {
-            circleCells: params.cells,
-            arrowCells: line.slice(1),
-        };
-        constraints.push(new ArrowSumConstraint(board, arrowParams));
-    }
-    return constraints;
-});
+export function register(constraintBuilder) {
+    constraintBuilder.registerConstraint('arrow', (board, params) => {
+        const constraints = [];
+        for (let line of params.lines) {
+            const arrowParams = {
+                circleCells: params.cells,
+                arrowCells: line.slice(1),
+            };
+            constraints.push(new ArrowSumConstraint(board, arrowParams));
+        }
+        return constraints;
+    });
+}

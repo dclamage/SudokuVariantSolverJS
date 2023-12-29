@@ -1,4 +1,4 @@
-import { LogicalStep, LogicalStepResult } from './LogicalStep.js';
+import { LogicalStep, LogicalStepResult } from './LogicalStep';
 
 export class ConstraintLogic extends LogicalStep {
     constructor(board) {

@@ -10,8 +10,8 @@ import {
     maxValue,
     valueBit,
     valuesList,
-} from './SolveUtility.js';
-import { ConstraintResult } from './Constraint/Constraint.js';
+} from './SolveUtility';
+import { ConstraintResult } from './Constraint/Constraint';
 
 export class SumGroup {
     constructor(board, cells, excludeValue = 0) {

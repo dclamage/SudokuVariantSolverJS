@@ -1,4 +1,4 @@
-import { cellName, maskToString, popcount, valuesList } from '../SolveUtility.js';
+import { cellName, maskToString, popcount, valuesList } from '../SolveUtility';
 import { LogicalStep } from './LogicalStep';
 
 export class CellForcing extends LogicalStep {

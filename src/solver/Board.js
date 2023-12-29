@@ -11,14 +11,14 @@ import {
     randomValue,
     hasValue,
     cellName,
-} from './SolveUtility.js';
-import { NakedSingle } from './LogicalStep/NakedSingle.js';
-import { HiddenSingle } from './LogicalStep/HiddenSingle.js';
-import { ConstraintLogic } from './LogicalStep/ConstraintLogic.js';
-import { CellForcing } from './LogicalStep/CellForcing.js';
-import { NakedTupleAndPointing } from './LogicalStep/NakedTupleAndPointing.js';
-import { ConstraintResult } from './Constraint/Constraint.js';
-import { LogicResult } from './Enums/LogicResult.js';
+} from './SolveUtility';
+import { NakedSingle } from './LogicalStep/NakedSingle';
+import { HiddenSingle } from './LogicalStep/HiddenSingle';
+import { ConstraintLogic } from './LogicalStep/ConstraintLogic';
+import { CellForcing } from './LogicalStep/CellForcing';
+import { NakedTupleAndPointing } from './LogicalStep/NakedTupleAndPointing';
+import { ConstraintResult } from './Constraint/Constraint';
+import { LogicResult } from './Enums/LogicResult';
 
 export class Board {
     constructor(size) {
@@ -867,7 +867,7 @@ export class Board {
         return minCandidateIndex;
     }
 
-    findSolution(options, isCancelled) {
+    async findSolution(options, isCancelled) {
         const { random = false } = options || {};
         const jobStack = [this.clone()];
         let lastCancelCheckTime = Date.now();
@@ -876,7 +876,7 @@ export class Board {
             if (isCancelled) {
                 if (Date.now() - lastCancelCheckTime > 100) {
                     // Give the event loop a chance to receive new messages
-                    setTimeout(() => {}, 0);
+                    await new Promise(resolve => setTimeout(resolve, 0));
 
                     // Check if the job was cancelled
                     if (isCancelled()) {
@@ -1133,7 +1133,7 @@ export class Board {
                     }
                 } else {
                     // Find any solution
-                    const solution = newBoard.findSolution({}, isCancelled);
+                    const solution = await newBoard.findSolution({}, isCancelled);
                     if (solution === null) {
                         // This candidate is impossible
                         board.clearCellMask(cellIndex, chosenValueMask);

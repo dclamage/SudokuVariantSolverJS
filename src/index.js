@@ -1,13 +1,18 @@
 import { Board } from './solver/Board';
-import { buildConstraints } from './solver/ConstraintBuilder';
+import { registerAllConstraints } from './solver/Constraint/ConstraintLoader';
+import ConstraintBuilder from './solver/ConstraintBuilder';
 import { minValue, valueBit, valuesList, valuesMask } from './solver/SolveUtility';
 
 /**
  * Represents a solver for a Sudoku variant puzzle.
  */
 class SudokuVariantSolver {
+    eventCanceled = false;
+    constraintBuilder = null;
+
     constructor() {
-        this.eventCanceled = false;
+        this.constraintBuilder = new ConstraintBuilder();
+        registerAllConstraints(this.constraintBuilder);
     }
 
     /**
@@ -16,12 +21,14 @@ class SudokuVariantSolver {
      * @param {Object} data.board - The Sudoku board in the f-puzzles format.
      * @param {Object} [data.options] - The options for solving.
      */
-    solve(data) {
+    async solve(data) {
+        this.eventCanceled = false;
+
         const board = this.createBoard(data.board);
         if (!board) {
             self.postMessage({ result: 'invalid' });
         } else {
-            const solution = board.findSolution(data.options || {}, () => this.eventCanceled);
+            const solution = await board.findSolution(data.options || {}, () => this.eventCanceled);
             if (solution) {
                 if (solution.cancelled) {
                     self.postMessage({ result: 'cancelled' });
@@ -44,6 +51,8 @@ class SudokuVariantSolver {
      * @returns {Promise<void>} - A promise that resolves when the counting is complete.
      */
     async countSolutions(data) {
+        this.eventCanceled = false;
+
         const board = this.createBoard(data.board);
         if (!board) {
             self.postMessage({ result: 'invalid' });
@@ -93,6 +102,8 @@ class SudokuVariantSolver {
      * @returns {Promise<void>} - A promise that resolves when the true candidates are calculated.
      */
     async trueCandidates(data) {
+        this.eventCanceled = false;
+
         const board = this.createBoard(data.board);
         if (!board) {
             self.postMessage({ result: 'invalid' });
@@ -157,6 +168,8 @@ class SudokuVariantSolver {
      * @returns {void}
      */
     async step(data) {
+        this.eventCanceled = false;
+
         const board = this.createBoard(data.board, true);
         if (!board) {
             self.postMessage({ result: 'step', desc: 'Board is invalid!', invalid: true, changed: false });
@@ -196,6 +209,8 @@ class SudokuVariantSolver {
     }
 
     async logicalSolve(data) {
+        this.eventCanceled = false;
+
         const board = this.createBoard(data.board, true);
         if (!board) {
             self.postMessage({ result: 'logicalsolve', desc: ['Board is invalid!'], invalid: true, changed: false });
@@ -288,7 +303,7 @@ class SudokuVariantSolver {
         }
 
         // Add constraints
-        if (!buildConstraints(boardData, board)) {
+        if (!this.constraintBuilder.buildConstraints(boardData, board)) {
             return null;
         }
 
@@ -377,6 +392,13 @@ class SudokuVariantSolver {
                 }
             }
         }
+    }
+
+    /**
+     * Cancels the current operation.
+     */
+    cancel() {
+        this.eventCanceled = true;
     }
 }
 
