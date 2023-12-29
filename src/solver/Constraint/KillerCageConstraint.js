@@ -29,7 +29,7 @@ export class KillerCageConstraint extends Constraint {
             }
 
             if (this.sum > 0) {
-                if (this.sum > this.size) {
+                if (this.sum > board.size) {
                     return ConstraintResult.INVALID;
                 }
 
@@ -49,15 +49,15 @@ export class KillerCageConstraint extends Constraint {
         if (this.cells.length === 2) {
             if (this.sum > 0) {
                 const [cell1, cell2] = this.cells;
-                const valueUsed1 = Array.from({ length: this.size + 1 }, () => false);
-                const valueUsed2 = Array.from({ length: this.size + 1 }, () => false);
-                for (let value1 = 1; value1 <= this.size; value1++) {
+                const valueUsed1 = Array.from({ length: board.size + 1 }, () => false);
+                const valueUsed2 = Array.from({ length: board.size + 1 }, () => false);
+                for (let value1 = 1; value1 <= board.size; value1++) {
                     if (!hasValue(board.cells[cell1], value1)) {
                         continue;
                     }
                     const cell1Candidate = board.candidateIndex(cell1, value1);
 
-                    for (let value2 = 1; value2 <= this.size; value2++) {
+                    for (let value2 = 1; value2 <= board.size; value2++) {
                         // Check for a weak link between these candidates
                         const cell2Candidate = board.candidateIndex(cell2, value2);
                         if (board.isWeakLink(cell1Candidate, cell2Candidate)) {

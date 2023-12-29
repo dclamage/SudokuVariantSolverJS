@@ -14,23 +14,6 @@ export class Constraint {
     constructor(board, constraintName, specificName) {
         this.constraintName = constraintName;
         this.specificName = specificName;
-
-        // Cache common values
-        this.size = board.size;
-        this.allValues = board.allValues;
-        this.givenBit = board.givenBit;
-        this.cellIndex = board.cellIndex;
-        this.cellCoords = board.cellCoords;
-        this.candidateIndexRC = board.candidateIndexRC;
-        this.candidateIndex = board.candidateIndex;
-        this.cellIndexFromCandidate = board.cellIndexFromCandidate;
-        this.valueFromCandidate = board.valueFromCandidate;
-        this.maskStrictlyLower = board.maskStrictlyLower;
-        this.maskStrictlyHigher = board.maskStrictlyHigher;
-        this.maskLowerOrEqual = board.maskLowerOrEqual;
-        this.maskHigherOrEqual = board.maskHigherOrEqual;
-        this.maskBetweenInclusive = board.maskBetweenInclusive;
-        this.maskBetweenExclusive = board.maskBetweenExclusive;
     }
 
     // Returns the name of the constraint
@@ -91,18 +74,18 @@ export class Constraint {
     }
 
     // Utility functions
-    taxiCabDistance(cellIndex1, cellIndex2) {
-        const [row1, col1] = this.cellCoords(cellIndex1);
-        const [row2, col2] = this.cellCoords(cellIndex2);
+    taxiCabDistance(cellCoords1, cellCoords2) {
+        const [row1, col1] = cellCoords1;
+        const [row2, col2] = cellCoords2;
         return Math.abs(row1 - row2) + Math.abs(col1 - col2);
     }
 
-    isAdjacent(cellIndex1, cellIndex2) {
-        return this.taxiCabDistance(cellIndex1, cellIndex2) === 1;
+    isAdjacent(cellCoords1, cellCoords2) {
+        return this.taxiCabDistance(cellCoords1, cellCoords2) === 1;
     }
 
-    isDiagonal(cellIndex1, cellIndex2) {
-        return this.taxiCabDistance(cellIndex1, cellIndex2) === 2;
+    isDiagonal(cellCoords1, cellCoords2) {
+        return this.taxiCabDistance(cellCoords1, cellCoords2) === 2;
     }
 
     getOffset(cellIndex1, cellIndex2) {
