@@ -131,7 +131,7 @@ function findSolution(onResult) {
 }
 ```
 
-The `SudokuVariantSolver` class has a method various useful entry methods for solving a Sudoku board.
+The `SudokuVariantSolver` class has various useful entry methods for solving a Sudoku board.
 
 The board format currently is identical to the [f-puzzles](https://f-puzzles.com) format, but in the future an internal format will be used and a builder class will be provided for constructing the board data.
 
