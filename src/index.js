@@ -10,7 +10,8 @@ class SudokuVariantSolver {
     eventCanceled = false;
     constraintBuilder = null;
 
-    constructor() {
+    constructor(messageCallback) {
+        this.messageCallback = messageCallback;
         this.constraintBuilder = new ConstraintBuilder();
         registerAllConstraints(this.constraintBuilder);
     }
@@ -26,18 +27,18 @@ class SudokuVariantSolver {
 
         const board = this.createBoard(data.board);
         if (!board) {
-            self.postMessage({ result: 'invalid' });
+            this.messageCallback({ result: 'invalid' });
         } else {
             const solution = await board.findSolution(data.options || {}, () => this.eventCanceled);
             if (solution) {
                 if (solution.cancelled) {
-                    self.postMessage({ result: 'cancelled' });
+                    this.messageCallback({ result: 'cancelled' });
                 } else {
                     const solutionValues = solution.getValueArray();
-                    self.postMessage({ result: 'solution', solution: solutionValues });
+                    this.messageCallback({ result: 'solution', solution: solutionValues });
                 }
             } else {
-                self.postMessage({ result: 'no solution' });
+                this.messageCallback({ result: 'no solution' });
             }
         }
     }
@@ -55,20 +56,20 @@ class SudokuVariantSolver {
 
         const board = this.createBoard(data.board);
         if (!board) {
-            self.postMessage({ result: 'invalid' });
+            this.messageCallback({ result: 'invalid' });
         } else {
             const { maxSolutions = 0 } = data.options || {};
             const countResult = await board.countSolutions(
                 maxSolutions,
                 count => {
-                    self.postMessage({ result: 'count', count: count, complete: false });
+                    this.messageCallback({ result: 'count', count: count, complete: false });
                 },
                 () => this.eventCanceled
             );
             if (countResult.isCancelled) {
-                self.postMessage({ result: 'count', count: countResult.numSolutions, complete: false, cancelled: true });
+                this.messageCallback({ result: 'count', count: countResult.numSolutions, complete: false, cancelled: true });
             } else {
-                self.postMessage({ result: 'count', count: countResult.numSolutions, complete: true });
+                this.messageCallback({ result: 'count', count: countResult.numSolutions, complete: true });
             }
         }
     }
@@ -106,19 +107,19 @@ class SudokuVariantSolver {
 
         const board = this.createBoard(data.board);
         if (!board) {
-            self.postMessage({ result: 'invalid' });
+            this.messageCallback({ result: 'invalid' });
         } else {
             const { maxSolutionsPerCandidate = 1 } = data.options || {};
 
             const trueCandidatesResult = await board.calcTrueCandidates(maxSolutionsPerCandidate, () => this.eventCanceled);
             if (trueCandidatesResult.invalid) {
-                self.postMessage({ result: 'invalid' });
+                this.messageCallback({ result: 'invalid' });
             } else if (trueCandidatesResult.cancelled) {
-                self.postMessage({ result: 'cancelled' });
+                this.messageCallback({ result: 'cancelled' });
             } else {
                 const { candidates, counts } = trueCandidatesResult;
                 const expandedCandidates = this.expandCandidates(candidates);
-                self.postMessage({ result: 'truecandidates', candidates: expandedCandidates, counts: counts });
+                this.messageCallback({ result: 'truecandidates', candidates: expandedCandidates, counts: counts });
             }
         }
     }
@@ -172,34 +173,34 @@ class SudokuVariantSolver {
 
         const board = this.createBoard(data.board, true);
         if (!board) {
-            self.postMessage({ result: 'step', desc: 'Board is invalid!', invalid: true, changed: false });
+            this.messageCallback({ result: 'step', desc: 'Board is invalid!', invalid: true, changed: false });
             return;
         }
 
         if (this.candidatesDiffer(board, data)) {
             const expandedCandidates = this.expandCandidates(board.cells, board.givenBit);
-            self.postMessage({ result: 'step', desc: 'Initial Candidates', candidates: expandedCandidates, invalid: false, changed: true });
+            this.messageCallback({ result: 'step', desc: 'Initial Candidates', candidates: expandedCandidates, invalid: false, changed: true });
             return;
         }
 
         // Perform a single step
         const stepResult = await board.logicalStep(() => this.eventCanceled);
         if (stepResult.cancelled) {
-            self.postMessage({ result: 'cancelled' });
+            this.messageCallback({ result: 'cancelled' });
             return;
         }
 
         if (stepResult.unchanged) {
             if (board.nonGivenCount === 0) {
-                self.postMessage({ result: 'step', desc: 'Solved!' });
+                this.messageCallback({ result: 'step', desc: 'Solved!' });
             } else {
-                self.postMessage({ result: 'step', desc: 'No logical steps found.' });
+                this.messageCallback({ result: 'step', desc: 'No logical steps found.' });
             }
             return;
         }
 
         const expandedCandidates = this.expandCandidates(board.cells, board.givenBit);
-        self.postMessage({
+        this.messageCallback({
             result: 'step',
             desc: stepResult.desc,
             candidates: expandedCandidates,
@@ -213,13 +214,13 @@ class SudokuVariantSolver {
 
         const board = this.createBoard(data.board, true);
         if (!board) {
-            self.postMessage({ result: 'logicalsolve', desc: ['Board is invalid!'], invalid: true, changed: false });
+            this.messageCallback({ result: 'logicalsolve', desc: ['Board is invalid!'], invalid: true, changed: false });
             return;
         }
 
         const solveResult = await board.logicalSolve(() => this.eventCanceled);
         if (solveResult.cancelled) {
-            self.postMessage({ result: 'cancelled' });
+            this.messageCallback({ result: 'cancelled' });
             return;
         }
 
@@ -233,7 +234,7 @@ class SudokuVariantSolver {
         }
 
         const expandedCandidates = this.expandCandidates(board.cells, board.givenBit);
-        self.postMessage({
+        this.messageCallback({
             result: 'logicalsolve',
             desc,
             candidates: expandedCandidates,
