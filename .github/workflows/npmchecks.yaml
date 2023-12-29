@@ -16,6 +16,8 @@ jobs:
               with:
                   node-version: 18
             - run: npm ci
+            - name: Run Tests
+              run: npm test
             - name: Run Build
               run: npm run build
             - name: Run Prettier
