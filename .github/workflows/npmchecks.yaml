@@ -1,0 +1,33 @@
+name: npm build and checks
+
+on:
+    pull_request:
+        branches: [main]
+    push:
+        branches: [main]
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+
+        strategy:
+            matrix:
+                node-version: [14.x, 16.x]
+
+        steps:
+            - uses: actions/checkout@v2
+            - name: Use Node.js ${{ matrix.node-version }}
+              uses: actions/setup-node@v1
+              with:
+                  node-version: ${{ matrix.node-version }}
+            - run: npm ci
+            - name: Run Build
+              run: npm run build
+            - name: Run Prettier
+              run: npx prettier --check src
+            - name: Run ESLint
+              run: npm run lint
+            - uses: actions/upload-artifact@v2
+              with:
+                  name: dist
+                  path: dist/

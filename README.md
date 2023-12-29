@@ -2,7 +2,7 @@
 
 This project is a Sudoku Variant Solver library written in JavaScript. It's designed to solve various types of Sudoku puzzles, including those with additional constraints beyond the standard Sudoku rules.
 
-The solver is built with a modular architecture, allowing for the addition of new constraint types as needed. The core of the solver is located in the src/solver directory, which includes the Board.js file for representing the Sudoku board and various files in the Constraint subdirectory for handling different types of constraints.
+The solver is built with a modular architecture, allowing for the addition of new constraint types as needed. The core of the solver is located in the [src/solver](src/solver) directory, which includes the [Board.js](src/solver/Board.js) file for representing the Sudoku board and various files in the [Constraint](src/solver/Constraint) subdirectory for handling different types of constraints.
 
 The project uses Babel for transpiling the code, ESLint for linting, and Prettier for code formatting. The configuration files for these tools are located in the root directory of the project.
 
@@ -18,9 +18,23 @@ This project is licensed under the license specified in the License section of t
 	- [Table of Contents](#table-of-contents)
 	- [Installation](#installation)
 	- [Usage](#usage)
-		- [Data](#data)
-		- [Function: `solve`](#function-solve)
-		- [Function `countSolutions`](#function-countsolutions)
+		- [Data Structure](#data-structure)
+		- [`solve` Method](#solve-method)
+			- [Options](#options)
+			- [Result](#result)
+		- [`countSolutions` Method](#countsolutions-method)
+			- [Options](#options-1)
+			- [Result](#result-1)
+		- [`trueCandidates` Method](#truecandidates-method)
+			- [Options](#options-2)
+			- [Result](#result-2)
+		- [`step` Method](#step-method)
+			- [Options](#options-3)
+			- [Result](#result-3)
+		- [`logicalSolve` Method](#logicalsolve-method)
+			- [Options](#options-4)
+			- [Result](#result-4)
+		- [Additional Information](#additional-information)
 	- [Contributing](#contributing)
 	- [License](#license)
 
@@ -37,15 +51,84 @@ The `dist` directory contains the bundled JavaScript file and source map, which 
 
 ## Usage
 
-To use the Sudoku Variant Solver in your project, you first need to import the `SudokuVariantSolver` class from the library. Here's an example of how to do this:
+To integrate the Sudoku Variant Solver into your project, start by importing the `SudokuVariantSolver` class from the library. For instance:
 
 ```js
 import SudokuVariantSolver from 'sudoku-variant-solver';
 ```
 
-Once you've imported the SudokuVariantSolver class, you can create a new instance of the solver:
+After importing the class, instantiate the solver like this:
+
 ```js
-const solver = new SudokuVariantSolver();
+const solver = new SudokuVariantSolver(message => handleMessage(message));
+```
+
+Here is an example file which can be loaded as a Web Worker:
+
+`SudokuVariantSolverWebWorker.js`:
+
+```js
+importScripts('./bundle.js');
+let solver = new SudokuVariantSolver.default(message => self.postMessage(message));
+
+self.addEventListener(
+    'message',
+    async function (e) {
+        const data = e.data;
+        switch (data.cmd) {
+            case 'solve':
+                await solver.solve(data);
+                break;
+            case 'count':
+                await solver.countSolutions(data);
+                break;
+            case 'truecandidates':
+                await solver.trueCandidates(data);
+                break;
+            case 'step':
+                await solver.step(data);
+                break;
+            case 'logicalsolve':
+                await solver.logicalSolve(data);
+                break;
+            case 'cancel':
+                solver.cancel();
+                break;
+            default:
+                self.postMessage({ result: 'unknown command' });
+        }
+    },
+    false
+);
+```
+
+In your main application, set up the worker like this:
+
+```js
+worker = new Worker('Solver/SolveWorker.js');
+
+...
+function findSolution(onResult) {
+	worker.onmessage = function (e) {
+		if (e.data.result === "solution") {
+			onResult({ solution: e.data.solution });
+		} else if (e.data.result === 'no solution') {
+			onResult({ solution: null });
+		} else if (e.data.result === 'cancelled') {
+			onResult({ cancelled: true });
+        } else {
+            console.log('Error: ' + e.data.result);
+        }
+		setWorkerCompleted();
+	};
+
+	const board = exportPuzzleToObject();
+	worker.postMessage({
+		cmd: "solve",
+		board: board,
+		options: { random: true },
+	});
+}
 ```
 
 The `SudokuVariantSolver` class has a method various useful entry methods for solving a Sudoku board.
@@ -54,39 +137,131 @@ The board format currently is identical to the [f-puzzles](https://f-puzzles.com
 
 For examples of how the f-puzzles format works, see the descriptor in my [C# Sudoku Variant Solver](https://github.com/dclamage/SudokuSolver/blob/dev/SudokuSolver/PuzzleFormats/FPuzzlesBoard.cs)
 
-### Data
+### Data Structure
 
-All solver functions take in a `data` object which is of the following form:  
-data
- - `board` - The Sudoku board in f-puzzles format.
- - `options` - Options specific to the solving method
+All methods accept a `data` object with the following structure:
 
-### Function: `solve`
+-   `board`: Sudoku board in f-puzzles format.
+-   `options`: Method-specific options.
 
-The `solve` function is designed to find a single solution. It accepts a `data` object as its argument. Here's how it works:
+### `solve` Method
+
+This method finds a single solution:
+
 ```js
 await solver.solve(data);
 ```
 
- - If the `data.options.random` property is set to true, the function will return a different, random solution each time it is called. It's important to note that these random solutions may not be evenly distributed among all possible solutions and may exhibit some bias.
- - Conversely, if `data.options.random` is set to `false` or evaluates to "falsey" (e.g., null or undefined), the function will return the same solution consistently. However, this solution is not considered special in any way, such as being the lexicographically smallest solution.
+#### Options
 
-### Function `countSolutions`
+-   Setting `data.options.random` to `true` yields different solutions each call, though not necessarily evenly distributed.
+-   If `data.options.random` is `false` or falsy, the same solution is returned consistently.
 
-The `countSolutions` function counts the total number of solutions. It accepts a `data` object as its argument. Here's how it works:
+#### Result
+
+The method communicates via a callback, sending a `message` object object with a `result` attribute. Possible values for `result` include `'invalid'`, `'cancelled'`, `'no solution'`, and `'solution'`.
+
+### `countSolutions` Method
+
+The `countSolutions` method is designed to calculate the total number of possible solutions for a given Sudoku puzzle:
+
 ```js
 await solver.countSolutions(data);
 ```
 
-- If the `data.options.maxSolutions` is non-0, the solution count is capped 
+#### Options
 
+Here's how the method behaves based on the `data.options.maxSolutions` parameter:
+
+-   If `data.options.maxSolutions` is set to a non-zero value, the method will halt the solution counting process once it reaches this specified limit.
+-   If `data.options.maxSolutions` is set to `0`, or evaluates to a falsey value (such as `null` or `undefined`), the method will continue counting until it determines the exact number of solutions or until a cancellation request is received.
+
+#### Result
+
+Communication with the message callback occurs throughout the counting process, as well as upon its completion. The method sends a `message` object that includes a `result` member, which can be one of the following:
+
+-   `'invalid'`: Indicates that the provided board is invalid. This typically happens when the board's format is incorrect or when the puzzle's constraints make it trivially unsolvable.
+-   `'count'`: Signifies that a solution count is available. The `message` object in this case includes:
+    -   `message.numSolutions`: Contains the current count of solutions.
+    -   `message.complete`: A boolean indicating whether the count is final. It's set to `true` for the final count, even if the process terminated early due to a specified `maxSolutions` limit. For periodic updates and in case of cancellation, it's set to `false`.
+    -   `message.cancelled`: A boolean that turns `true` if the counting process is interrupted by a cancellation request. This indicates that the provided count is the final one before the process was halted.
+
+### `trueCandidates` Method
+
+The `trueCandidates` method is designed to calculate the true candidates for a given Sudoku board. True candidates are defined as the union of all possible solutions for the puzzle.
+
+Here’s how you can use the `trueCandidates` method:
+
+```js
+await solver.trueCandidates(data);
+```
+
+#### Options
+
+`data.options.maxSolutionsPerCandidate` (default = 1): This optional parameter sets the maximum number of solutions to consider for each candidate. If this option is greater than 1, additional information about how many solutions were found for each individual candidate is provided.
+
+The method communicates via a callback, sending a `message` object object with a `result` attribute. Possible values for `result` include `'invalid'`, `'cancelled'`, and `'truecandidates'`.
+
+#### Result
+
+If `result === 'truecandidates'` then the following members are also sent with the message:
+
+-   `candidates`: A structured array where each sub-array represents the viable candidates for the corresponding cell on the Sudoku board. The indexing of cells is done in a left-to-right and top-to-bottom manner.
+-   `counts`: This is included if `maxSolutionsPerCandidate` is set to more than 1. It is a flat array, with each entry corresponding to the number of solutions found for each candidate across the board.
+
+### `step` Method
+
+The `step` method performs a single logical step from the current board state. These steps are intended to be human understandable:
+
+```js
+await solver.step(data);
+```
+
+#### Options
+
+None.
+
+#### Result
+
+The method communicates via a callback, sending a `message` object object with a `result` attribute. Possible values for `result` include `'cancelled'`, and `'step'`.
+
+If `result === 'step'` then the `desc` member contains a human-readable string that describes the logical step taken. Additionally, If the step made progress on the puzzle, then the following members will also exist:
+
+-   `candidates`: The new candidates possible for the board. An array of objects per cell. The indexing of cells is done in a left-to-right and top-to-bottom manner. If the objects contains a `given` member set to `true`, then the cell has only one value, which is stored in the `value` member of the object. If the `given` member is not present (falsey), then the object is actually an array of candidates remaining for the cell.
+-   `invalid`: `true` if the logical step has determined that the board has no solutions.
+-   `changed`: `true` if the logical step had an effect on the board. This will always be `true` if a step was found. If it's `false` (or falsey) then that means the message is something like 'Board is invalid!', 'Solved!', or 'No logical steps found.'
+
+### `logicalSolve` Method
+
+The `logicalSolve` method performs as many logical steps from the current board state as is possible. These steps are intended to be human understandable:
+
+```js
+await solver.logicalSolve(data);
+```
+
+#### Options
+
+None.
+
+#### Result
+
+The method communicates via a callback, sending a `message` object object with a `result` attribute. Possible values for `result` include `'cancelled'`, and `'logicalsolve'`.
+
+If `result === 'logicalsolve'` then the `desc` member contains an array of human-readable strings that describe the logical steps taken. Additionally, if the steps made progress on the puzzle, then the following members will also exist:
+
+-   `candidates`: The new candidates possible for the board. An array of objects per cell. The indexing of cells is done in a left-to-right and top-to-bottom manner. If the objects contains a `given` member set to `true`, then the cell has only one value, which is stored in the `value` member of the object. If the `given` member is not present (falsey), then the object is actually an array of candidates remaining for the cell.
+-   `invalid`: `true` if the logical step has determined that the board has no solutions.
+-   `changed`: `true` if the logical step had an effect on the board. This will always be `true` if a step was found. If it's `false` (or falsey) then that means the message is something like 'Board is invalid!', 'Solved!', or 'No logical steps found.'
+
+### Additional Information
 
 Please refer to the [src/index.js](src/index.js) file for more details on how to use the SudokuVariantSolver class and its methods.
 
 ## Contributing
 
-Guidelines for contributing to the project.
+We welcome contributions from the community! Whether you're fixing bugs, improving the documentation, or proposing new features, your help is greatly appreciated. Please note that by contributing to this project, you agree that your contributions will be licensed under its ISC License.
 
 ## License
 
-Information about the project's license.
+This project is licensed under the ISC License. For more details, please see the [LICENSE](LICENSE) file in the project root.
+All contributions to this project are also licensed under this license.
