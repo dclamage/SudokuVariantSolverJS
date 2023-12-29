@@ -18,7 +18,7 @@ export class FixedSumConstraint extends Constraint {
             if (isRepeat) {
                 return ConstraintResult.UNCHANGED;
             }
-            if (this.sum > this.size) {
+            if (this.sum > board.size) {
                 return ConstraintResult.INVALID;
             }
 
@@ -31,15 +31,15 @@ export class FixedSumConstraint extends Constraint {
             delete this.sumHelper;
 
             const [cell1, cell2] = this.cells;
-            const valueUsed1 = Array.from({ length: this.size + 1 }, () => false);
-            const valueUsed2 = Array.from({ length: this.size + 1 }, () => false);
-            for (let value1 = 1; value1 <= this.size; value1++) {
+            const valueUsed1 = Array.from({ length: board.size + 1 }, () => false);
+            const valueUsed2 = Array.from({ length: board.size + 1 }, () => false);
+            for (let value1 = 1; value1 <= board.size; value1++) {
                 if (!hasValue(board.cells[cell1], value1)) {
                     continue;
                 }
                 const cell1Candidate = board.candidateIndex(cell1, value1);
 
-                for (let value2 = 1; value2 <= this.size; value2++) {
+                for (let value2 = 1; value2 <= board.size; value2++) {
                     if (!hasValue(board.cells[cell2], value2)) {
                         continue;
                     }
