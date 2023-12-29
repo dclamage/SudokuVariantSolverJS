@@ -3,7 +3,7 @@ module.exports = {
         browser: true,
         es2021: true,
     },
-    extends: 'eslint:recommended',
+    extends: ['eslint:recommended', 'plugin:jest/recommended'],
     overrides: [
         {
             env: {
@@ -17,7 +17,13 @@ module.exports = {
         {
             files: ['webpack.config.js'],
             env: {
-                node: true, // This allows Node.js global variables and Node.js scoping.
+                node: true,
+            },
+        },
+        {
+            files: ['**/*.test.js', '**/*.spec.js'],
+            env: {
+                jest: true,
             },
         },
     ],
@@ -25,7 +31,7 @@ module.exports = {
         ecmaVersion: 'latest',
         sourceType: 'module',
     },
-    plugins: ['import'],
+    plugins: ['import', 'jest'],
     rules: {
         'no-constant-condition': 'off',
         'import/no-unresolved': 'error',

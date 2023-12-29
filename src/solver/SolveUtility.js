@@ -91,32 +91,85 @@ export function binomialCoefficient(n, k) {
     return result;
 }
 
+const combinationIndicesCache = [];
+
+// Precompute indices for combinations
+for (let n = 1; n <= 9; n++) {
+    combinationIndicesCache[n] = [];
+    for (let k = 0; k <= n; k++) {
+        combinationIndicesCache[n][k] = [..._generateCombinationIndices(n, k)];
+    }
+}
+
+function* _generateCombinationIndices(n, k, start = 0, prefix = []) {
+    if (prefix.length === k) {
+        yield prefix.slice();
+    } else {
+        for (let i = start; i <= n - k + prefix.length; i++) {
+            prefix.push(i);
+            yield* _generateCombinationIndices(n, k, i + 1, prefix);
+            prefix.pop();
+        }
+    }
+}
+
+export function* combinationIndices(n, k) {
+    if (n <= 9) {
+        yield* combinationIndicesCache[n][k];
+    } else {
+        yield* _generateCombinationIndices(n, k);
+    }
+}
+
 export function* combinations(array, size) {
-    function* combine(start, prefix) {
-        if (prefix.length === size) {
-            yield prefix;
+    if (array.length <= 9) {
+        yield* combinationsCached(array, size);
+    } else {
+        yield* combinationsUncached(array, size);
+    }
+}
+
+export function* combinationsUncached(array, size) {
+    function* combine(start, prefix, depth) {
+        if (depth === size) {
+            yield prefix.slice();
         } else {
             for (let i = start; i < array.length; i++) {
-                yield* combine(i + 1, [...prefix, array[i]]);
+                prefix.push(array[i]);
+                yield* combine(i + 1, prefix, depth + 1);
+                prefix.pop();
             }
         }
     }
-    yield* combine(0, []);
+
+    yield* combine(0, [], 0);
+}
+
+export function* combinationsCached(array, size) {
+    for (const indices of combinationIndicesCache[array.length][size]) {
+        yield indices.map(index => array[index]);
+    }
 }
 
 export function* permutations(array) {
-    function* permute(list, i) {
-        if (i + 1 === list.length) {
-            yield list;
+    const n = array.length;
+    let c = new Array(n).fill(0);
+
+    yield array.slice();
+
+    let i = 0;
+    while (i < n) {
+        if (c[i] < i) {
+            const swapIndex = i % 2 === 0 ? 0 : c[i];
+            [array[swapIndex], array[i]] = [array[i], array[swapIndex]];
+            yield array.slice();
+            c[i]++;
+            i = 0;
         } else {
-            for (let j = i; j < list.length; j++) {
-                [list[i], list[j]] = [list[j], list[i]];
-                yield* permute(Array.from(list), i + 1);
-                [list[i], list[j]] = [list[j], list[i]];
-            }
+            c[i] = 0;
+            i++;
         }
     }
-    yield* permute(Array.from(array), 0);
 }
 
 // Helper for memo keys
