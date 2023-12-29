@@ -262,15 +262,39 @@ export class Board {
         this.memos[key] = val;
     }
 
-    setCellMask(cellIndex, cellMask) {
-        if ((this.cells[cellIndex] & this.allValues) === cellMask) {
-            return;
+    enforceNewMask(cellIndex, origMask) {
+        const cellMask = this.cells[cellIndex] & this.allValues;
+        if (cellMask === 0) {
+            return false;
         }
 
-        this.cells[cellIndex] = cellMask;
+        if (cellMask === origMask) {
+            return true;
+        }
+
         if (popcount(cellMask) === 1) {
             this.nakedSingles.push(cellIndex);
         }
+
+        let removedMask = origMask & ~cellMask;
+        while (removedMask !== 0) {
+            const value = minValue(removedMask);
+            removedMask &= ~valueBit(value);
+
+            for (let constraint of this.constraints) {
+                if (!constraint.enforceCandidateElim(this, cellIndex, value)) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    setCellMask(cellIndex, cellMask) {
+        const origMask = this.cells[cellIndex] & this.allValues;
+        this.cells[cellIndex] = cellMask;
+        return this.enforceNewMask(cellIndex, origMask);
     }
 
     keepCellMask(cellIndex, cellMask) {
@@ -281,10 +305,10 @@ export class Board {
         }
 
         this.cells[cellIndex] = newMask;
-        if (popcount(newMask) === 1) {
-            this.nakedSingles.push(cellIndex);
+        if (!this.enforceNewMask(cellIndex, origMask)) {
+            return ConstraintResult.INVALID;
         }
-        return newMask !== 0 ? ConstraintResult.CHANGED : ConstraintResult.INVALID;
+        return ConstraintResult.CHANGED;
     }
 
     clearCellMask(cellIndex, cellMask) {
@@ -292,14 +316,9 @@ export class Board {
     }
 
     clearValue(cellIndex, value) {
+        const origMask = this.cells[cellIndex] & this.allValues;
         this.cells[cellIndex] &= ~valueBit(value);
-        if ((this.cells[cellIndex] & this.allValues) === 0) {
-            return false;
-        }
-        if (popcount(this.cells[cellIndex]) === 1) {
-            this.nakedSingles.push(cellIndex);
-        }
-        return true;
+        return this.enforceNewMask(cellIndex, origMask);
     }
 
     clearCandidate(candidate) {
@@ -834,16 +853,9 @@ export class Board {
                 continue;
             }
 
-            const otherValue = this.valueFromCandidate(otherCandidateIndex);
-            const otherValueMask = valueBit(otherValue);
-            this.cells[otherCellIndex] &= ~otherValueMask;
-            if ((this.cells[otherCellIndex] & ~givenBit) === 0) {
-                // No candidates left, board is invalid
+            if (!this.clearCandidate(otherCandidateIndex)) {
+                // Board is invalid
                 return false;
-            } else if (popcount(this.cells[otherCellIndex]) === 1) {
-                // The popcount will be 2 for cells that already have the given bit set
-                // So it's safe to assume that if the popcount is 1, then the cell is a naked single
-                this.nakedSingles.push(otherCellIndex);
             }
         }
 
@@ -864,17 +876,9 @@ export class Board {
             return (this.cells[cellIndex] & pencilMarkBits) !== 0;
         }
 
+        const origMask = this.cells[cellIndex] & this.allValues;
         this.cells[cellIndex] &= pencilMarkBits;
-        if ((this.cells[cellIndex] & this.allValues) === 0) {
-            return false;
-        }
-
-        const numCandidates = popcount(this.cells[cellIndex]);
-        if (numCandidates === 1) {
-            this.nakedSingles.push(cellIndex);
-        }
-
-        return true;
+        return this.enforceNewMask(cellIndex, origMask);
     }
 
     findUnassignedLocation(ignoreMasks = null) {

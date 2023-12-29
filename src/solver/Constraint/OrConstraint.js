@@ -106,17 +106,37 @@ export class OrConstraint extends Constraint {
     }
 
     enforce(board, cellIndex, value) {
-        this.subboards = this.subboards.filter(subboard => {
-            // Transfer deductions downward
-            for (let cellIndex = 0; cellIndex < this.numCells; ++cellIndex) {
-                subboard.keepCellMask(cellIndex, board.cells[cellIndex]);
+        let invalidSubboards = null;
+        for (let subboard of this.subboards) {
+            if (!subboard.setAsGiven(cellIndex, value)) {
+                if (invalidSubboards === null) {
+                    invalidSubboards = [];
+                }
+                invalidSubboards.push(subboard);
             }
+        }
+        if (invalidSubboards !== null) {
+            this.subboards = this.subboards.filter(subboard => !invalidSubboards.includes(subboard));
+            return this.subboards.length > 0;
+        }
+        return true;
+    }
 
-            return subboard.setAsGiven(cellIndex, value);
-        });
-
-        // Or constraint not broken if any possibilities still remain
-        return this.subboards.length > 0;
+    enforceCandidateElim(board, cellIndex, value) {
+        let invalidSubboards = null;
+        for (let subboard of this.subboards) {
+            if (!subboard.clearValue(cellIndex, value)) {
+                if (invalidSubboards === null) {
+                    invalidSubboards = [];
+                }
+                invalidSubboards.push(subboard);
+            }
+        }
+        if (invalidSubboards !== null) {
+            this.subboards = this.subboards.filter(subboard => !invalidSubboards.includes(subboard));
+            return this.subboards.length > 0;
+        }
+        return true;
     }
 
     logicStep(board, logicalStepDescription) {

@@ -153,7 +153,9 @@ export class SumGroup {
 
         const result = this.restrictSumHelper(board, sortedSums);
         if (result.constraintResult !== ConstraintResult.UNCHANGED) {
-            this.applySumResult(board, result.masks);
+            if (!this.applySumResult(board, result.masks)) {
+                return ConstraintResult.INVALID;
+            }
         }
         return result.constraintResult;
     }
@@ -290,8 +292,12 @@ export class SumGroup {
     applySumResult(board, resultMasks) {
         for (let cellIndex = 0; cellIndex < this.cells.length; cellIndex++) {
             const cell = this.cells[cellIndex];
-            board.setCellMask(cell, resultMasks[cellIndex]);
+            if (!board.setCellMask(cell, resultMasks[cellIndex])) {
+                return false;
+            }
         }
+
+        return true;
     }
 
     possibleSums(board) {

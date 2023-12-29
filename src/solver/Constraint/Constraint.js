@@ -62,9 +62,17 @@ export class Constraint {
         return ConstraintResult.UNCHANGED;
     }
 
+    // Triggers when a value is set in a cell
     // Return true if the constraint is still satisfiable (false means the constraint is violated).
     // Do not modify the board (it cannot be reported to the user)
     enforce(board, cellIndex, value) {
+        return true;
+    }
+
+    // Triggers when a candidate is eliminated from a cell
+    // Return true if the constraint is still satisfiable (false means the constraint is violated).
+    // Do not modify the board (it cannot be reported to the user)
+    enforceCandidateElim(board, cellIndex, value) {
         return true;
     }
 
