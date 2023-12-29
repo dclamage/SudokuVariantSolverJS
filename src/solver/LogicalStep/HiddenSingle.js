@@ -1,14 +1,14 @@
-import { LogicResult } from "../Enums/LogicResult.js";
-import { cellName, maskToString, minValue } from "../SolveUtility.js";
+import { LogicResult } from '../Enums/LogicResult.js';
+import { cellName, maskToString, minValue } from '../SolveUtility.js';
 import { LogicalStep } from './LogicalStep.js';
 
 export class HiddenSingle extends LogicalStep {
-	constructor(board) {
-		super(board, 'Hidden Single');
-	}
+    constructor(board) {
+        super(board, 'Hidden Single');
+    }
 
-	step(board, desc) {
-		const { size, givenBit, cells, allValues } = board;
+    step(board, desc) {
+        const { size, givenBit, cells, allValues } = board;
         for (const region of board.regions) {
             const regionCells = region.cells;
             if (regionCells.length !== size) {
@@ -31,16 +31,16 @@ export class HiddenSingle extends LogicalStep {
 
             if ((atLeastOnce | givenMask) !== allValues) {
                 // Puzzle is invalid: Not all values are present in the region
-				if (desc) {
-					const cannotPlaceMask = ~(atLeastOnce | givenMask) & allValues;
-					desc.push(`${region.name} has nowhere to place ${maskToString(cannotPlaceMask, size)}.`);
-				}
+                if (desc) {
+                    const cannotPlaceMask = ~(atLeastOnce | givenMask) & allValues;
+                    desc.push(`${region.name} has nowhere to place ${maskToString(cannotPlaceMask, size)}.`);
+                }
                 return LogicResult.INVALID;
             }
 
             let exactlyOnce = atLeastOnce & ~moreThanOnce;
             for (const cellIndex of regionCells) {
-				const cellMask = cells[cellIndex];
+                const cellMask = cells[cellIndex];
                 const newCellMask = cellMask & exactlyOnce;
                 if (newCellMask !== 0 && newCellMask != cellMask) {
                     const cellValue = minValue(newCellMask);
@@ -56,5 +56,5 @@ export class HiddenSingle extends LogicalStep {
         }
 
         return LogicResult.UNCHANGED;
-	}
+    }
 }

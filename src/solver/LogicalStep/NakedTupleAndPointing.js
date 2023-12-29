@@ -1,10 +1,10 @@
-import { combinations, maskToString, popcount, valueBit, valuesList } from "../SolveUtility.js";
-import { LogicResult } from "../Enums/LogicResult.js";
-import { LogicalStep } from "./LogicalStep.js";
+import { combinations, maskToString, popcount, valueBit, valuesList } from '../SolveUtility.js';
+import { LogicResult } from '../Enums/LogicResult.js';
+import { LogicalStep } from './LogicalStep.js';
 
 export class NakedTupleAndPointing extends LogicalStep {
     constructor(board) {
-        super(board, "Naked Tuple and Pointing");
+        super(board, 'Naked Tuple and Pointing');
     }
 
     step(board, desc) {
@@ -18,7 +18,7 @@ export class NakedTupleAndPointing extends LogicalStep {
 
                 // Make a list of cells which aren't already set
                 const nonGivenCells = regionCells
-                    .map((cellIndex) => ({ cellIndex, cellMask: cells[cellIndex] }))
+                    .map(cellIndex => ({ cellIndex, cellMask: cells[cellIndex] }))
                     .filter(({ cellIndex }) => !board.isGiven(cellIndex));
 
                 // If the non-given cells are the tuple size or smaller, then we just want pointing
@@ -44,8 +44,7 @@ export class NakedTupleAndPointing extends LogicalStep {
 
                     // Find if there are other cells which have the same mask
                     const otherCells = nonGivenCells.filter(
-                        ({ cellIndex, cellMask }) =>
-                            (cellMask & ~tupleMask) === 0 && !tupleCells.some((tupleCell) => tupleCell.cellIndex === cellIndex)
+                        ({ cellIndex, cellMask }) => (cellMask & ~tupleMask) === 0 && !tupleCells.some(tupleCell => tupleCell.cellIndex === cellIndex)
                     );
                     if (otherCells.length !== 0) {
                         // Board is invalid
@@ -101,13 +100,13 @@ export class NakedTupleAndPointing extends LogicalStep {
                 for (let value = 1; value < size; value++) {
                     // Gather which cells have the value
                     const valueMask = valueBit(value);
-                    const valueCells = regionCells.filter((cellIndex) => (cells[cellIndex] & valueMask) !== 0);
+                    const valueCells = regionCells.filter(cellIndex => (cells[cellIndex] & valueMask) !== 0);
                     if (valueCells.length !== tupleSize) {
                         continue;
                     }
 
                     // Create a list of candidate indexes for the value
-                    const valueCandidates = valueCells.map((cellIndex) => board.candidateIndex(cellIndex, value));
+                    const valueCandidates = valueCells.map(cellIndex => board.candidateIndex(cellIndex, value));
 
                     // Find any eliminations
                     const elims = board.calcElimsForCandidateIndices(valueCandidates);

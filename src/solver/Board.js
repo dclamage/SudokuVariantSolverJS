@@ -11,14 +11,14 @@ import {
     randomValue,
     hasValue,
     cellName,
-} from "./SolveUtility.js";
+} from './SolveUtility.js';
 import { NakedSingle } from './LogicalStep/NakedSingle.js';
 import { HiddenSingle } from './LogicalStep/HiddenSingle.js';
 import { ConstraintLogic } from './LogicalStep/ConstraintLogic.js';
 import { CellForcing } from './LogicalStep/CellForcing.js';
 import { NakedTupleAndPointing } from './LogicalStep/NakedTupleAndPointing.js';
 import { ConstraintResult } from './Constraint/Constraint.js';
-import { LogicResult } from "./Enums/LogicResult.js"
+import { LogicResult } from './Enums/LogicResult.js';
 
 export class Board {
     constructor(size) {
@@ -38,7 +38,7 @@ export class Board {
             new HiddenSingle(this),
             new ConstraintLogic(this),
             new CellForcing(this),
-            new NakedTupleAndPointing(this)
+            new NakedTupleAndPointing(this),
         ];
     }
 
@@ -826,7 +826,7 @@ export class Board {
         }
 
         this.cells[cellIndex] &= pencilMarkBits;
-        if ((this.cells[cellIndex]& this.allValues) === 0) {
+        if ((this.cells[cellIndex] & this.allValues) === 0) {
             return false;
         }
 

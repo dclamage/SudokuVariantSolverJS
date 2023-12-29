@@ -1,7 +1,7 @@
-import { registerConstraint } from "../ConstraintBuilder";
-import { cellIndexFromName, cellName, hasValue, valueBit } from "../SolveUtility";
-import { SumCellsHelper } from "../SumCellsHelper";
-import { Constraint, ConstraintResult } from "./Constraint";
+import { registerConstraint } from '../ConstraintBuilder';
+import { cellIndexFromName, cellName, hasValue, valueBit } from '../SolveUtility';
+import { SumCellsHelper } from '../SumCellsHelper';
+import { Constraint, ConstraintResult } from './Constraint';
 
 export class KillerCageConstraint extends Constraint {
     constructor(board, params) {
@@ -12,12 +12,12 @@ export class KillerCageConstraint extends Constraint {
                 : `Killer Cage at ${cellName(cells[0], board.size)}`;
         super(board, 'Killer Cage', specificName);
 
-		const value = parseInt(params.value, 10);
-		if (isNaN(value) || value < 0) {
-			this.sum = 0;
-		} else {
-			this.sum = value;
-		}
+        const value = parseInt(params.value, 10);
+        if (isNaN(value) || value < 0) {
+            this.sum = 0;
+        } else {
+            this.sum = value;
+        }
         this.cells = cells.sort((a, b) => a - b);
         this.cellsSet = new Set(this.cells);
     }

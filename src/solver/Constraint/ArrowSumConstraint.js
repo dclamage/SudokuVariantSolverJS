@@ -1,16 +1,16 @@
-import { cellIndexFromName, cellName, minValue, valueBit, valuesList, removeDuplicates } from "../SolveUtility.js";
-import { SumCellsHelper } from "../SumCellsHelper.js";
-import { registerConstraint } from "../ConstraintBuilder.js";
-import { Constraint, ConstraintResult } from "./Constraint.js";
+import { cellIndexFromName, cellName, minValue, valueBit, valuesList, removeDuplicates } from '../SolveUtility.js';
+import { SumCellsHelper } from '../SumCellsHelper.js';
+import { registerConstraint } from '../ConstraintBuilder.js';
+import { Constraint, ConstraintResult } from './Constraint.js';
 
 export class ArrowSumConstraint extends Constraint {
     constructor(board, params) {
-        const circleCells = params.circleCells.map((cellName) => cellIndexFromName(cellName, board.size));
-        const arrowCells = params.arrowCells.map((cellName) => cellIndexFromName(cellName, board.size));
+        const circleCells = params.circleCells.map(cellName => cellIndexFromName(cellName, board.size));
+        const arrowCells = params.arrowCells.map(cellName => cellIndexFromName(cellName, board.size));
         const allCells = [...circleCells, ...arrowCells];
 
         const specificName = `Arrow at ${cellName(circleCells[0], board.size)}`;
-        super(board, "Arrow", specificName);
+        super(board, 'Arrow', specificName);
 
         this.circleCells = circleCells;
 
@@ -51,7 +51,7 @@ export class ArrowSumConstraint extends Constraint {
         let changed = false;
 
         // Determine the possible sum ranges for the arrow cells
-        const possibleSums = this.arrowCellsSum.possibleSums(board).filter((sum) => sum <= size);
+        const possibleSums = this.arrowCellsSum.possibleSums(board).filter(sum => sum <= size);
         if (possibleSums.length === 0) {
             return ConstraintResult.INVALID;
         }
@@ -200,14 +200,14 @@ export class ArrowSumConstraint extends Constraint {
         }
 
         // If all cells are given, then check the exact sum
-        if (this.allCells.every((cell) => board.isGiven(cell))) {
+        if (this.allCells.every(cell => board.isGiven(cell))) {
             const circleValue = this.getCircleValue(board);
             const arrowSum = this.getArrowSum(board);
             return circleValue === arrowSum;
         }
 
         // If the circle value is known, ensure the current arrow sum does not exceed it in a quick and dirty way
-        if (this.circleCells.every((cell) => board.isGiven(cell))) {
+        if (this.circleCells.every(cell => board.isGiven(cell))) {
             const circleValue = this.getCircleValue(board);
             const arrowSum = this.getArrowSum(board);
             return arrowSum <= circleValue;
@@ -234,7 +234,7 @@ export class ArrowSumConstraint extends Constraint {
         const circleCellMask = board.cells[circleCell];
 
         const circleCellGiven = board.isGiven(circleCell);
-        const arrowCellsGiven = this.arrowCells.every((cell) => board.isGiven(cell));
+        const arrowCellsGiven = this.arrowCells.every(cell => board.isGiven(cell));
         if (circleCellGiven && arrowCellsGiven) {
             // Done: enforce should have already verified the sum.
             return ConstraintResult.UNCHANGED;
@@ -271,7 +271,7 @@ export class ArrowSumConstraint extends Constraint {
         }
 
         // Make the circle values conform to the possible arrow sums
-        const possibleSums = this.arrowCellsSum.possibleSums(board).filter((sum) => sum <= board.size);
+        const possibleSums = this.arrowCellsSum.possibleSums(board).filter(sum => sum <= board.size);
         const possibleSumsMask = possibleSums.reduce((mask, sum) => mask | valueBit(sum), 0);
         const newCircleCellMask = circleCellMask & possibleSumsMask;
         if (newCircleCellMask !== circleCellMask) {
@@ -285,7 +285,7 @@ export class ArrowSumConstraint extends Constraint {
 
             if (keepResult === ConstraintResult.CHANGED) {
                 if (logicalStepDescription) {
-                    const elims = valuesList(circleCellMask & ~newCircleCellMask & board.allValues).map((value) =>
+                    const elims = valuesList(circleCellMask & ~newCircleCellMask & board.allValues).map(value =>
                         board.candidateIndex(circleCell, value)
                     );
                     logicalStepDescription.push(`Evaluated arrow sum. ${board.describeElims(elims)}`);
@@ -299,15 +299,15 @@ export class ArrowSumConstraint extends Constraint {
 
     logicStepPill(board, logicalStepDescription) {
         const circleCellGiven = board.isGiven(this.circleCell);
-        const arrowCellsGiven = this.arrowCells.every((cell) => board.isGiven(cell));
+        const arrowCellsGiven = this.arrowCells.every(cell => board.isGiven(cell));
         if (circleCellGiven && arrowCellsGiven) {
             // Done: enforce should have already verified the sum.
             return ConstraintResult.UNCHANGED;
         }
 
         const possiblePillValues = removeDuplicates(
-            this.getPillSums(board, 0, "")
-                .map((val) => parseInt(val, 10))
+            this.getPillSums(board, 0, '')
+                .map(val => parseInt(val, 10))
                 .sort((a, b) => a - b)
         );
 
@@ -357,7 +357,7 @@ export class ArrowSumConstraint extends Constraint {
                     if (logicalStepDescription) {
                         const elimMask = originalMask & ~keepMask;
                         if (elimMask !== 0) {
-                            elims.push(...valuesList(elimMask).map((value) => board.candidateIndex(circleCell, value)));
+                            elims.push(...valuesList(elimMask).map(value => board.candidateIndex(circleCell, value)));
                         }
                     }
                     changed = true;
@@ -374,7 +374,7 @@ export class ArrowSumConstraint extends Constraint {
         return ConstraintResult.UNCHANGED;
     }
 
-    getPillSums(board, circleIndex, sumPrefix = "") {
+    getPillSums(board, circleIndex, sumPrefix = '') {
         if (circleIndex >= this.circleCells.length) {
             return [sumPrefix];
         }
@@ -396,7 +396,7 @@ export class ArrowSumConstraint extends Constraint {
 
     getPillValuesForSum(board, sumStr, circleIndex = 0, sumValues = []) {
         if (circleIndex >= this.circleCells.length) {
-            if (sumStr === sumValues.join("")) {
+            if (sumStr === sumValues.join('')) {
                 return [sumValues];
             }
             return [];
@@ -410,7 +410,7 @@ export class ArrowSumConstraint extends Constraint {
             circleCellMask &= ~valueBit(circleValue);
 
             const newSumValues = [...sumValues, circleValue];
-            if (sumStr.startsWith(newSumValues.join(""))) {
+            if (sumStr.startsWith(newSumValues.join(''))) {
                 const curSums = this.getPillValuesForSum(board, sumStr, circleIndex + 1, newSumValues);
                 sums.push(...curSums);
             }
@@ -424,7 +424,7 @@ export class ArrowSumConstraint extends Constraint {
             return minValue(board.cells[this.circleCells[0]]);
         }
 
-        const circleValue = this.circleCells.reduce((acc, circleCell) => acc + minValue(board.cells[circleCell]).toString(), "");
+        const circleValue = this.circleCells.reduce((acc, circleCell) => acc + minValue(board.cells[circleCell]).toString(), '');
         return parseInt(circleValue, 10);
     }
 
@@ -437,7 +437,7 @@ export class ArrowSumConstraint extends Constraint {
     }
 }
 
-registerConstraint("arrow", (board, params) => {
+registerConstraint('arrow', (board, params) => {
     const constraints = [];
     for (let line of params.lines) {
         const arrowParams = {

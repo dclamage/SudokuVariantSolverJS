@@ -1,6 +1,6 @@
-import { registerAggregateConstraint } from "../ConstraintBuilder";
-import { cellIndexFromName, hasValue, valueBit } from "../SolveUtility";
-import { Constraint, ConstraintResult } from "./Constraint";
+import { registerAggregateConstraint } from '../ConstraintBuilder';
+import { cellIndexFromName, hasValue, valueBit } from '../SolveUtility';
+import { Constraint, ConstraintResult } from './Constraint';
 
 export class GeneralCellPairConstraint extends Constraint {
     constructor(constraintName, specificName, constraintGroup, isPairAllowed, negativePairsGenerator, board, params) {
@@ -114,19 +114,19 @@ export class GeneralCellPairConstraint extends Constraint {
                     }
                 }
 
-				// Only keep candidates used in valid pairs
-				const valueUsedMask1 = valueUsed1.reduce((mask, used, value) => (used ? mask | valueBit(value) : mask), 0);
-				const valueUsedMask2 = valueUsed2.reduce((mask, used, value) => (used ? mask | valueBit(value) : mask), 0);
-				const result1 = board.keepCellMask(cell1, valueUsedMask1);
-				const result2 = board.keepCellMask(cell2, valueUsedMask2);
+                // Only keep candidates used in valid pairs
+                const valueUsedMask1 = valueUsed1.reduce((mask, used, value) => (used ? mask | valueBit(value) : mask), 0);
+                const valueUsedMask2 = valueUsed2.reduce((mask, used, value) => (used ? mask | valueBit(value) : mask), 0);
+                const result1 = board.keepCellMask(cell1, valueUsedMask1);
+                const result2 = board.keepCellMask(cell2, valueUsedMask2);
 
-				if (result1 === ConstraintResult.INVALID || result2 === ConstraintResult.INVALID) {
-					return ConstraintResult.INVALID;
-				}
+                if (result1 === ConstraintResult.INVALID || result2 === ConstraintResult.INVALID) {
+                    return ConstraintResult.INVALID;
+                }
 
-				if (result1 === ConstraintResult.CHANGED || result2 === ConstraintResult.CHANGED) {
-					changed = true;
-				}
+                if (result1 === ConstraintResult.CHANGED || result2 === ConstraintResult.CHANGED) {
+                    changed = true;
+                }
             }
         }
 
@@ -287,9 +287,9 @@ registerAggregateConstraint((board, boardData) => {
 
     const instancesByValue = {};
     for (const instance of instances) {
-		if (!instancesByValue[instance.value]) {
-			instancesByValue[instance.value] = [];
-		}
+        if (!instancesByValue[instance.value]) {
+            instancesByValue[instance.value] = [];
+        }
         instancesByValue[instance.value].push(instance);
     }
 
@@ -316,7 +316,7 @@ registerAggregateConstraint((board, boardData) => {
 
 // Register a sum constraint
 registerAggregateConstraint((board, boardData) => {
-    const instances = (boardData.sum || []);
+    const instances = boardData.sum || [];
     const instancesByValue = {};
     for (const instance of instances) {
         instancesByValue[instance.value].push(instance);

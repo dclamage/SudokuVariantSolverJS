@@ -14,81 +14,81 @@ export function ctz(x) {
 
 // Computes the bitmask with all values set
 export function allValues(size) {
-	return (1 << size) - 1;
+    return (1 << size) - 1;
 }
 
 // Computes the bitmask with a specific value set
 export function valueBit(value) {
-	return 1 << (value - 1);
+    return 1 << (value - 1);
 }
 
 // Get the value of the first set bit
 export function minValue(bits) {
-	return ctz(bits) + 1;
+    return ctz(bits) + 1;
 }
 
 // Get the value of the last set bit
 export function maxValue(bits) {
-	return 32 - Math.clz32(bits);
+    return 32 - Math.clz32(bits);
 }
 
 // Get if a value is set
 export function hasValue(bits, value) {
-	return (bits & valueBit(value)) !== 0;
+    return (bits & valueBit(value)) !== 0;
 }
 
 // Get the value of a randomly set bit
 export function randomValue(bits) {
-	if (bits === 0) {
-		return 0;
-	}
+    if (bits === 0) {
+        return 0;
+    }
 
-	const numValues = popcount(bits);
-	let valueIndex = Math.floor(Math.random() * numValues);
-	let curBits = bits;
-	while (curBits !== 0) {
-		const value = minValue(curBits);
-		if (valueIndex === 0) {
-			return value;
-		}
-		curBits ^= valueBit(value);
-		valueIndex--;
-	}
-	return 0;
+    const numValues = popcount(bits);
+    let valueIndex = Math.floor(Math.random() * numValues);
+    let curBits = bits;
+    while (curBits !== 0) {
+        const value = minValue(curBits);
+        if (valueIndex === 0) {
+            return value;
+        }
+        curBits ^= valueBit(value);
+        valueIndex--;
+    }
+    return 0;
 }
 
 export function valuesMask(values) {
-	return values.reduce((mask, value) => mask | valueBit(value), 0);
+    return values.reduce((mask, value) => mask | valueBit(value), 0);
 }
 
 export function valuesList(mask) {
-	const values = [];
-	while (mask !== 0) {
-		const value = minValue(mask);
-		values.push(value);
-		mask ^= valueBit(value);
-	}
-	return values;
+    const values = [];
+    while (mask !== 0) {
+        const value = minValue(mask);
+        values.push(value);
+        mask ^= valueBit(value);
+    }
+    return values;
 }
 
 export function binomialCoefficient(n, k) {
-	if (k < 0 || k > n) {
-		return 0;
-	}
+    if (k < 0 || k > n) {
+        return 0;
+    }
 
-	if (k === 0 || k === n) {
-		return 1;
-	}
+    if (k === 0 || k === n) {
+        return 1;
+    }
 
-	k = Math.min(k, n - k);
+    k = Math.min(k, n - k);
 
-	let result = 1;
-	for (let i = 0; i < k; i++) {
-		result *= n - i;
-		result /= i + 1;
-	}
+    let result = 1;
+    for (let i = 0; i < k; i++) {
+        result *= n - i;
+        result /= i + 1;
+    }
 
-	return result;
+    return result;
 }
 
 export function* combinations(array, size) {
@@ -121,46 +121,46 @@ export function* permutations(array) {
 
 // Helper for memo keys
 export function cellsKey(prefix, cells, size) {
-	return prefix + appendCellNames(cells, size);
+    return prefix + appendCellNames(cells, size);
 }
 
 export function appendInts(ints) {
-	return ints.map(i => '|' + i).join('');
+    return ints.map(i => '|' + i).join('');
 }
 
 export function appendCellNames(cells, size) {
-	return cells.map(cell => '|' + cellName(cell, size)).join('');
+    return cells.map(cell => '|' + cellName(cell, size)).join('');
 }
 
 export function maskToString(mask, size) {
-	return valuesList(mask).join(size >= 10 ? ',' : '');
+    return valuesList(mask).join(size >= 10 ? ',' : '');
 }
 
 export function appendCellValueKey(board, cells) {
-	let builder = '';
-	cells.forEach(cellIndex => {
-		const mask = board.cells[cellIndex];
-		builder += (board.isGivenMask(mask) ? '|s' : '|') + (mask & ~board.givenBit).toString(16);
-	});
-	return builder;
+    let builder = '';
+    cells.forEach(cellIndex => {
+        const mask = board.cells[cellIndex];
+        builder += (board.isGivenMask(mask) ? '|s' : '|') + (mask & ~board.givenBit).toString(16);
+    });
+    return builder;
 }
 
-export function cellName (cellIndex, size) {
+export function cellName(cellIndex, size) {
     const row = Math.floor(cellIndex / size);
     const col = cellIndex % size;
     return `R${row + 1}C${col + 1}`;
 }
 
 export function cellIndexFromName(name, size) {
-	const regex = /r(\d+)c(\d+)/;
-	const match = regex.exec(name.toLowerCase());
-	if (!match) {
-		throw new Error(`Invalid cell name: ${name}`);
-	}
+    const regex = /r(\d+)c(\d+)/;
+    const match = regex.exec(name.toLowerCase());
+    if (!match) {
+        throw new Error(`Invalid cell name: ${name}`);
+    }
 
-	const row = parseInt(match[1]) - 1;
-	const col = parseInt(match[2]) - 1;
-	return row * size + col;
+    const row = parseInt(match[1]) - 1;
+    const col = parseInt(match[2]) - 1;
+    return row * size + col;
 }
 
 export function sequenceEqual(arr1, arr2) {

@@ -1,7 +1,7 @@
-import { registerConstraint } from "../ConstraintBuilder";
-import { cellIndexFromName, cellName, minValue, valueBit } from "../SolveUtility";
-import { SumGroup } from "../SumGroup";
-import { Constraint, ConstraintResult } from "./Constraint";
+import { registerConstraint } from '../ConstraintBuilder';
+import { cellIndexFromName, cellName, minValue, valueBit } from '../SolveUtility';
+import { SumGroup } from '../SumGroup';
+import { Constraint, ConstraintResult } from './Constraint';
 
 export class RegionSumLinesConstraint extends Constraint {
     constructor(board, params) {
@@ -33,8 +33,8 @@ export class RegionSumLinesConstraint extends Constraint {
                     currentSegment = [cell];
                     currentRegion = cellRegion;
                 } else {
-					currentSegment.push(cell);
-				}
+                    currentSegment.push(cell);
+                }
             }
             if (currentSegment.length > 0) {
                 this.segments.push(currentSegment);
@@ -71,82 +71,86 @@ export class RegionSumLinesConstraint extends Constraint {
             }
         }
 
-		return changed ? ConstraintResult.CHANGED : ConstraintResult.UNCHANGED;
+        return changed ? ConstraintResult.CHANGED : ConstraintResult.UNCHANGED;
     }
 
     // eslint-disable-next-line no-unused-vars
     enforce(board, cellIndex, value) {
-		if (!this.cellsSet.has(cellIndex)) {
-			return true;
-		}
+        if (!this.cellsSet.has(cellIndex)) {
+            return true;
+        }
 
-		if (!this.sumGroups) {
-			return true;
-		}
+        if (!this.sumGroups) {
+            return true;
+        }
 
-		const possibleSums = this.possibleSums(board);
-		if (possibleSums.length === 0) {
-			return false;
-		}
+        const possibleSums = this.possibleSums(board);
+        if (possibleSums.length === 0) {
+            return false;
+        }
 
-		return true;
-	}
+        return true;
+    }
 
     logicStep(board, logicalStepDescription) {
-		if (!this.sumGroups) {
-			return ConstraintResult.UNCHANGED;
-		}
+        if (!this.sumGroups) {
+            return ConstraintResult.UNCHANGED;
+        }
 
-		const possibleSums = this.possibleSums(board);
-		if (possibleSums.length === 0) {
-			if (logicalStepDescription) {
-				logicalStepDescription.push('No possible sum works for all segments.');
-			}
-			return ConstraintResult.INVALID;
-		}
+        const possibleSums = this.possibleSums(board);
+        if (possibleSums.length === 0) {
+            if (logicalStepDescription) {
+                logicalStepDescription.push('No possible sum works for all segments.');
+            }
+            return ConstraintResult.INVALID;
+        }
 
-		let origMasks = null;
-		if (logicalStepDescription) {
-			origMasks = this.cells.map(cell => board.cells[cell]);
-		}
+        let origMasks = null;
+        if (logicalStepDescription) {
+            origMasks = this.cells.map(cell => board.cells[cell]);
+        }
 
-		let changed = false;
-		for (const sumGroup of this.sumGroups) {
-			const restrictResult = sumGroup.restrictSums(board, possibleSums);
-			if (restrictResult === ConstraintResult.INVALID) {
-				if (logicalStepDescription) {
-					logicalStepDescription.push(`Cells ${board.compactName(sumGroup.cells)} cannot be restricted to the sum${possibleSums.length === 1 ? '' : 's'} ${possibleSums.join(',')}.`);
-				}
-				return ConstraintResult.INVALID;
-			}
-			if (restrictResult === ConstraintResult.CHANGED) {
-				changed = true;
-			}
-		}
+        let changed = false;
+        for (const sumGroup of this.sumGroups) {
+            const restrictResult = sumGroup.restrictSums(board, possibleSums);
+            if (restrictResult === ConstraintResult.INVALID) {
+                if (logicalStepDescription) {
+                    logicalStepDescription.push(
+                        `Cells ${board.compactName(sumGroup.cells)} cannot be restricted to the sum${
+                            possibleSums.length === 1 ? '' : 's'
+                        } ${possibleSums.join(',')}.`
+                    );
+                }
+                return ConstraintResult.INVALID;
+            }
+            if (restrictResult === ConstraintResult.CHANGED) {
+                changed = true;
+            }
+        }
 
-		if (changed && logicalStepDescription) {
-			const elims = [];
-			for (let i = 0; i < this.cells.length; i++) {
-				const cell = this.cells[i];
-				const origMask = origMasks[i];
-				const newMask = board.cells[cell];
-				let removedMask = origMask & ~newMask;
-				while (removedMask !== 0) {
-					const value = minValue(removedMask);
-					removedMask &= ~valueBit(value);
+        if (changed && logicalStepDescription) {
+            const elims = [];
+            for (let i = 0; i < this.cells.length; i++) {
+                const cell = this.cells[i];
+                const origMask = origMasks[i];
+                const newMask = board.cells[cell];
+                let removedMask = origMask & ~newMask;
+                while (removedMask !== 0) {
+                    const value = minValue(removedMask);
+                    removedMask &= ~valueBit(value);
 
-					const candidate = board.candidateIndex(cell, value);
-					elims.push(candidate);
-				}
-			}
+                    const candidate = board.candidateIndex(cell, value);
+                    elims.push(candidate);
+                }
+            }
 
-			logicalStepDescription.push(
+            logicalStepDescription.push(
                 `Restricted to sum${possibleSums.length === 1 ? '' : 's'} ${possibleSums.join(',')} => ${board.describeElims(elims)}.`
             );
-		}
+        }
 
-		return changed ? ConstraintResult.CHANGED : ConstraintResult.UNCHANGED;
-	}
+        return changed ? ConstraintResult.CHANGED : ConstraintResult.UNCHANGED;
+    }
 
     possibleSums(board) {
         let sums = null;
@@ -159,7 +163,7 @@ export class RegionSumLinesConstraint extends Constraint {
             if (sums === null) {
                 sums = new Set(possibleSums);
             } else {
-				sums = new Set(possibleSums.filter(x => sums.has(x)));
+                sums = new Set(possibleSums.filter(x => sums.has(x)));
             }
         }
 

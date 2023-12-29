@@ -119,16 +119,16 @@ export class FixedSumConstraint extends Constraint {
 }
 
 registerConstraint('littlekillersum', (board, params) => {
-	if (!params.value) {
-		return [];
-	}
+    if (!params.value) {
+        return [];
+    }
 
-	const clueCell = params.cell;
-	const lkParams = {
-		cells: params.cells,
-		sum: parseInt(params.value, 10),
-	};
-	const constraintName = 'Little Killer';
-	const specificName = `Little Killer ${params.value} at ${clueCell}`;
-	return new FixedSumConstraint(constraintName, specificName, board, lkParams);
+    const clueCell = params.cell;
+    const lkParams = {
+        cells: params.cells,
+        sum: parseInt(params.value, 10),
+    };
+    const constraintName = 'Little Killer';
+    const specificName = `Little Killer ${params.value} at ${clueCell}`;
+    return new FixedSumConstraint(constraintName, specificName, board, lkParams);
 });

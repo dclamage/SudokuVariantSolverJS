@@ -2,9 +2,9 @@
 
 // Reflects what has happened to the board
 export const ConstraintResult = Object.freeze({
-	UNCHANGED: 0,
-	CHANGED: 1,
-	INVALID: 2,
+    UNCHANGED: 0,
+    CHANGED: 1,
+    INVALID: 2,
 });
 
 export class Constraint {
@@ -48,8 +48,8 @@ export class Constraint {
     // init is called repeatedly on every constraint until all constraints return ConstraintResult.UNCHANGED
     //  - This allows constraints to interact with each other
     //  - isRepeat is true if this is not the first time init has been called on this constraint
-	// Never call board.setAsGiven from init as not all weak links have been added yet, so they may not be respected.
-	//  - Instead, use board.keepCellMask(cell, valueBit(value)) so that it will be a naked single at the appropriate time.
+    // Never call board.setAsGiven from init as not all weak links have been added yet, so they may not be respected.
+    //  - Instead, use board.keepCellMask(cell, valueBit(value)) so that it will be a naked single at the appropriate time.
     init(board, isRepeat) {
         return ConstraintResult.UNCHANGED;
     }
@@ -62,7 +62,7 @@ export class Constraint {
 
     // Perform a logic step on the board, which may modify the board
     // logicalStepDescription is an optional array of strings that will be filled with a description of the logic step
-	// This is used to report the logic step to the user
+    // This is used to report the logic step to the user
     // Returns a ConstraintResult
     logicStep(board, logicalStepDescription) {
         return ConstraintResult.UNCHANGED;

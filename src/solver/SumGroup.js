@@ -10,7 +10,7 @@ import {
     maxValue,
     valueBit,
     valuesList,
-} from "./SolveUtility.js";
+} from './SolveUtility.js';
 import { ConstraintResult } from './Constraint/Constraint.js';
 
 export class SumGroup {
@@ -131,16 +131,16 @@ export class SumGroup {
 
     restrictSumsToArray(board, sums) {
         const sumsSet = new Set(sums);
-		const sortedSums = Array.from(sumsSet).sort((a, b) => a - b);
+        const sortedSums = Array.from(sumsSet).sort((a, b) => a - b);
         return this.restrictSumHelper(board, sortedSums);
     }
 
     restrictMinMaxSum(board, minSum, maxSum) {
         let sortedSums = [];
-		for (let sum = minSum; sum <= maxSum; sum++) {
-			sortedSums.push(sum);
-		}
-		return this.restrictSums(board, sortedSums);
+        for (let sum = minSum; sum <= maxSum; sum++) {
+            sortedSums.push(sum);
+        }
+        return this.restrictSums(board, sortedSums);
     }
 
     restrictSum(board, sum) {
@@ -149,7 +149,7 @@ export class SumGroup {
 
     restrictSums(board, sums) {
         const sumsSet = new Set(sums);
-		const sortedSums = Array.from(sumsSet).sort((a, b) => a - b);
+        const sortedSums = Array.from(sumsSet).sort((a, b) => a - b);
 
         const result = this.restrictSumHelper(board, sortedSums);
         if (result.constraintResult !== ConstraintResult.UNCHANGED) {
@@ -158,7 +158,7 @@ export class SumGroup {
         return result.constraintResult;
     }
 
-	restrictSumHelper(board, sums) {
+    restrictSumHelper(board, sums) {
         const resultMasks = new Array(this.cells.length);
         for (let i = 0; i < this.cells.length; i++) {
             const cell = this.cells[i];
@@ -194,84 +194,84 @@ export class SumGroup {
         }
 
         // With one unset cell remaining, its value just needs to conform to the desired sums
-		if (numUnsetCells === 1) {
-			const unsetCell = unsetCells[0];
-			const curMask = board.cells[unsetCell] & this.includeMask;
+        if (numUnsetCells === 1) {
+            const unsetCell = unsetCells[0];
+            const curMask = board.cells[unsetCell] & this.includeMask;
 
-			let newMask = 0;
-			for (let sum of sums) {
-				const value = sum - givenSum;
-				if (value >= 1 && value <= this.boardSize) {
-					newMask |= valueBit(value);
-				} else if (value > this.boardSize) {
-					break;
-				}
-			}
-			newMask &= curMask;
+            let newMask = 0;
+            for (let sum of sums) {
+                const value = sum - givenSum;
+                if (value >= 1 && value <= this.boardSize) {
+                    newMask |= valueBit(value);
+                } else if (value > this.boardSize) {
+                    break;
+                }
+            }
+            newMask &= curMask;
 
-			let constraintResult = ConstraintResult.UNCHANGED;
-			if (curMask != newMask) {
-				for (let cellIndex = 0; cellIndex < this.cells.length; cellIndex++) {
-					if (this.cells[cellIndex] === unsetCell) {
-						resultMasks[cellIndex] = newMask;
-					}
-				}
-				constraintResult = newMask !== 0 ? ConstraintResult.CHANGED : ConstraintResult.INVALID;
-			}
-			return { constraintResult: constraintResult, masks: resultMasks };
-		}
+            let constraintResult = ConstraintResult.UNCHANGED;
+            if (curMask != newMask) {
+                for (let cellIndex = 0; cellIndex < this.cells.length; cellIndex++) {
+                    if (this.cells[cellIndex] === unsetCell) {
+                        resultMasks[cellIndex] = newMask;
+                    }
+                }
+                constraintResult = newMask !== 0 ? ConstraintResult.CHANGED : ConstraintResult.INVALID;
+            }
+            return { constraintResult: constraintResult, masks: resultMasks };
+        }
 
-		let newMasks = [];
+        let newMasks = [];
 
-		// Check for a memo
-		const memoKey = this.cellsString + '|RestrictSum|S' + appendInts(sums) + "|M" + appendCellValueKey(board, this.cells);
-		const memo = board.getMemo(memoKey);
-		if (memo) {
-			newMasks = memo.newUnsetMasks;
-		} else {
-			let unsetMask = this.unsetMask(board);
+        // Check for a memo
+        const memoKey = this.cellsString + '|RestrictSum|S' + appendInts(sums) + '|M' + appendCellValueKey(board, this.cells);
+        const memo = board.getMemo(memoKey);
+        if (memo) {
+            newMasks = memo.newUnsetMasks;
+        } else {
+            let unsetMask = this.unsetMask(board);
 
-			// Check for not enough values to fill all the cells
-			if (popcount(unsetMask) < numUnsetCells) {
-				return { constraintResult: ConstraintResult.INVALID, masks: resultMasks };
-			}
+            // Check for not enough values to fill all the cells
+            if (popcount(unsetMask) < numUnsetCells) {
+                return { constraintResult: ConstraintResult.INVALID, masks: resultMasks };
+            }
 
-			const possibleVals = valuesList(unsetMask);
+            const possibleVals = valuesList(unsetMask);
 
-			newMasks = new Array(numUnsetCells);
-			for (let combination of combinations(possibleVals, numUnsetCells)) {
-				let curSum = givenSum + combination.reduce((sum, value) => sum + value, 0);
-				if (sums.includes(curSum)) {
-					for (let perm of permutations(combination)) {
-						let needCheck = false;
-						for (let i = 0; i < numUnsetCells; i++) {
-							const valueMask = valueBit(perm[i]);
-							if ((newMasks[i] & valueMask) === 0) {
-								needCheck = true;
-								break;
-							}
-						}
+            newMasks = new Array(numUnsetCells);
+            for (let combination of combinations(possibleVals, numUnsetCells)) {
+                let curSum = givenSum + combination.reduce((sum, value) => sum + value, 0);
+                if (sums.includes(curSum)) {
+                    for (let perm of permutations(combination)) {
+                        let needCheck = false;
+                        for (let i = 0; i < numUnsetCells; i++) {
+                            const valueMask = valueBit(perm[i]);
+                            if ((newMasks[i] & valueMask) === 0) {
+                                needCheck = true;
+                                break;
+                            }
+                        }
 
-						if (needCheck && board.canPlaceDigits(unsetCells, perm)) {
-							for (let i = 0; i < numUnsetCells; i++) {
-								newMasks[i] |= valueBit(perm[i]);
-							}
-						}
-					}
-				}
-			}
+                        if (needCheck && board.canPlaceDigits(unsetCells, perm)) {
+                            for (let i = 0; i < numUnsetCells; i++) {
+                                newMasks[i] |= valueBit(perm[i]);
+                            }
+                        }
+                    }
+                }
+            }
 
-			// Store the memo
-			board.storeMemo(memoKey, { newUnsetMasks: newMasks });
-		}
+            // Store the memo
+            board.storeMemo(memoKey, { newUnsetMasks: newMasks });
+        }
 
-		let changed = false;
-		let invalid = false;
-		let unsetIndex = 0;
-		for (let cellIndex = 0; cellIndex < this.cells.length; cellIndex++) {
-			const cell = this.cells[cellIndex];
-			const curMask = board.cells[cell] & this.includeMask;
-			if (this.getGivenValue(curMask) === 0) {
+        let changed = false;
+        let invalid = false;
+        let unsetIndex = 0;
+        for (let cellIndex = 0; cellIndex < this.cells.length; cellIndex++) {
+            const cell = this.cells[cellIndex];
+            const curMask = board.cells[cell] & this.includeMask;
+            if (this.getGivenValue(curMask) === 0) {
                 const newMask = newMasks[unsetIndex++];
                 if (resultMasks[cellIndex] !== newMask) {
                     resultMasks[cellIndex] = newMask;
@@ -282,19 +282,19 @@ export class SumGroup {
                     }
                 }
             }
-		}
-		const constraintResult = invalid ? ConstraintResult.INVALID : (changed ? ConstraintResult.CHANGED : ConstraintResult.UNCHANGED);
-		return { constraintResult: constraintResult, masks: resultMasks };
+        }
+        const constraintResult = invalid ? ConstraintResult.INVALID : changed ? ConstraintResult.CHANGED : ConstraintResult.UNCHANGED;
+        return { constraintResult: constraintResult, masks: resultMasks };
     }
 
-	applySumResult(board, resultMasks) {
-		for (let cellIndex = 0; cellIndex < this.cells.length; cellIndex++) {
-			const cell = this.cells[cellIndex];
-			board.setCellMask(cell, resultMasks[cellIndex]);
-		}
-	}
+    applySumResult(board, resultMasks) {
+        for (let cellIndex = 0; cellIndex < this.cells.length; cellIndex++) {
+            const cell = this.cells[cellIndex];
+            board.setCellMask(cell, resultMasks[cellIndex]);
+        }
+    }
 
-	possibleSums(board) {
+    possibleSums(board) {
         let unsetCells = this.cells;
         let givenSum = this.givenSum(board);
         if (givenSum > 0) {
@@ -307,36 +307,36 @@ export class SumGroup {
         }
 
         // With one unset cell remaining, it just contributes its own sum
-		if (numUnsetCells === 1) {
-			const sums = [];
-			const unsetCell = unsetCells[0];
-			let curMask = board.cells[unsetCell] & this.includeMask;
-			while (curMask !== 0) {
-				const value = minValue(curMask);
-				sums.push(givenSum + value);
-				curMask ^= valueBit(value);
-			}
-			return sums;
-		}
+        if (numUnsetCells === 1) {
+            const sums = [];
+            const unsetCell = unsetCells[0];
+            let curMask = board.cells[unsetCell] & this.includeMask;
+            while (curMask !== 0) {
+                const value = minValue(curMask);
+                sums.push(givenSum + value);
+                curMask ^= valueBit(value);
+            }
+            return sums;
+        }
 
-		// Check for a memo
-		const memoKey = this.cellsString + '|PossibleSums' + appendCellValueKey(board, this.cells);
-		const memo = board.getMemo(memoKey);
-		if (memo) {
-			return [...memo.sums];
-		}
+        // Check for a memo
+        const memoKey = this.cellsString + '|PossibleSums' + appendCellValueKey(board, this.cells);
+        const memo = board.getMemo(memoKey);
+        if (memo) {
+            return [...memo.sums];
+        }
 
-		const unsetMask = this.unsetMask(board);
-		if (popcount(unsetMask) < numUnsetCells) {
-			return [];
-		}
+        const unsetMask = this.unsetMask(board);
+        if (popcount(unsetMask) < numUnsetCells) {
+            return [];
+        }
 
-		const possibleVals = valuesList(unsetMask);
+        const possibleVals = valuesList(unsetMask);
 
-		let sumsSet = new Set();
-		for (let combination of combinations(possibleVals, numUnsetCells)) {
-			const curSum = givenSum + combination.reduce((sum, value) => sum + value, 0);
-			if (!sumsSet.has(curSum)) {
+        let sumsSet = new Set();
+        for (let combination of combinations(possibleVals, numUnsetCells)) {
+            const curSum = givenSum + combination.reduce((sum, value) => sum + value, 0);
+            if (!sumsSet.has(curSum)) {
                 // Find if any permutation fits into the cells
                 for (let perm of permutations(combination)) {
                     if (board.canPlaceDigits(unsetCells, perm)) {
@@ -345,68 +345,68 @@ export class SumGroup {
                     }
                 }
             }
-		}
+        }
 
-		const sortedSums = Array.from(sumsSet).sort((a, b) => a - b);
+        const sortedSums = Array.from(sumsSet).sort((a, b) => a - b);
 
-		// Store a copy of the sums in the memo
-		board.storeMemo(memoKey, { sums: sortedSums });
+        // Store a copy of the sums in the memo
+        board.storeMemo(memoKey, { sums: sortedSums });
 
-		return sortedSums;
+        return sortedSums;
     }
 
-	isSumPossible(board, sum) {
-		let unsetCells = this.cells;
-		let givenSum = this.givenSum(board);
-		if (givenSum > sum) {
-			return false;
-		}
+    isSumPossible(board, sum) {
+        let unsetCells = this.cells;
+        let givenSum = this.givenSum(board);
+        if (givenSum > sum) {
+            return false;
+        }
 
-		if (givenSum > 0) {
-			unsetCells = unsetCells.filter(cell => this.getGivenValue(board.cells[cell]) === 0);
-		}
+        if (givenSum > 0) {
+            unsetCells = unsetCells.filter(cell => this.getGivenValue(board.cells[cell]) === 0);
+        }
 
-		const numUnsetCells = unsetCells.length;
-		if (numUnsetCells === 0) {
-			return givenSum === sum;
-		}
+        const numUnsetCells = unsetCells.length;
+        if (numUnsetCells === 0) {
+            return givenSum === sum;
+        }
 
-		// With one unset cell remaining, it just contributes its own sum
-		if (numUnsetCells === 1) {
-			const unsetCell = unsetCells[0];
-			const curMask = board.cells[unsetCell] & this.includeMask;
-			const valueNeeded = sum - givenSum;
-			return valueNeeded >= 1 && valueNeeded <= this.boardSize && hasValue(curMask, valueNeeded);
-		}
+        // With one unset cell remaining, it just contributes its own sum
+        if (numUnsetCells === 1) {
+            const unsetCell = unsetCells[0];
+            const curMask = board.cells[unsetCell] & this.includeMask;
+            const valueNeeded = sum - givenSum;
+            return valueNeeded >= 1 && valueNeeded <= this.boardSize && hasValue(curMask, valueNeeded);
+        }
 
-		// Check for a memo
-		const memoKey = this.cellsString + '|IsSumPossible|S' + sum + "|M" + appendCellValueKey(board, this.cells);
-		const memo = board.getMemo(memoKey);
-		if (memo) {
-			return memo.isPossible;
-		}
+        // Check for a memo
+        const memoKey = this.cellsString + '|IsSumPossible|S' + sum + '|M' + appendCellValueKey(board, this.cells);
+        const memo = board.getMemo(memoKey);
+        if (memo) {
+            return memo.isPossible;
+        }
 
-		const unsetMask = this.unsetMask(board);
-		if (popcount(unsetMask) < numUnsetCells) {
-			return false;
-		}
+        const unsetMask = this.unsetMask(board);
+        if (popcount(unsetMask) < numUnsetCells) {
+            return false;
+        }
 
-		const possibleVals = valuesList(unsetMask);
-		for (let combination of combinations(possibleVals, numUnsetCells)) {
-			const curSum = givenSum + combination.reduce((sum, value) => sum + value, 0);
-			if (curSum === sum) {
-				for (let perm of permutations(combination)) {
-					if (board.canPlaceDigits(unsetCells, perm)) {
-						board.storeMemo(memoKey, { isPossible: true });
-						return true;
-					}
-				}
-			}
-		}
+        const possibleVals = valuesList(unsetMask);
+        for (let combination of combinations(possibleVals, numUnsetCells)) {
+            const curSum = givenSum + combination.reduce((sum, value) => sum + value, 0);
+            if (curSum === sum) {
+                for (let perm of permutations(combination)) {
+                    if (board.canPlaceDigits(unsetCells, perm)) {
+                        board.storeMemo(memoKey, { isPossible: true });
+                        return true;
+                    }
+                }
+            }
+        }
 
-		board.storeMemo(memoKey, { isPossible: false });
-		return false;
-	}
+        board.storeMemo(memoKey, { isPossible: false });
+        return false;
+    }
 
     // Utility functions
     unsetMask(board) {

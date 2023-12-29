@@ -32,8 +32,8 @@ export class LogicalStep {
         return this.constraintName;
     }
 
-	// eslint-disable-next-line no-unused-vars
-	step(board, desc) {
-		return LogicalStepResult.UNCHANGED;
-	}
+    // eslint-disable-next-line no-unused-vars
+    step(board, desc) {
+        return LogicalStepResult.UNCHANGED;
+    }
 }

@@ -5,13 +5,13 @@ export class ConstraintLogic extends LogicalStep {
         super(board, 'Constraint Logic');
     }
 
-	step(board, desc) {
-		const { constraints } = board;
-		for (let constraint of constraints) {
+    step(board, desc) {
+        const { constraints } = board;
+        for (let constraint of constraints) {
             const result = constraint.logicStep(board, desc);
             if (result !== LogicalStepResult.UNCHANGED) {
-				return result;
-			}
+                return result;
+            }
         }
-	}
+    }
 }

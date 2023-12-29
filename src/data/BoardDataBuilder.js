@@ -1,5 +1,8 @@
 /**
  * Class to build board data as the public interface expects it.
+ *
+ * TODO: This is a work in progress and not yet used.
+ * Ideally, it would not have f-puzzles data specific functionality, and that will be removed.
  */
 export default class BoardDataBuilder {
     constructor() {
@@ -16,7 +19,7 @@ export default class BoardDataBuilder {
      */
     size(value) {
         this._size = value;
-        this._cells = Array.from(value * value, () => Array.from({ length: value }, (i) => i + 1));
+        this._cells = Array.from(value * value, () => Array.from({ length: value }, i => i + 1));
         return this;
     }
 
@@ -52,40 +55,40 @@ export default class BoardDataBuilder {
      * @returns
      */
     addRegion(name, cells, type) {
-		if (cells.length !== this._size) {
-			throw new Error(`Region ${name} must have ${this._size} cells.`);
-		}
+        if (cells.length !== this._size) {
+            throw new Error(`Region ${name} must have ${this._size} cells.`);
+        }
 
-		// Ensure type is lowercase
-		type = type.toLowerCase();
+        // Ensure type is lowercase
+        type = type.toLowerCase();
 
-		// Correct common types
-		if (type === 'column') {
-			type = 'col';
-		} else if (type === 'box') {
-			type = 'region';
-		}
+        // Correct common types
+        if (type === 'column') {
+            type = 'col';
+        } else if (type === 'box') {
+            type = 'region';
+        }
 
         this._regions.push({ name, cells, type });
         return this;
     }
 
-	/**
-	 * Add a constraint to the board.
-	 * @param {string} type - The type of constraint.
-	 * @param {object} params - The parameters for the constraint.
-	 * @returns {BoardDataBuilder} This object.
-	 */
-	addConstraint(type, params) {
-		this._constraints.push({ type, params });
-		return this;
-	}
+    /**
+     * Add a constraint to the board.
+     * @param {string} type - The type of constraint.
+     * @param {object} params - The parameters for the constraint.
+     * @returns {BoardDataBuilder} This object.
+     */
+    addConstraint(type, params) {
+        this._constraints.push({ type, params });
+        return this;
+    }
 
-	/**
-	 * Initializes from the f-puzzles format.
-	 * @param {object} fpuzzlesData - The fpuzzles data, already parsed from JSON.
-	 */
-	fromFPuzzles(fpuzzlesData) {
+    /**
+     * Initializes from the f-puzzles format.
+     * @param {object} fpuzzlesData - The fpuzzles data, already parsed from JSON.
+     */
+    fromFPuzzles(fpuzzlesData) {
         const size = fpuzzlesData.size;
         this.size(size);
 
@@ -112,13 +115,13 @@ export default class BoardDataBuilder {
         // Rows
         for (let row = 0; row < size; row++) {
             const rowCells = Array.from({ length: size }, (_, i) => row * size + i);
-            this.addRegion(`Row ${row + 1}`, rowCells, "row");
+            this.addRegion(`Row ${row + 1}`, rowCells, 'row');
         }
 
         // Columns
         for (let col = 0; col < size; col++) {
             const colCells = Array.from({ length: size }, (_, i) => i * size + col);
-            this.addRegion(`Column ${col + 1}`, colCells, "col");
+            this.addRegion(`Column ${col + 1}`, colCells, 'col');
         }
 
         // Regions
@@ -135,79 +138,92 @@ export default class BoardDataBuilder {
                 }
             }
         }
-		// Sort the unique regions by key
-		const sortedKeys = Array.from(uniqueRegions.keys()).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
+        // Sort the unique regions by key
+        const sortedKeys = Array.from(uniqueRegions.keys()).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
         for (const regionKey of sortedKeys) {
             const region = uniqueRegions.get(regionKey);
             if (region.length == size) {
-                this.addRegion(`Region ${regionKey}`, region, "region");
+                this.addRegion(`Region ${regionKey}`, region, 'region');
             }
         }
 
-		// F-puzzles has some constraints that are just additional regions
-		if (fpuzzlesData["diagonal+"]) {
-			this.addRegion("Diagonal+", Array.from({ length: size }, (_, i) => (size - i - 1) * size + i), "diagonal");
-		}
+        // F-puzzles has some constraints that are just additional regions
+        if (fpuzzlesData['diagonal+']) {
+            this.addRegion(
+                'Diagonal+',
+                Array.from({ length: size }, (_, i) => (size - i - 1) * size + i),
+                'diagonal'
+            );
+        }
 
-		if (fpuzzlesData["diagonal-"]) {
-			this.addRegion("Diagonal-", Array.from({ length: size }, (_, i) => i * size + i), "diagonal");
-		}
+        if (fpuzzlesData['diagonal-']) {
+            this.addRegion(
+                'Diagonal-',
+                Array.from({ length: size }, (_, i) => i * size + i),
+                'diagonal'
+            );
+        }
 
-		if (fpuzzlesData["disjointgroups"]) {
-			// Disjoint groups only works if we have exactly size regions tagged as "region"
-			const regions = this._regions.filter(region => region.type === "region");
-			if (regions.length === size) {
-				// Each disjoint group is a specific index within each region
-				for (let i = 0; i < size; i++) {
-					const cells = regions.map(region => region.cells[i]);
-					this.addRegion(`Disjoint Group ${i + 1}`, cells, "disjointgroup");
-				}
-			}
-		}
+        if (fpuzzlesData['disjointgroups']) {
+            // Disjoint groups only works if we have exactly size regions tagged as "region"
+            const regions = this._regions.filter(region => region.type === 'region');
+            if (regions.length === size) {
+                // Each disjoint group is a specific index within each region
+                for (let i = 0; i < size; i++) {
+                    const cells = regions.map(region => region.cells[i]);
+                    this.addRegion(`Disjoint Group ${i + 1}`, cells, 'disjointgroup');
+                }
+            }
+        }
 
-		// TODO: Convert f-puzzle constraint formats to a more sane format
-		// TODO: Combine certain constraints together, like kropki and xv
+        // TODO: Convert f-puzzle constraint formats to a more sane format
+        // TODO: Combine certain constraints together, like kropki and xv
 
-		// Assume any unknown members of the data are constraints
-		const knownMembers = ['size', 'grid', 'solution'];
-		for (const key of Object.keys(fpuzzlesData)) {
-			if (knownMembers.includes(key) || !Array.isArray(fpuzzlesData[key])) {
-				continue;
-			}
+        // Assume any unknown members of the data are constraints
+        const knownMembers = ['size', 'grid', 'solution'];
+        for (const key of Object.keys(fpuzzlesData)) {
+            if (knownMembers.includes(key) || !Array.isArray(fpuzzlesData[key])) {
+                continue;
+            }
 
-			// Check for a negative constraint and add that as a boolean
-			const hasNegative = fpuzzlesData.negative && fpuzzlesData.negative.includes(key) ||
-				key === "difference" && fpuzzlesData.nonconsecutive;
-			for (const constraint of fpuzzlesData[key]) {
-				// Make a deep copy of the constraint
-				let params = JSON.parse(JSON.stringify(constraint));
-				if (hasNegative && (key !== "difference" || !params.value || params.value === 1) ) {
-					params.negative = true;
-				}
-				this.addConstraint(key, params);
-			}
-		}
+            // Check for a negative constraint and add that as a boolean
+            const hasNegative =
+                (fpuzzlesData.negative && fpuzzlesData.negative.includes(key)) || (key === 'difference' && fpuzzlesData.nonconsecutive);
+            for (const constraint of fpuzzlesData[key]) {
+                // Make a deep copy of the constraint
+                let params = JSON.parse(JSON.stringify(constraint));
+                if (hasNegative && (key !== 'difference' || !params.value || params.value === 1)) {
+                    params.negative = true;
+                }
+                this.addConstraint(key, params);
+            }
+        }
 
-		// F-Puzzles has specific chess constraints as booleans
-		if (fpuzzlesData.antiking && fpuzzlesData.antiknight) {
-			this.addConstraint("chess", { offsets: [[1, 1], [1, 2]] });
-		} else if (fpuzzlesData.antiknight) {
-            this.addConstraint("chess", { offsets: [[1, 2]] });
+        // F-Puzzles has specific chess constraints as booleans
+        if (fpuzzlesData.antiking && fpuzzlesData.antiknight) {
+            this.addConstraint('chess', {
+                offsets: [
+                    [1, 1],
+                    [1, 2],
+                ],
+            });
+        } else if (fpuzzlesData.antiknight) {
+            this.addConstraint('chess', { offsets: [[1, 2]] });
         } else if (fpuzzlesData.antiking) {
-            this.addConstraint("chess", { offsets: [[1, 1]] });
+            this.addConstraint('chess', { offsets: [[1, 1]] });
         }
     }
 
-	/**
-	 * Build the board data.
-	 * @returns {object} The board data.
-	 */
-	build() {
-		return {
-			size: this._size,
-			cells: this._cells,
-			regions: this._regions,
-			constraints: this._constraints,
-		};
-	}
+    /**
+     * Build the board data.
+     * @returns {object} The board data.
+     */
+    build() {
+        return {
+            size: this._size,
+            cells: this._cells,
+            regions: this._regions,
+            constraints: this._constraints,
+        };
+    }
 }
