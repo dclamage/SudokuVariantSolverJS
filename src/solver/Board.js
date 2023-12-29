@@ -27,7 +27,7 @@ export class Board {
         this.cells = new Array(size * size).fill(this.allValues);
         this.nonGivenCount = size * size;
         this.nakedSingles = [];
-        this.weakLinks = Array.from({ length: size * size * size }, () => new Set());
+        this.weakLinks = Array.from({ length: size * size * size }, () => []);
         this.regions = [];
         this.constraints = [];
         this.constraintsFinalized = false;
@@ -68,7 +68,7 @@ export class Board {
         // Deep copy or clear everything
         clone.cells = [...this.cells];
         clone.nakedSingles = [...this.nakedSingles];
-        clone.weakLinks = this.weakLinks.map(links => new Set(links));
+        clone.weakLinks = this.weakLinks.map(links => links.slice());
         clone.regions = [...this.regions];
         clone.constraints = [];
         clone.memos = {};
@@ -133,17 +133,17 @@ export class Board {
     }
 
     addWeakLink(index1, index2) {
-        if (index1 != index2) {
-            this.weakLinks[index1].add(index2);
-            this.weakLinks[index2].add(index1);
+        if (index1 != index2 && !this.weakLinks[index1].includes(index2)) {
+            this.weakLinks[index1].push(index2);
+            this.weakLinks[index2].push(index1);
         }
     }
 
     isWeakLink(index1, index2) {
-        return this.weakLinks[index1].has(index2);
+        return this.weakLinks[index1].includes(index2);
     }
 
-    addRegion(name, cells, type, fromConstraint = null) {
+    addRegion(name, cells, type, fromConstraint = null, addWeakLinks = true) {
         // Don't add regions which are too large
         if (cells.length > this.size) {
             return;
@@ -162,11 +162,13 @@ export class Board {
         };
         this.regions.push(newRegion);
 
-        for (let i0 = 0; i0 < cells.length - 1; i0++) {
-            const cell0 = cells[i0];
-            for (let i1 = i0 + 1; i1 < cells.length; i1++) {
-                const cell1 = cells[i1];
-                this.addNonRepeatWeakLinks(cell0, cell1);
+        if (addWeakLinks) {
+            for (let i0 = 0; i0 < cells.length - 1; i0++) {
+                const cell0 = cells[i0];
+                for (let i1 = i0 + 1; i1 < cells.length; i1++) {
+                    const cell1 = cells[i1];
+                    this.addNonRepeatWeakLinks(cell0, cell1);
+                }
             }
         }
     }
@@ -327,7 +329,7 @@ export class Board {
                 for (let value = 1; value <= this.size; value++) {
                     const candidate0 = this.candidateIndex(cell0, value);
                     const candidate1 = this.candidateIndex(cell1, value);
-                    if (!this.weakLinks[candidate0].has(candidate1)) {
+                    if (!this.weakLinks[candidate0].includes(candidate1)) {
                         return false;
                     }
                 }
@@ -347,7 +349,7 @@ export class Board {
                 }
 
                 const candidate1 = this.candidateIndex(cell1, value);
-                if (!this.weakLinks[candidate0].has(candidate1)) {
+                if (!this.weakLinks[candidate0].includes(candidate1)) {
                     return false;
                 }
             }
@@ -368,7 +370,7 @@ export class Board {
                     const value = minValue(valueMask);
                     const candidate0 = this.candidateIndex(cell0, value);
                     const candidate1 = this.candidateIndex(cell1, value);
-                    if (!this.weakLinks[candidate0].has(candidate1)) {
+                    if (!this.weakLinks[candidate0].includes(candidate1)) {
                         return false;
                     }
                     valueMask ^= valueBit(value);
@@ -491,7 +493,7 @@ export class Board {
         for (let c0 = 0; c0 < numCells - 1; c0++) {
             let weakLinks0 = this.weakLinks[candidates[c0]];
             for (let c1 = c0 + 1; c1 < numCells; c1++) {
-                if (weakLinks0.has(candidates[c1])) {
+                if (weakLinks0.includes(candidates[c1])) {
                     return false;
                 }
             }
@@ -658,7 +660,7 @@ export class Board {
         }
 
         // Seed the elims with the first candidate
-        let elims = Array.from(this.weakLinks[candidateIndexes[0]]);
+        let elims = this.weakLinks[candidateIndexes[0]].slice();
 
         // Filter out already-eliminated candidates
         elims = elims.filter(candidateIndex => {
@@ -671,7 +673,7 @@ export class Board {
             const weakLinks = this.weakLinks[candidateIndex];
 
             // Intersect the weak links for this candidate and the previous candidates
-            elims = elims.filter(x => weakLinks.has(x));
+            elims = elims.filter(x => weakLinks.includes(x));
         }
         return elims;
     }
@@ -708,7 +710,7 @@ export class Board {
                     // Interesection of the weak links for this candidate and the previous candidates
                     const toDelete = [];
                     for (let elimCandidate of elimSet) {
-                        if (!weakLinks.has(elimCandidate)) {
+                        if (!weakLinks.includes(elimCandidate)) {
                             toDelete.push(elimCandidate);
                         }
                     }

@@ -17,10 +17,12 @@ export class OrConstraint extends Constraint {
                 subboard.keepCellMask(cellIndex, board.cells[cellIndex]);
             }
             for (let candidate = 0; candidate < this.numCandidates; ++candidate) {
-                subboard.weakLinks[candidate].union(board.weakLinks[candidate]);
+                for (const weakLink of board.weakLinks[candidate]) {
+                    subboard.addWeakLink(candidate, weakLink);
+                }
             }
             for (const { name, fromConstraint, type, cells } of board.regions) {
-                subboard.addRegion(name, cells, type, fromConstraint);
+                subboard.addRegion(name, cells, type, fromConstraint, false);
             }
 
             // Init constraints
@@ -47,11 +49,26 @@ export class OrConstraint extends Constraint {
 
         // Transfer weak links shared by all subboards up
         for (let candidate = 0; candidate < this.numCandidates; ++candidate) {
-            const prevSize = board.weakLinks[candidate].size;
-            board.weakLinks[candidate].union(
-                this.subboards.reduce((links, subboard) => links.intersection(subboard.weakLinks[candidate]), this.subboards[0].weakLinks[candidate])
-            );
-            if (prevSize !== board.weakLinks[candidate].size) {
+            const boardLinks = board.weakLinks[candidate];
+
+            // Find the interesction of all subboard weak links for this candidate
+            let newLinks = this.subboards[0][candidate].filter(link => !boardLinks.includes(link));
+            if (newLinks.length === 0) {
+                continue;
+            }
+
+            for (let subBoardIndex = 1; subBoardIndex < this.subboards.length; ++subBoardIndex) {
+                const subBoardLinks1 = this.subboards[subBoardIndex][candidate];
+                newLinks = newLinks.filter(link => subBoardLinks1.includes(link));
+                if (newLinks.length === 0) {
+                    break;
+                }
+            }
+
+            if (newLinks.length > 0) {
+                for (const link of newLinks) {
+                    board.addWeakLink(candidate, link);
+                }
                 changed = ConstraintResult.CHANGED;
             }
         }
