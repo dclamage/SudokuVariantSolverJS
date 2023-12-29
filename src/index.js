@@ -2,7 +2,6 @@ import { Board } from './solver/Board';
 import { registerAllConstraints } from './solver/Constraint/ConstraintLoader';
 import ConstraintBuilder from './solver/ConstraintBuilder';
 import { minValue, valueBit, valuesList, valuesMask } from './solver/SolveUtility';
-import { numUnsetCellsCounts, numUnsetCellsTime } from './solver/SumGroup';
 
 /**
  * Represents a solver for a Sudoku variant puzzle.
@@ -73,14 +72,6 @@ class SudokuVariantSolver {
                 this.messageCallback({ result: 'count', count: countResult.numSolutions, complete: true });
             }
         }
-
-		for (let countIndex = 0; countIndex < numUnsetCellsCounts.length; countIndex++) {
-			const count = numUnsetCellsCounts[countIndex];
-			if (count > 0) {
-				console.log(`numUnsetCellsCounts[${countIndex}] = ${count}`);
-				console.log(`numUnsetCellsTime[${countIndex}] = ${numUnsetCellsTime[countIndex]}`);
-			}
-		}
     }
 
     /**
