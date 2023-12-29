@@ -10,7 +10,6 @@ import {
     maskToString,
     randomValue,
     hasValue,
-    cellName,
 } from './SolveUtility';
 import { NakedSingle } from './LogicalStep/NakedSingle';
 import { HiddenSingle } from './LogicalStep/HiddenSingle';
@@ -42,6 +41,8 @@ export class Board {
         ];
     }
 
+    // Copy board for backtracking purposes.
+    // The "ruleset" is shared with the clone, so new constraints, weak links, etc. may not be introduced.
     clone() {
         // Shallow copy everything
         const clone = Object.assign(Object.create(Object.getPrototypeOf(this)), this);
@@ -49,6 +50,28 @@ export class Board {
         // Deep copy cells and nakedSingles arrays
         clone.cells = [...this.cells];
         clone.nakedSingles = [...this.nakedSingles];
+
+        // Clone constraints that need backtracking state
+        clone.constraints = this.constraints.map(constraint => constraint.clone());
+
+        return clone;
+    }
+
+    // Copy board for subconstraint purposes.
+    // Weak links are deeply copied, constraints and memo tables cleared
+    // so that new rulesets (constraints, weak links, etc.) may be introduced.
+    // Regions are preserved as they may contain information that constraints need for initialization.
+    subboardClone() {
+        // Shallow copy everything
+        const clone = Object.assign(Object.create(Object.getPrototypeOf(this)), this);
+
+        // Deep copy or clear everything
+        clone.cells = [...this.cells];
+        clone.nakedSingles = [...this.nakedSingles];
+        clone.weakLinks = this.weakLinks.map(links => new Set(links));
+        clone.regions = [...this.regions];
+        clone.constraints = [];
+        clone.memos = {};
 
         return clone;
     }
@@ -116,13 +139,6 @@ export class Board {
         }
     }
 
-    removeWeakLink(index1, index2) {
-        if (index1 != index2) {
-            this.weakLinks[index1].delete(index2);
-            this.weakLinks[index2].delete(index1);
-        }
-    }
-
     isWeakLink(index1, index2) {
         return this.weakLinks[index1].has(index2);
     }
@@ -163,15 +179,14 @@ export class Board {
         this.constraints.push(constraint);
     }
 
-    finalizeConstraints() {
+    initConstraints(isRepeat = false) {
         if (this.constraints.length > 0) {
             let haveChange = false;
-            let firstLoop = true;
             do {
                 haveChange = false;
 
                 for (let constraint of this.constraints) {
-                    const result = constraint.init(this, !firstLoop);
+                    const result = constraint.init(this, isRepeat);
                     if (result === ConstraintResult.INVALID) {
                         return false;
                     }
@@ -180,8 +195,26 @@ export class Board {
                         haveChange = true;
                     }
                 }
-                firstLoop = false;
+                isRepeat = false;
             } while (haveChange);
+        }
+
+        return true;
+    }
+
+    finalizeConstraints() {
+        if (!this.initConstraints()) {
+            return false;
+        }
+
+        for (let constraint of this.constraints) {
+            const result = constraint.finalize(this);
+            if (result === ConstraintResult.INVALID) {
+                return false;
+            }
+            if (result === ConstraintResult.CHANGED) {
+                throw new Error('finalize is not allowed to change the board');
+            }
         }
 
         this.constraintsFinalized = true;
@@ -511,11 +544,13 @@ export class Board {
             return valuesString;
         }
 
+        const cellCoords = cells.map(cellIndex => this.cellCoords(cellIndex));
+
         if (cells.length === 1) {
-            return valuesString + cellName(cells[0], this.size);
+            // For consistency format this ourselves with lowercase r/c rather than cellName, which uses uppercase
+            return `${valuesString}r${cellCoords[0][0] + 1}c${cellCoords[0][1] + 1}`;
         }
 
-        const cellCoords = cells.map(cellIndex => this.cellCoords(cellIndex));
         if (cellCoords.every(coord => coord[0] === cellCoords[0][0])) {
             // All cells are in the same row
             return (
@@ -589,11 +624,13 @@ export class Board {
         }
         if (cellIndexes.size === 1) {
             const cellIndex = cellIndexes.values().next().value;
+            const cellCoords = this.cellCoords(cellIndex);
             var elimMask = 0;
             for (let elim of elims) {
                 elimMask |= valueBit(this.valueFromCandidate(elim));
             }
-            return `-${this.valueNames(elimMask)}${cellName(cellIndex, this.size)}`;
+            // For consistency format this ourselves with lowercase r/c rather than cellName, which uses uppercase
+            return `-${this.valueNames(elimMask)}r${cellCoords[0] + 1}c${cellCoords[0] + 1}`;
         }
 
         const elimsByVal = Array.from({ length: this.size }, () => []);
@@ -1183,9 +1220,9 @@ export class Board {
 
             const result = logicalStep.step(this, desc);
             if (result === LogicResult.INVALID) {
-                return { desc: desc[0], invalid: true };
+                return { desc: desc.join('\n  '), invalid: true };
             } else if (result === LogicResult.CHANGED) {
-                return { desc: desc[0], changed: true };
+                return { desc: desc.join('\n  '), changed: true };
             }
         }
 

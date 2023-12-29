@@ -10,6 +10,7 @@ export const ConstraintResult = Object.freeze({
 export class Constraint {
     // The constraintName is a string that is used to identify the constraint
     // The specificName is a string that is specific to this constraint instance
+    // board should NOT be modified at this time. Initialization should happen in `init` instead.
     constructor(board, constraintName, specificName) {
         this.constraintName = constraintName;
         this.specificName = specificName;
@@ -54,6 +55,13 @@ export class Constraint {
         return ConstraintResult.UNCHANGED;
     }
 
+    // Final initialization of the constraint on the board, which may NOT modify the board
+    // finalize is called after all constraints have successfully been inited, so constraints may, for example, assume all weak links have been added.
+    // Returns either ConstraintResult.UNCHANGED or ConstraintResult.INVALID
+    finalize(board) {
+        return ConstraintResult.UNCHANGED;
+    }
+
     // Return true if the constraint is still satisfiable (false means the constraint is violated).
     // Do not modify the board (it cannot be reported to the user)
     enforce(board, cellIndex, value) {
@@ -66,6 +74,12 @@ export class Constraint {
     // Returns a ConstraintResult
     logicStep(board, logicalStepDescription) {
         return ConstraintResult.UNCHANGED;
+    }
+
+    // Clone the constraint such that it can be backtracked
+    // If the constraint is stateless (most are), then you do not need to override this.
+    clone() {
+        return this;
     }
 
     // Utility functions
