@@ -16,7 +16,7 @@ class ConstraintBuilder {
         this.constraintNames = [];
     }
 
-    buildConstraints(boardData, board) {
+    buildConstraints(boardData, board, finalize = true) {
         for (const builder of this.aggregateConstraintBuilders) {
             const newConstraints = builder(board, boardData);
             if (Array.isArray(newConstraints)) {
@@ -59,7 +59,7 @@ class ConstraintBuilder {
             }
         }
 
-        return board.finalizeConstraints();
+        return !finalize || board.finalizeConstraints();
     }
 
     // Assumes the data is an array of constraint instances and sends one instance at a time
