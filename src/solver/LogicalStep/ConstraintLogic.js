@@ -8,7 +8,9 @@ export class ConstraintLogic extends LogicalStep {
     step(board, desc) {
         const { constraints } = board;
         for (let constraint of constraints) {
-            const result = constraint.logicStep(board, desc);
+            const proxyDesc = [];
+            const result = constraint.logicStep(board, proxyDesc);
+            desc.push(...proxyDesc.map(desc => `[${constraint.toSpecificString()}]: ${desc}`));
             if (result !== LogicalStepResult.UNCHANGED) {
                 return result;
             }

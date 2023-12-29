@@ -253,7 +253,7 @@ export class ArrowSumConstraint extends Constraint {
 
             if (keepResult === ConstraintResult.CHANGED) {
                 if (logicalStepDescription) {
-                    logicalStepDescription.push(`Arrow sum is known. ${cellName(circleCell, board.size)} = ${arrowSum}`);
+                    logicalStepDescription.push(`Arrow sum is known. ${cellName(circleCell, board.size)} = ${arrowSum}.`);
                 }
                 return ConstraintResult.CHANGED;
             }
@@ -287,7 +287,7 @@ export class ArrowSumConstraint extends Constraint {
                     const elims = valuesList(circleCellMask & ~newCircleCellMask & board.allValues).map(value =>
                         board.candidateIndex(circleCell, value)
                     );
-                    logicalStepDescription.push(`Evaluated arrow sum. ${board.describeElims(elims)}`);
+                    logicalStepDescription.push(`${board.describeElims(elims)}.`);
                 }
                 return ConstraintResult.CHANGED;
             }
@@ -364,7 +364,7 @@ export class ArrowSumConstraint extends Constraint {
             }
 
             if (logicalStepDescription && elims.length > 0) {
-                logicalStepDescription.push(`Arrow sum is known. ${board.describeElims(elims)}`);
+                logicalStepDescription.push(`Arrow sum is known. ${board.describeElims(elims)}.`);
             }
 
             return changed ? ConstraintResult.CHANGED : ConstraintResult.UNCHANGED;
