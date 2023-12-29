@@ -21,39 +21,44 @@ import { LogicResult } from './Enums/LogicResult';
 
 export class Board {
     constructor(size) {
-        this.size = size;
-        this.allValues = allValues(size);
-        this.givenBit = 1 << size;
-        this.cells = new Array(size * size).fill(this.allValues);
-        this.nonGivenCount = size * size;
-        this.nakedSingles = [];
-        this.weakLinks = Array.from({ length: size * size * size }, () => []);
-        this.regions = [];
-        this.constraints = [];
-        this.constraintsFinalized = false;
-        this.memos = {};
-        this.logicalSteps = [
-            new NakedSingle(this),
-            new HiddenSingle(this),
-            new ConstraintLogic(this),
-            new CellForcing(this),
-            new NakedTupleAndPointing(this),
-        ];
+        if (size !== undefined) {
+            this.size = size;
+            this.allValues = allValues(size);
+            this.givenBit = 1 << size;
+            this.cells = new Array(size * size).fill(this.allValues);
+            this.nonGivenCount = size * size;
+            this.nakedSingles = [];
+            this.weakLinks = Array.from({ length: size * size * size }, () => []);
+            this.regions = [];
+            this.constraints = [];
+            this.constraintsFinalized = false;
+            this.memos = {};
+            this.logicalSteps = [
+                new NakedSingle(this),
+                new HiddenSingle(this),
+                new ConstraintLogic(this),
+                new CellForcing(this),
+                new NakedTupleAndPointing(this),
+            ];
+        }
     }
 
     // Copy board for backtracking purposes.
     // The "ruleset" is shared with the clone, so new constraints, weak links, etc. may not be introduced.
     clone() {
-        // Shallow copy everything
-        const clone = Object.assign(Object.create(Object.getPrototypeOf(this)), this);
-
-        // Deep copy cells and nakedSingles arrays
-        clone.cells = [...this.cells];
-        clone.nakedSingles = [...this.nakedSingles];
-
-        // Clone constraints that need backtracking state
-        clone.constraints = this.constraints.map(constraint => constraint.clone());
-
+        const clone = new Board();
+        clone.size = this.size;
+        clone.allValues = this.allValues;
+        clone.givenBit = this.givenBit;
+        clone.cells = [...this.cells]; // Deep copy
+        clone.nonGivenCount = this.nonGivenCount;
+        clone.nakedSingles = [...this.nakedSingles]; // Deep copy
+        clone.weakLinks = this.weakLinks;
+        clone.regions = this.regions;
+        clone.constraints = this.constraints.map(constraint => constraint.clone()); // Clone constraints that need backtracking state
+        clone.constraintsFinalized = this.constraintsFinalized;
+        clone.memos = this.memos;
+        clone.logicalSteps = this.logicalSteps;
         return clone;
     }
 
@@ -62,17 +67,19 @@ export class Board {
     // so that new rulesets (constraints, weak links, etc.) may be introduced.
     // Regions are preserved as they may contain information that constraints need for initialization.
     subboardClone() {
-        // Shallow copy everything
-        const clone = Object.assign(Object.create(Object.getPrototypeOf(this)), this);
-
-        // Deep copy or clear everything
-        clone.cells = [...this.cells];
-        clone.nakedSingles = [...this.nakedSingles];
-        clone.weakLinks = this.weakLinks.map(links => links.slice());
-        clone.regions = [...this.regions];
-        clone.constraints = [];
-        clone.memos = {};
-
+        const clone = new Board();
+        clone.size = this.size;
+        clone.allValues = this.allValues;
+        clone.givenBit = this.givenBit;
+        clone.cells = [...this.cells]; // Deep copy
+        clone.nonGivenCount = this.nonGivenCount;
+        clone.nakedSingles = [...this.nakedSingles]; // Deep copy
+        clone.weakLinks = this.weakLinks.map(links => links.slice()); // Deep copy
+        clone.regions = [...this.regions]; // Deep copy
+        clone.constraints = []; // Don't inherit constraints
+        clone.constraintsFinalized = this.constraintsFinalized;
+        clone.memos = {}; // Don't inherit memos
+        clone.logicalSteps = this.logicalSteps;
         return clone;
     }
 
