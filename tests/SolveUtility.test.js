@@ -3,8 +3,6 @@ import { combinations, permutations } from '../src/solver/SolveUtility';
 describe('permutations function', () => {
     const factorial = n => (n <= 1 ? 1 : n * factorial(n - 1));
 
-    const arrayEquals = (a, b) => Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((val, index) => val === b[index]);
-
     const testPermutations = inputArray => {
         const results = Array.from(permutations(inputArray));
         const expectedLength = factorial(inputArray.length);
