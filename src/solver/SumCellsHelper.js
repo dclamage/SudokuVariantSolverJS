@@ -146,7 +146,7 @@ export class SumCellsHelper {
                 }
 
                 if (logicalStepDescription) {
-                    logicalStepDescription.push(`Sum re-evaluated: ${board.describeElims(elims)}.`);
+                    logicalStepDescription.push(`${board.describeElims(elims)}.`);
                 }
                 return ConstraintResult.CHANGED;
             }
@@ -201,7 +201,7 @@ export class SumCellsHelper {
 
         if (elims.length > 0) {
             if (logicalStepDescription) {
-                logicalStepDescription.push(`Sum re-evaluated: ${board.describeElims(elims)}.`);
+                logicalStepDescription.push(`${board.describeElims(elims)}.`);
             }
             return ConstraintResult.CHANGED;
         }
