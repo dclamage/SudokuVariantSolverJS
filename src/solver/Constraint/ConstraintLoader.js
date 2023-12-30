@@ -5,6 +5,7 @@ import * as KillerCageConstraint from './KillerCageConstraint';
 import * as RegionSumLinesConstraint from './RegionSumLinesConstraint';
 import * as OrConstraint from './OrConstraint';
 import * as XSumConstraint from './XSumConstraint';
+import * as QuadrupleConstraint from './QuadrupleConstraint';
 
 let isRegistered = false;
 
@@ -20,6 +21,7 @@ export function registerAllConstraints(constraintBuilder) {
     RegionSumLinesConstraint.register(constraintBuilder);
     OrConstraint.register(constraintBuilder);
     XSumConstraint.register(constraintBuilder);
+    QuadrupleConstraint.register(constraintBuilder);
 
     isRegistered = true;
 }
