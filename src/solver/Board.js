@@ -32,6 +32,8 @@ export class Board {
             this.regions = [];
             this.constraints = [];
             this.constraintsFinalized = false;
+            this.constraintStates = [];
+            this.constraintStateIsCloned = [];
             this.memos = {};
             this.logicalSteps = [
                 new NakedSingle(this),
@@ -57,6 +59,8 @@ export class Board {
         clone.regions = this.regions;
         clone.constraints = this.constraints.map(constraint => constraint.clone()); // Clone constraints that need backtracking state
         clone.constraintsFinalized = this.constraintsFinalized;
+        clone.constraintStates = this.constraintStates.map(state => state.clone());
+        clone.constraintStateIsCloned = new Array(this.constraintStates.length);
         clone.memos = this.memos;
         clone.logicalSteps = this.logicalSteps;
         return clone;
@@ -228,6 +232,43 @@ export class Board {
 
         this.constraintsFinalized = true;
         return true;
+    }
+
+    // Register/use mutable constraint state.
+    //
+    // Constraints are not cloned during search, so they may not contain mutable state
+    // as they may become invalidated during backtracking.
+    //
+    // Instead, constraints should register any mutable states with the board during init,
+    // and use getState/getStateMut to access this state.
+    //
+    // registerState accepts an initial state object, which must contain a `clone` method,
+    // and returns a state key which should be passed to getState/getStateMut
+    // to retrieve the corresponding state object.
+    //
+    // getState should be used if the constraint is unsure if modifications will occur,
+    // and must call getStateMut before making any modifications. getStateMut will then
+    // lazily perform a clone depending on whether this is the first modification since
+    // the previous branch.
+    registerState(initialState) {
+        if (typeof initialState.clone !== 'function') {
+            throw new Error("All constraint state objects must contain a 'clone' method");
+        }
+        this.constraintStates.push(initialState);
+        this.constraintStateIsCloned.push(true);
+        return this.constraintStates.length - 1;
+    }
+
+    getState(stateKey) {
+        return this.constraintStates[stateKey];
+    }
+
+    getStateMut(stateKey) {
+        if (!this.constraintStateIsCloned[stateKey]) {
+            this.constraintStateIsCloned[stateKey] = true;
+            this.constraintStates[stateKey] = this.constraintStates[stateKey].clone();
+        }
+        return this.constraintStates[stateKey];
     }
 
     addNonRepeatWeakLinks(cellIndex1, cellIndex2) {

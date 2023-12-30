@@ -7,6 +7,13 @@ export const ConstraintResult = Object.freeze({
     INVALID: 2,
 });
 
+// Convenience class that constraint states can inherit from if they only need to be shallow-cloned
+export class ConstraintState {
+    clone() {
+        return Object.assign(Object.create(Object.getPrototypeOf(this)), this);
+    }
+}
+
 export class Constraint {
     // The constraintName is a string that is used to identify the constraint
     // The specificName is a string that is specific to this constraint instance
