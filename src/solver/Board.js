@@ -204,7 +204,7 @@ export class Board {
                         haveChange = true;
                     }
                 }
-                isRepeat = false;
+                isRepeat = true;
             } while (haveChange);
         }
 
@@ -849,7 +849,9 @@ export class Board {
         }
 
         // Set the given bit and the value bit for the cell
+        const origMask = this.cells[cellIndex] & this.allValues;
         this.cells[cellIndex] = valueMask | givenBit;
+        this.enforceNewMask(cellIndex, origMask);
         this.nonGivenCount--;
 
         // Apply any weak links
