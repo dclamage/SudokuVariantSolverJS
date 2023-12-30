@@ -384,6 +384,27 @@ export class Board {
         return valid;
     }
 
+    enforceValue(cellIndex, value) {
+        const origMask = this.cells[cellIndex] & this.allValues;
+        this.cells[cellIndex] &= valueBit(value);
+        return this.enforceNewMask(cellIndex, origMask);
+    }
+
+    enforceCandidate(candidate) {
+        const [cellIndex, value] = this.candidateToIndexAndValue(candidate);
+        return this.enforceValue(cellIndex, value);
+    }
+
+    enforceCandidates(candidates) {
+        let valid = true;
+        for (let candidate of candidates) {
+            if (!this.enforceCandidate(candidate)) {
+                valid = false;
+            }
+        }
+        return valid;
+    }
+
     isGroup(cells) {
         for (let i0 = 0; i0 < cells.length - 1; i0++) {
             const cell0 = cells[i0];
@@ -685,38 +706,42 @@ export class Board {
         return changed ? LogicResult.CHANGED : LogicResult.UNCHANGED;
     }
 
-    describeElims(elims) {
-        // If all elims are for the same cell, describe it as a single cell
+    describeCandidates(candidates, isElim = false) {
+        const minusSign = isElim ? '-' : '';
+        // If all candidates are for the same cell, describe it as a single cell
         const cellIndexes = new Set();
-        for (let elim of elims) {
-            cellIndexes.add(this.cellIndexFromCandidate(elim));
+        for (let cand of candidates) {
+            cellIndexes.add(this.cellIndexFromCandidate(cand));
         }
         if (cellIndexes.size === 1) {
             const cellIndex = cellIndexes.values().next().value;
             const cellCoords = this.cellCoords(cellIndex);
-            var elimMask = 0;
-            for (let elim of elims) {
-                elimMask |= valueBit(this.valueFromCandidate(elim));
+            var candMask = 0;
+            for (let cand of candidates) {
+                candMask |= valueBit(this.valueFromCandidate(cand));
             }
             // For consistency format this ourselves with lowercase r/c rather than cellName, which uses uppercase
-            return `-${this.valueNames(elimMask)}r${cellCoords[0] + 1}c${cellCoords[0] + 1}`;
+            return `${minusSign}${this.valueNames(candMask)}r${cellCoords[0] + 1}c${cellCoords[0] + 1}`;
         }
 
-        const elimsByVal = Array.from({ length: this.size }, () => []);
-        for (let elim of elims) {
-            const [cellIndex, value] = this.candidateToIndexAndValue(elim);
-            elimsByVal[value - 1].push(cellIndex);
+        const candsByVal = Array.from({ length: this.size }, () => []);
+        for (let cand of candidates) {
+            const [cellIndex, value] = this.candidateToIndexAndValue(cand);
+            candsByVal[value - 1].push(cellIndex);
         }
 
-        let elimDescs = [];
+        let candDescs = [];
         for (let value = 1; value <= this.size; value++) {
-            const elimCells = elimsByVal[value - 1];
-            if (elimCells.length > 0) {
-                elimCells.sort((a, b) => a - b);
-                elimDescs.push(`-${value}${this.compactName(elimCells)}`);
+            const candCells = candsByVal[value - 1];
+            if (candCells.length > 0) {
+                candCells.sort((a, b) => a - b);
+                candDescs.push(`${minusSign}${value}${this.compactName(candCells)}`);
             }
         }
-        return elimDescs.join(';');
+        return candDescs.join(';');
+    }
+    describeElims(elims) {
+        return this.describeCandidates(elims, true);
     }
 
     // Pass in an array of candidate indexes
