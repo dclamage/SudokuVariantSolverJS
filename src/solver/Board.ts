@@ -33,8 +33,52 @@ type Region = {
     cells: CellIndex[];
 };
 
-type SolveOptions = {
+export type SolveOptions = {
     random?: boolean;
+    maxSolutions?: number;
+    maxSolutionsPerCandidate?: number;
+};
+
+export type SolveResultCancelled = {
+    result: 'cancelled';
+};
+export type SolveResultBoard = {
+    result: 'board';
+    board: Board;
+};
+export type SolveResultNoSolution = {
+    result: 'no solution';
+};
+export type SolveResultTrueCandidates = {
+    result: 'true candidates';
+    candidates: CandidateIndex[];
+};
+export type SolveResultTrueCandidatesWithCount = {
+    result: 'true candidates with per-candidate solution count';
+    candidates: CandidateIndex[];
+    counts: number[];
+};
+export type SolveResultCancelledPartialSolutionCount = {
+    result: 'cancelled partial count';
+    count: number;
+};
+export type SolveResultSolutionCount = {
+    result: 'count';
+    count: number;
+};
+export type SolveResultLogicallyInvalid = {
+    result: 'logically invalid';
+    desc: string[];
+};
+export type SolveResultCancelledPartialLogicalSolve = {
+    result: 'cancelled partial logical solve';
+    desc: string[];
+    changed: boolean;
+};
+export type SolveResultLogicalSolve = {
+    result: 'logical solve';
+    desc: string[];
+    changed: boolean;
 };
 
 export interface Cloneable {
@@ -1029,7 +1073,7 @@ export class Board {
     async findSolution(
         options: SolveOptions | null | undefined,
         isCancelled: (() => boolean) | undefined
-    ): Promise<Board | { cancelled: true } | null> {
+    ): Promise<SolveResultCancelled | SolveResultBoard | SolveResultNoSolution> {
         const { random = false } = options || {};
         const jobStack = [this.clone()];
         let lastCancelCheckTime = Date.now();
@@ -1042,7 +1086,7 @@ export class Board {
 
                     // Check if the job was cancelled
                     if (isCancelled()) {
-                        return { cancelled: true };
+                        return { result: 'cancelled' };
                     }
                     lastCancelCheckTime = Date.now();
                 }
@@ -1059,13 +1103,13 @@ export class Board {
 
             if (bruteForceResult === LogicResult.COMPLETE) {
                 // Puzzle is complete, return the solution
-                return currentBoard;
+                return { result: 'board', board: currentBoard };
             }
 
             const unassignedIndex = currentBoard.findUnassignedLocation();
             if (unassignedIndex === null) {
                 // Puzzle is complete, return the solution
-                return currentBoard;
+                return { result: 'board', board: currentBoard };
             }
 
             const cellMask = currentBoard.cells[unassignedIndex];
@@ -1090,16 +1134,16 @@ export class Board {
             }
         }
 
-        return null; // No solution found
+        return { result: 'no solution' }; // No solution found
     }
 
     async countSolutions(
         maxSolutions: number,
         reportProgress: ((numSolutions: number) => void) | null | undefined,
         isCancelled: (() => boolean) | null | undefined,
-        solutionsSeen: Set<string> | null | undefined,
-        solutionEvent: ((board: Board) => void) | null | undefined
-    ): Promise<{ numSolutions: number; cancelled: boolean }> {
+        solutionsSeen: Set<string> | null | undefined = null,
+        solutionEvent: ((board: Board) => void) | null | undefined = null
+    ): Promise<SolveResultCancelledPartialSolutionCount | SolveResultSolutionCount> {
         const jobStack = [this.clone()];
         let numSolutions = 0;
         let lastReportTime = Date.now();
@@ -1112,7 +1156,7 @@ export class Board {
 
                 // Check if the job was cancelled
                 if (isCancelled && isCancelled()) {
-                    return { numSolutions, cancelled: true };
+                    return { result: 'cancelled partial count', count: numSolutions };
                 }
 
                 // Report progress
@@ -1144,7 +1188,7 @@ export class Board {
 
                         numSolutions++;
                         if (maxSolutions > 0 && numSolutions === maxSolutions) {
-                            return { numSolutions, cancelled: false };
+                            return { result: 'count', count: numSolutions };
                         }
                     }
                 } else {
@@ -1154,7 +1198,7 @@ export class Board {
 
                     numSolutions++;
                     if (maxSolutions > 0 && numSolutions === maxSolutions) {
-                        return { numSolutions, cancelled: false };
+                        return { result: 'count', count: numSolutions };
                     }
                 }
                 continue;
@@ -1165,7 +1209,7 @@ export class Board {
                 // Puzzle is complete, return the solution
                 numSolutions++;
                 if (maxSolutions > 0 && numSolutions === maxSolutions) {
-                    return { numSolutions, cancelled: false };
+                    return { result: 'count', count: numSolutions };
                 }
                 continue;
             }
@@ -1192,13 +1236,13 @@ export class Board {
             }
         }
 
-        return { numSolutions, cancelled: false };
+        return { result: 'count', count: numSolutions };
     }
 
     async calcTrueCandidates(
         maxSolutionsPerCandidate: number,
         isCancelled: (() => boolean) | null | undefined
-    ): Promise<{ cancelled: true } | { invalid: true } | { counts?: number[]; candidates: number[] }> {
+    ): Promise<SolveResultTrueCandidates | SolveResultTrueCandidatesWithCount | SolveResultNoSolution | SolveResultCancelled> {
         const { size, allValues } = this;
         const totalCells = size * size;
         const totalCandidates = totalCells * size;
@@ -1208,15 +1252,23 @@ export class Board {
         const bruteForceResult = board.applyBruteForceLogic();
         if (bruteForceResult === LogicResult.INVALID) {
             // Puzzle is invalid
-            return { invalid: true };
+            return { result: 'no solution' };
         }
 
         if (bruteForceResult === LogicResult.COMPLETE) {
             // Puzzle is unique just from basic logic
-            return {
-                candidates: board.cells.map(mask => mask & allValues),
-                ...(wantSolutionCounts ? { counts: Array.from({ length: totalCandidates }, () => 1) } : {}),
-            };
+            if (wantSolutionCounts) {
+                return {
+                    result: 'true candidates with per-candidate solution count',
+                    candidates: board.cells.map(mask => mask & allValues),
+                    counts: Array.from({ length: totalCandidates }, () => 1),
+                };
+            } else {
+                return {
+                    result: 'true candidates',
+                    candidates: board.cells.map(mask => mask & allValues),
+                };
+            }
         }
 
         const attemptedCandidates = Array.from({ length: size * size }, () => 0);
@@ -1230,10 +1282,18 @@ export class Board {
             const cellIndex = board.findUnassignedLocation(attemptedCandidates);
             if (cellIndex === null) {
                 // All candidates have been attempted
-                return {
-                    candidates: board.cells.map(mask => mask & allValues),
-                    ...(wantSolutionCounts ? { counts: candidateCounts } : {}),
-                };
+                if (wantSolutionCounts) {
+                    return {
+                        result: 'true candidates with per-candidate solution count',
+                        candidates: board.cells.map(mask => mask & allValues),
+                        counts: candidateCounts,
+                    };
+                } else {
+                    return {
+                        result: 'true candidates',
+                        candidates: board.cells.map(mask => mask & allValues),
+                    };
+                }
             }
 
             const cellMask = board.cells[cellIndex];
@@ -1246,7 +1306,7 @@ export class Board {
 
                     // Check if the job was cancelled
                     if (isCancelled && isCancelled()) {
-                        return { cancelled: true };
+                        return { result: 'cancelled' };
                     }
 
                     lastReportTime = Date.now();
@@ -1278,7 +1338,7 @@ export class Board {
                     }
 
                     // Find solutions for the new board
-                    const { cancelled } = await newBoard.countSolutions(remainingSolutions, null, isCancelled, solutionsSeen, solutionBoard => {
+                    const { result } = await newBoard.countSolutions(remainingSolutions, null, isCancelled, solutionsSeen, solutionBoard => {
                         // Update all candidate counts for this solution
                         for (let cellIndex = 0; cellIndex < totalCells; cellIndex++) {
                             const cellMask = solutionBoard.cells[cellIndex] & allValues;
@@ -1293,8 +1353,8 @@ export class Board {
                         }
                     });
 
-                    if (cancelled) {
-                        return { cancelled: true };
+                    if (result === 'cancelled partial count') {
+                        return { result: 'cancelled' };
                     }
 
                     if (candidateCounts[candidateIndex] === 0) {
@@ -1303,22 +1363,18 @@ export class Board {
                         removedCandidates = true;
                     }
                 } else {
-                    function checkCancelled(solution: any): solution is { cancelled: true } {
-                        return solution.cancelled;
-                    }
-
                     // Find any solution
-                    const solution = await newBoard.findSolution({}, isCancelled);
-                    if (solution === null) {
+                    const solutionResult = await newBoard.findSolution({}, isCancelled);
+                    if (solutionResult.result === 'no solution') {
                         // This candidate is impossible
                         board.clearCellMask(cellIndex, chosenValueMask);
                         removedCandidates = true;
-                    } else if (checkCancelled(solution)) {
-                        return { cancelled: true };
+                    } else if (solutionResult.result === 'cancelled') {
+                        return { result: 'cancelled' };
                     } else {
                         // Mark all candidates for this solution as attempted
                         for (let cellIndex = 0; cellIndex < totalCells; cellIndex++) {
-                            attemptedCandidates[cellIndex] |= solution.cells[cellIndex] & allValues;
+                            attemptedCandidates[cellIndex] |= solutionResult.board.cells[cellIndex] & allValues;
                         }
                     }
                 }
@@ -1329,15 +1385,23 @@ export class Board {
                 const bruteForceResult = board.applyBruteForceLogic();
                 if (bruteForceResult === LogicResult.INVALID) {
                     // Puzzle is invalid
-                    return { invalid: true };
+                    return { result: 'no solution' };
                 }
 
                 if (bruteForceResult === LogicResult.COMPLETE) {
                     // Puzzle is now unique just from basic logic
-                    return {
-                        candidates: board.cells.map(mask => mask & allValues),
-                        ...(wantSolutionCounts ? { counts: Array.from({ length: totalCandidates }, () => 1) } : {}),
-                    };
+                    if (wantSolutionCounts) {
+                        return {
+                            result: 'true candidates with per-candidate solution count',
+                            candidates: board.cells.map(mask => mask & allValues),
+                            counts: Array.from({ length: totalCandidates }, () => 1),
+                        };
+                    } else {
+                        return {
+                            result: 'true candidates',
+                            candidates: board.cells.map(mask => mask & allValues),
+                        };
+                    }
                 }
             }
         }
@@ -1369,7 +1433,9 @@ export class Board {
         return { unchanged: true };
     }
 
-    async logicalSolve(isCancelled: (() => boolean) | null | undefined) {
+    async logicalSolve(
+        isCancelled: (() => boolean) | null | undefined
+    ): Promise<SolveResultLogicallyInvalid | SolveResultCancelledPartialLogicalSolve | SolveResultLogicalSolve> {
         const desc: string[] = [];
         let lastCancelCheckTime = Date.now();
         let changed = false;
@@ -1382,14 +1448,14 @@ export class Board {
 
                     // Check if the job was cancelled
                     if (isCancelled()) {
-                        return { desc, changed, cancelled: true };
+                        return { result: 'cancelled partial logical solve', desc, changed };
                     }
                     lastCancelCheckTime = Date.now();
                 }
 
                 const result = logicalStep.step(this, desc);
                 if (result === LogicResult.INVALID) {
-                    return { desc, invalid: true };
+                    return { result: 'logically invalid', desc };
                 } else if (result === LogicResult.CHANGED) {
                     changedThisLoop = true;
                     changed = true;
@@ -1402,6 +1468,6 @@ export class Board {
             }
         }
 
-        return { desc, changed };
+        return { result: 'logical solve', desc, changed };
     }
 }
