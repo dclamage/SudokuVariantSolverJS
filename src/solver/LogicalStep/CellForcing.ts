@@ -1,4 +1,5 @@
 import { Board } from '../Board';
+import { LogicResult } from '../Enums/LogicResult';
 import { CandidateIndex, cellName, maskToString, popcount, valuesList } from '../SolveUtility';
 import { LogicalStep } from './LogicalStep';
 
@@ -7,7 +8,7 @@ export class CellForcing extends LogicalStep {
         super(board, 'Cell Forcing');
     }
 
-    step(board: Board, desc: string[]) {
+    step(board: Board, desc: string[]): LogicResult {
         const { size, allValues, cells } = board;
         const numCells = size * size;
         for (let numCandidates = 2; numCandidates < size; numCandidates++) {

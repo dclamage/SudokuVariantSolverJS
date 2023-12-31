@@ -8,30 +8,42 @@ import { FPuzzlesBoard } from './Constraint/FPuzzlesInterfaces';
 // constraintBuilder.registerConstraint("killercage", (board, params) => new KillerCageConstraint(board, params));
 
 export type ConstraintBuilderFunction = (board: Board, params: unknown) => Constraint | Constraint[];
+export type BooleanConstraintBuilderFunction = (board: Board) => Constraint | Constraint[];
 export type AggregateConstraintBuilderFunction = (board: Board, boardData: FPuzzlesBoard) => Constraint | Constraint[];
 
 class ConstraintBuilder {
     constraintBuilder: Map<string, ConstraintBuilderFunction> = new Map();
-    aggregateConstraintBuilders: AggregateConstraintBuilderFunction[] = [];
     constraintNames: string[] = [];
+
+    booleanConstraintBuilder: Map<string, BooleanConstraintBuilderFunction> = new Map();
+    booleanConstraintNames: string[] = [];
+
+    aggregateConstraintBuilders: AggregateConstraintBuilderFunction[] = [];
 
     constructor() {}
 
     buildConstraints(boardData: FPuzzlesBoard, board: Board, finalize: boolean = true) {
+        for (const constraintName of this.booleanConstraintNames) {
+            if (!(constraintName in boardData)) {
+                continue;
+            }
+
+            const constraintKey = constraintName as keyof FPuzzlesBoard;
+            const constraintData = boardData[constraintKey];
+            if (typeof constraintData !== 'boolean' || constraintData !== true) {
+                continue;
+            }
+
+            const builder = this.booleanConstraintBuilder.get(constraintName);
+            if (builder && constraintData === true) {
+                const newConstraint = builder(board);
+                this.addConstraintToBoard(board, newConstraint);
+            }
+        }
+
         for (const builder of this.aggregateConstraintBuilders) {
             const newConstraints = builder(board, boardData);
-            if (Array.isArray(newConstraints)) {
-                for (const constraint of newConstraints) {
-                    if (!(constraint instanceof Constraint)) {
-                        throw new Error(`Aggregate constraint builder returned an array containing a non-constraint instance.`);
-                    }
-                    board.addConstraint(constraint);
-                }
-            } else if (newConstraints instanceof Constraint) {
-                board.addConstraint(newConstraints);
-            } else {
-                throw new Error(`Aggregate constraint builder did not return an array or constraint instance.`);
-            }
+            this.addConstraintToBoard(board, newConstraints);
         }
 
         for (const constraintName of this.constraintNames) {
@@ -49,18 +61,7 @@ class ConstraintBuilder {
             if (builder) {
                 for (const instance of constraintData) {
                     const newConstraint = builder(board, instance);
-                    if (Array.isArray(newConstraint)) {
-                        for (const constraint of newConstraint) {
-                            if (!(constraint instanceof Constraint)) {
-                                throw new Error(`Constraint builder for ${constraintName} returned an array containing a non-constraint instance.`);
-                            }
-                            board.addConstraint(constraint);
-                        }
-                    } else if (newConstraint instanceof Constraint) {
-                        board.addConstraint(newConstraint);
-                    } else {
-                        throw new Error(`Constraint builder for ${constraintName} did not return an array or constraint instance.`);
-                    }
+                    this.addConstraintToBoard(board, newConstraint);
                 }
             }
         }
@@ -68,10 +69,32 @@ class ConstraintBuilder {
         return !finalize || board.finalizeConstraints();
     }
 
+    addConstraintToBoard(board: Board, constraint: Constraint | Constraint[]) {
+        if (Array.isArray(constraint)) {
+            for (const c of constraint) {
+                if (!(c instanceof Constraint)) {
+                    throw new Error('ConstraintBuilder.addConstraintToBoard called with an array containing a non-constraint instance.');
+                }
+                board.addConstraint(c);
+            }
+        } else {
+            if (!(constraint instanceof Constraint)) {
+                throw new Error('ConstraintBuilder.addConstraintToBoard called with a non-constraint instance.');
+            }
+
+            board.addConstraint(constraint);
+        }
+    }
+
     // Assumes the data is an array of constraint instances and sends one instance at a time
     registerConstraint(constraintName: string, builder: ConstraintBuilderFunction) {
         this.constraintBuilder.set(constraintName, builder);
         this.constraintNames.push(constraintName);
+    }
+
+    // Assumes the data is a boolean and invokes the builder if the data is true
+    registerBooleanConstraint(constraintName: string, builder: BooleanConstraintBuilderFunction) {
+        this.booleanConstraintBuilder.set(constraintName, builder);
     }
 
     // Always called, and sends the entire board data

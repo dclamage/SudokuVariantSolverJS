@@ -17,12 +17,12 @@ export interface FPuzzlesLittleKillerSumEntry {
 
 export interface FPuzzlesCell {
     cell: string;
-    value: string;
+    value?: string;
 }
 
 export interface FPuzzlesCells {
     cells: string[];
-    value: string;
+    value?: string;
 }
 
 export interface FPuzzlesLines {
@@ -54,8 +54,8 @@ export interface FPuzzlesBoard {
     author?: string;
     ruleset?: string;
     grid: FPuzzlesGridEntry[][];
-    diagonalp?: boolean;
-    diagonaln?: boolean;
+    'diagonal+'?: boolean;
+    'diagonal-'?: boolean;
     antiknight?: boolean;
     antiking?: boolean;
     disjointgroups?: boolean;

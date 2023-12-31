@@ -1,0 +1,27 @@
+// IndexerConstraint (uses WeakLinksConstraint)
+rowindexer?: FPuzzlesCells[];
+columnindexer?: FPuzzlesCells[];
+boxindexer?: FPuzzlesCells[];
+
+// WeakLinkLineConstraint (uses WeakLinksConstraint)
+thermometer?: FPuzzlesLines[];
+palindrome?: FPuzzlesLines[];
+renban?: FPuzzlesLines[];
+whispers?: FPuzzlesLines[];
+betweenline?: FPuzzlesLines[];
+entropicline?: FPuzzlesLines[];
+modularline?: FPuzzlesLines[];
+nabner?: FPuzzlesLines[];
+
+// CloneConstraint (uses WeakLinksConstraint)
+clone?: FPuzzlesClone[];
+
+// SandwichSumConstraint
+sandwichsum?: FPuzzlesCell[];
+
+// EqualSumConstraint (rename RegionSumLinesConstraint)
+doublearrow?: FPuzzlesLines[];
+zipperline?: FPuzzlesLines[];
+
+// SkyscraperConstraint
+skyscraper?: FPuzzlesCell[];

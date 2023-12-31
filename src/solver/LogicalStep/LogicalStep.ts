@@ -1,12 +1,6 @@
 import { Board } from '../Board';
+import { LogicResult } from '../Enums/LogicResult';
 import { CandidateIndex, CellCoords, CellIndex, CellMask, CellValue } from '../SolveUtility';
-
-// Reflects what has happened to the board
-export enum LogicalStepResult {
-    UNCHANGED,
-    CHANGED,
-    INVALID,
-}
 
 export class LogicalStep {
     name: string;
@@ -52,8 +46,7 @@ export class LogicalStep {
         return this.name;
     }
 
-    // TODO: Update return type when converting to enum
-    step(board: Board, desc: string[]): 0 | 1 | 2 {
-        return LogicalStepResult.UNCHANGED;
+    step(board: Board, desc: string[]): LogicResult {
+        return LogicResult.UNCHANGED;
     }
 }

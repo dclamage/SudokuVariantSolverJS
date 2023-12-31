@@ -1,16 +1,16 @@
 import { Board } from '../Board';
+import { LogicResult } from '../Enums/LogicResult';
 import { cellName, minValue } from '../SolveUtility';
-import { LogicalStep, LogicalStepResult } from './LogicalStep';
+import { LogicalStep } from './LogicalStep';
 
 export class NakedSingle extends LogicalStep {
     constructor(board: Board) {
         super(board, 'Naked Single');
     }
 
-    // TODO: Update return type to enum
-    step(board: Board, desc: string[]): 0 | 1 | 2 {
+    step(board: Board, desc: string[]): LogicResult {
         if (board.nakedSingles.length === 0) {
-            return LogicalStepResult.UNCHANGED;
+            return LogicResult.UNCHANGED;
         }
 
         const { size } = board;
@@ -34,12 +34,12 @@ export class NakedSingle extends LogicalStep {
             if (desc) {
                 desc.push(`Naked Single: ${cellName(cellIndex, size)} cannot be set to ${cellValue}.`);
             }
-            return LogicalStepResult.INVALID;
+            return LogicResult.INVALID;
         }
 
         if (desc) {
             desc.push(`Naked Single: ${cellName(cellIndex, size)} = ${cellValue}.`);
         }
-        return LogicalStepResult.CHANGED;
+        return LogicResult.CHANGED;
     }
 }

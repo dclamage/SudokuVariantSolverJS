@@ -45,14 +45,14 @@ export class Constraint {
     //  - isRepeat is true if this is not the first time init has been called on this constraint
     // Never call board.setAsGiven from init as not all weak links have been added yet, so they may not be respected.
     //  - Instead, use board.keepCellMask(cell, valueBit(value)) so that it will be a naked single at the appropriate time.
-    init(board: Board, isRepeat: boolean): 0 | 1 | 2 {
+    init(board: Board, isRepeat: boolean): ConstraintResult {
         return ConstraintResult.UNCHANGED;
     }
 
     // Final initialization of the constraint on the board, which may NOT modify the board
     // finalize is called after all constraints have successfully been inited, so constraints may, for example, assume all weak links have been added.
     // Returns either ConstraintResult.UNCHANGED or ConstraintResult.INVALID
-    finalize(board: Board): 0 | 1 | 2 {
+    finalize(board: Board): ConstraintResult {
         return ConstraintResult.UNCHANGED;
     }
 
@@ -74,7 +74,7 @@ export class Constraint {
     // logicalStepDescription is an optional array of strings that will be filled with a description of the logic step
     // This is used to report the logic step to the user
     // Returns a ConstraintResult
-    logicStep(board: Board, logicalStepDescription: string[]): 0 | 1 | 2 {
+    logicStep(board: Board, logicalStepDescription: string[]): ConstraintResult {
         return ConstraintResult.UNCHANGED;
     }
 

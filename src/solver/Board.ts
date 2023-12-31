@@ -196,7 +196,7 @@ export class Board {
         return Math.floor(candidateIndex / this.size);
     }
 
-    candidateToIndexAndValue(candidateIndex: CandidateIndex) {
+    candidateToIndexAndValue(candidateIndex: CandidateIndex): [CellIndex, CellValue] {
         return [Math.floor(candidateIndex / this.size), (candidateIndex % this.size) + 1];
     }
 
@@ -228,26 +228,29 @@ export class Board {
         return this.maskHigherOrEqual(v1) & this.maskStrictlyLower(v2);
     }
 
-    addWeakLink(index1: CandidateIndex, index2: CandidateIndex) {
+    addWeakLink(index1: CandidateIndex, index2: CandidateIndex): boolean {
         if (index1 != index2 && !this.weakLinks[index1].includes(index2)) {
             this.weakLinks[index1].push(index2);
             this.weakLinks[index2].push(index1);
+            return true;
         }
+
+        return false;
     }
 
     isWeakLink(index1: CandidateIndex, index2: CandidateIndex) {
         return this.weakLinks[index1].includes(index2);
     }
 
-    addRegion(name: string, cells: CellIndex[], type: RegionType, fromConstraint: null | Constraint = null, addWeakLinks: boolean = true) {
+    addRegion(name: string, cells: CellIndex[], type: RegionType, fromConstraint: null | Constraint = null, addWeakLinks: boolean = true): boolean {
         // Don't add regions which are too large
         if (cells.length > this.size) {
-            return;
+            return false;
         }
 
         // Do not add duplicate regions
         if (this.regions.some(region => fromConstraint === region.fromConstraint && sequenceEqual(region.cells, cells))) {
-            return;
+            return false;
         }
 
         const newRegion = {
@@ -267,6 +270,12 @@ export class Board {
                 }
             }
         }
+
+        return true;
+    }
+
+    getRegionsForType(type: RegionType) {
+        return this.regions.filter(region => region.type === type);
     }
 
     getRegionsForCell(cellIndex: CellIndex, type: RegionType | null = null) {

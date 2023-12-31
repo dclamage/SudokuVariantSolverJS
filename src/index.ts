@@ -34,9 +34,7 @@ class SudokuVariantSolver {
 
     /**
      * Solves the Sudoku variant puzzle.
-     * @param {Object} data - The data object containing the Sudoku board and options.
-     * @param {Object} data.board - The Sudoku board in the f-puzzles format.
-     * @param {Object} [data.options] - The options for solving.
+     * @param {SolverInputData} data - The data object containing the Sudoku board and options.
      */
     async solve(data: SolverInputData) {
         this.eventCanceled = false;

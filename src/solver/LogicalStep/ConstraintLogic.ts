@@ -1,22 +1,24 @@
 import { Board } from '../Board';
-import { LogicalStep, LogicalStepResult } from './LogicalStep';
+import { ConstraintResult } from '../Constraint/Constraint';
+import { LogicResult } from '../Enums/LogicResult';
+import { LogicalStep } from './LogicalStep';
 
 export class ConstraintLogic extends LogicalStep {
     constructor(board: Board) {
         super(board, 'Constraint Logic');
     }
 
-    // TODO: Update to enum
-    step(board: Board, desc: string[]): 0 | 1 | 2 {
+    step(board: Board, desc: string[]): LogicResult {
         const { constraints } = board;
         for (const constraint of constraints) {
             const proxyDesc: string[] = [];
-            // TODO: Update to enum
-            const result: 0 | 1 | 2 = constraint.logicStep(board, proxyDesc);
+            const result: ConstraintResult = constraint.logicStep(board, proxyDesc);
             desc.push(...proxyDesc.map(desc => `[${constraint.toSpecificString()}]: ${desc}`));
-            if (result !== LogicalStepResult.UNCHANGED) {
-                return result;
+            if (result !== ConstraintResult.UNCHANGED) {
+                return result === ConstraintResult.CHANGED ? LogicResult.CHANGED : LogicResult.INVALID;
             }
         }
+
+        return LogicResult.UNCHANGED;
     }
 }
