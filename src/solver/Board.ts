@@ -10,17 +10,57 @@ import {
     maskToString,
     randomValue,
     hasValue,
+    CellIndex,
+    CellMask,
+    CellCoords,
+    CellValue,
+    CandidateIndex,
 } from './SolveUtility';
 import { NakedSingle } from './LogicalStep/NakedSingle';
 import { HiddenSingle } from './LogicalStep/HiddenSingle';
 import { ConstraintLogic } from './LogicalStep/ConstraintLogic';
 import { CellForcing } from './LogicalStep/CellForcing';
 import { NakedTupleAndPointing } from './LogicalStep/NakedTupleAndPointing';
-import { ConstraintResult } from './Constraint/Constraint';
+import { Constraint, ConstraintResult } from './Constraint/Constraint';
 import { LogicResult } from './Enums/LogicResult';
+import { LogicalStep } from './LogicalStep/LogicalStep';
+
+type RegionType = string;
+type Region = {
+    name: string;
+    fromConstraint: null | Constraint;
+    type: RegionType;
+    cells: CellIndex[];
+};
+
+type SolveOptions = {
+    random?: boolean;
+};
+
+export interface Cloneable {
+    clone(): this;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export type StateKey<T extends Cloneable> = number;
 
 export class Board {
-    constructor(size) {
+    size: number;
+    allValues: CellMask;
+    givenBit: CellMask;
+    cells: CellMask[];
+    nonGivenCount: number;
+    nakedSingles: CellIndex[];
+    weakLinks: CandidateIndex[][];
+    regions: Region[];
+    constraints: Constraint[];
+    constraintsFinalized: boolean;
+    constraintStates: any[];
+    constraintStateIsCloned: (undefined | true)[];
+    memos: any;
+    logicalSteps: LogicalStep[];
+
+    constructor(size: number | undefined = undefined) {
         if (size !== undefined) {
             this.size = size;
             this.allValues = allValues(size);
@@ -91,77 +131,77 @@ export class Board {
         return JSON.stringify(this.getValueArray());
     }
 
-    cellIndex(row, col) {
+    cellIndex(row: number, col: number): CellIndex {
         return row * this.size + col;
     }
 
-    cellCoords(cellIndex) {
+    cellCoords(cellIndex: CellIndex): CellCoords {
         return { row: Math.floor(cellIndex / this.size), col: cellIndex % this.size };
     }
 
-    candidateIndexRC(row, col, value) {
+    candidateIndexRC(row: number, col: number, value: CellValue): CandidateIndex {
         return row * this.size * this.size + col * this.size + value - 1;
     }
 
-    candidateIndex(cellIndex, value) {
+    candidateIndex(cellIndex: CellIndex, value: CellValue): CandidateIndex {
         return cellIndex * this.size + value - 1;
     }
 
-    cellIndexFromCandidate(candidateIndex) {
+    cellIndexFromCandidate(candidateIndex: CandidateIndex) {
         return Math.floor(candidateIndex / this.size);
     }
 
-    candidateToIndexAndValue(candidateIndex) {
+    candidateToIndexAndValue(candidateIndex: CandidateIndex) {
         return [Math.floor(candidateIndex / this.size), (candidateIndex % this.size) + 1];
     }
 
-    valueFromCandidate(candidateIndex) {
+    valueFromCandidate(candidateIndex: CandidateIndex) {
         return (candidateIndex % this.size) + 1;
     }
 
-    maskStrictlyLower(v) {
+    maskStrictlyLower(v: CellValue) {
         return (1 << (v - 1)) - 1;
     }
 
-    maskStrictlyHigher(v) {
+    maskStrictlyHigher(v: CellValue) {
         return this.allValues ^ (1 << (v - 1));
     }
 
-    maskLowerOrEqual(v) {
+    maskLowerOrEqual(v: CellValue) {
         return (1 << v) - 1;
     }
 
-    maskHigherOrEqual(v) {
+    maskHigherOrEqual(v: CellValue) {
         return this.allValues ^ ((1 << v) - 1);
     }
 
-    maskBetweenInclusive(v1, v2) {
+    maskBetweenInclusive(v1: CellValue, v2: CellValue) {
         return this.maskHigherOrEqual(v1) & this.maskLowerOrEqual(v2);
     }
 
-    maskBetweenExclusive(v1, v2) {
+    maskBetweenExclusive(v1: CellValue, v2: CellValue) {
         return this.maskHigherOrEqual(v1) & this.maskStrictlyLower(v2);
     }
 
-    addWeakLink(index1, index2) {
+    addWeakLink(index1: CandidateIndex, index2: CandidateIndex) {
         if (index1 != index2 && !this.weakLinks[index1].includes(index2)) {
             this.weakLinks[index1].push(index2);
             this.weakLinks[index2].push(index1);
         }
     }
 
-    isWeakLink(index1, index2) {
+    isWeakLink(index1: CandidateIndex, index2: CandidateIndex) {
         return this.weakLinks[index1].includes(index2);
     }
 
-    addRegion(name, cells, type, fromConstraint = null, addWeakLinks = true) {
+    addRegion(name: string, cells: CellIndex[], type: RegionType, fromConstraint: null | Constraint = null, addWeakLinks: boolean = true) {
         // Don't add regions which are too large
         if (cells.length > this.size) {
             return;
         }
 
         // Do not add duplicate regions
-        if (this.regions.some(region => fromConstraint === region.fromConstraint && sequenceEqual(region, cells))) {
+        if (this.regions.some(region => fromConstraint === region.fromConstraint && sequenceEqual(region.cells, cells))) {
             return;
         }
 
@@ -184,21 +224,21 @@ export class Board {
         }
     }
 
-    getRegionsForCell(cellIndex, type = null) {
+    getRegionsForCell(cellIndex: CellIndex, type: RegionType | null = null) {
         return this.regions.filter(region => region.cells.includes(cellIndex) && (type === null || region.type === type));
     }
 
-    addConstraint(constraint) {
+    addConstraint(constraint: Constraint) {
         this.constraints.push(constraint);
     }
 
-    initConstraints(isRepeat = false) {
+    initConstraints(isRepeat: boolean = false): boolean {
         if (this.constraints.length > 0) {
             let haveChange = false;
             do {
                 haveChange = false;
 
-                for (let constraint of this.constraints) {
+                for (const constraint of this.constraints) {
                     const result = constraint.init(this, isRepeat);
                     if (result === ConstraintResult.INVALID) {
                         return false;
@@ -220,7 +260,7 @@ export class Board {
             return false;
         }
 
-        for (let constraint of this.constraints) {
+        for (const constraint of this.constraints) {
             const result = constraint.finalize(this);
             if (result === ConstraintResult.INVALID) {
                 return false;
@@ -250,7 +290,7 @@ export class Board {
     // and must call getStateMut before making any modifications. getStateMut will then
     // lazily perform a clone depending on whether this is the first modification since
     // the previous branch.
-    registerState(initialState) {
+    registerState<T extends Cloneable>(initialState: T): StateKey<T> {
         if (typeof initialState.clone !== 'function') {
             throw new Error("All constraint state objects must contain a 'clone' method");
         }
@@ -259,11 +299,11 @@ export class Board {
         return this.constraintStates.length - 1;
     }
 
-    getState(stateKey) {
+    getState<T extends Cloneable>(stateKey: StateKey<T>): T {
         return this.constraintStates[stateKey];
     }
 
-    getStateMut(stateKey) {
+    getStateMut<T extends Cloneable>(stateKey: StateKey<T>): T {
         if (!this.constraintStateIsCloned[stateKey]) {
             this.constraintStateIsCloned[stateKey] = true;
             this.constraintStates[stateKey] = this.constraintStates[stateKey].clone();
@@ -271,7 +311,7 @@ export class Board {
         return this.constraintStates[stateKey];
     }
 
-    addNonRepeatWeakLinks(cellIndex1, cellIndex2) {
+    addNonRepeatWeakLinks(cellIndex1: CellIndex, cellIndex2: CellIndex) {
         if (cellIndex1 === cellIndex2) {
             return;
         }
@@ -283,7 +323,7 @@ export class Board {
         }
     }
 
-    addCloneWeakLinks(cellIndex1, cellIndex2) {
+    addCloneWeakLinks(cellIndex1: CellIndex, cellIndex2: CellIndex) {
         if (cellIndex1 === cellIndex2) {
             return;
         }
@@ -301,16 +341,16 @@ export class Board {
         }
     }
 
-    getMemo(key) {
+    getMemo<T = any>(key: string): T {
         // Simply return the value at the key, or null if it doesn't exist
         return this.memos[key] || null;
     }
 
-    storeMemo(key, val) {
+    storeMemo<T = any>(key: string, val: T) {
         this.memos[key] = val;
     }
 
-    enforceNewMask(cellIndex, origMask) {
+    enforceNewMask(cellIndex: CellIndex, origMask: CellMask): boolean {
         const cellMask = this.cells[cellIndex] & this.allValues;
         if (cellMask === 0) {
             return false;
@@ -329,7 +369,7 @@ export class Board {
             const value = minValue(removedMask);
             removedMask &= ~valueBit(value);
 
-            for (let constraint of this.constraints) {
+            for (const constraint of this.constraints) {
                 if (!constraint.enforceCandidateElim(this, cellIndex, value)) {
                     return false;
                 }
@@ -339,13 +379,13 @@ export class Board {
         return true;
     }
 
-    setCellMask(cellIndex, cellMask) {
+    setCellMask(cellIndex: CellIndex, cellMask: CellMask) {
         const origMask = this.cells[cellIndex] & this.allValues;
         this.cells[cellIndex] = cellMask;
         return this.enforceNewMask(cellIndex, origMask);
     }
 
-    keepCellMask(cellIndex, cellMask) {
+    keepCellMask(cellIndex: CellIndex, cellMask: CellMask) {
         const origMask = this.cells[cellIndex] & this.allValues;
         const newMask = origMask & cellMask;
         if (newMask === origMask) {
@@ -359,24 +399,24 @@ export class Board {
         return ConstraintResult.CHANGED;
     }
 
-    clearCellMask(cellIndex, cellMask) {
+    clearCellMask(cellIndex: CellIndex, cellMask: CellMask) {
         return this.keepCellMask(cellIndex, this.allValues & ~cellMask);
     }
 
-    clearValue(cellIndex, value) {
+    clearValue(cellIndex: CellIndex, value: CellValue) {
         const origMask = this.cells[cellIndex] & this.allValues;
         this.cells[cellIndex] &= ~valueBit(value);
         return this.enforceNewMask(cellIndex, origMask);
     }
 
-    clearCandidate(candidate) {
+    clearCandidate(candidate: CandidateIndex) {
         const [cellIndex, value] = this.candidateToIndexAndValue(candidate);
         return this.clearValue(cellIndex, value);
     }
 
-    clearCandidates(candidates) {
+    clearCandidates(candidates: CandidateIndex[]) {
         let valid = true;
-        for (let candidate of candidates) {
+        for (const candidate of candidates) {
             if (!this.clearCandidate(candidate)) {
                 valid = false;
             }
@@ -384,20 +424,20 @@ export class Board {
         return valid;
     }
 
-    enforceValue(cellIndex, value) {
+    enforceValue(cellIndex: CellIndex, value: CellValue) {
         const origMask = this.cells[cellIndex] & this.allValues;
         this.cells[cellIndex] &= valueBit(value);
         return this.enforceNewMask(cellIndex, origMask);
     }
 
-    enforceCandidate(candidate) {
+    enforceCandidate(candidate: CandidateIndex) {
         const [cellIndex, value] = this.candidateToIndexAndValue(candidate);
         return this.enforceValue(cellIndex, value);
     }
 
-    enforceCandidates(candidates) {
+    enforceCandidates(candidates: CandidateIndex[]) {
         let valid = true;
-        for (let candidate of candidates) {
+        for (const candidate of candidates) {
             if (!this.enforceCandidate(candidate)) {
                 valid = false;
             }
@@ -405,7 +445,7 @@ export class Board {
         return valid;
     }
 
-    isGroup(cells) {
+    isGroup(cells: CellIndex[]) {
         for (let i0 = 0; i0 < cells.length - 1; i0++) {
             const cell0 = cells[i0];
             for (let i1 = i0 + 1; i1 < cells.length; i1++) {
@@ -426,7 +466,7 @@ export class Board {
         return true;
     }
 
-    isGroupByValue(cells, value) {
+    isGroupByValue(cells: CellIndex[], value: CellValue) {
         for (let i0 = 0; i0 < cells.length - 1; i0++) {
             const cell0 = cells[i0];
             const candidate0 = this.candidateIndex(cell0, value);
@@ -445,7 +485,7 @@ export class Board {
         return true;
     }
 
-    isGroupByValueMask(cells, valueMask) {
+    isGroupByValueMask(cells: CellIndex[], valueMask: CellMask) {
         for (let i0 = 0; i0 < cells.length - 1; i0++) {
             const cell0 = cells[i0];
             for (let i1 = i0 + 1; i1 < cells.length; i1++) {
@@ -468,8 +508,8 @@ export class Board {
         return true;
     }
 
-    splitIntoGroups(cells) {
-        const groups = [];
+    splitIntoGroups(cells: CellIndex[]) {
+        const groups: CellIndex[][] = [];
 
         if (cells.length === 0) {
             return groups;
@@ -482,7 +522,7 @@ export class Board {
         // Find the largest group and remove it from the cells
         const numCells = cells.length;
         for (let groupSize = numCells; groupSize >= 2; groupSize--) {
-            for (let subCells of combinations(cells, groupSize)) {
+            for (const subCells of combinations(cells, groupSize)) {
                 if (this.isGroup(subCells)) {
                     groups.push(subCells);
                     if (groupSize !== numCells) {
@@ -495,7 +535,7 @@ export class Board {
         }
 
         // If we get here, then the cells are each in their own group
-        for (let cell of cells) {
+        for (const cell of cells) {
             groups.push([cell]);
         }
         return groups;
@@ -509,7 +549,7 @@ export class Board {
                 return LogicResult.COMPLETE;
             }
 
-            let initialNonGivenCount = this.nonGivenCount;
+            const initialNonGivenCount = this.nonGivenCount;
             let changedThisRound = false;
             let result = this.applyNakedSingles();
             if (result === LogicResult.INVALID || result === LogicResult.COMPLETE) {
@@ -536,7 +576,7 @@ export class Board {
 
             // If we get here, then there are no more singles to find
             // Allow constraints to apply their logic
-            for (let constraint of this.constraints) {
+            for (const constraint of this.constraints) {
                 const result = constraint.logicStep(this, null);
                 if (result === ConstraintResult.INVALID) {
                     return LogicResult.INVALID;
@@ -554,7 +594,7 @@ export class Board {
         }
     }
 
-    canPlaceDigits(cells, values) {
+    canPlaceDigits(cells: CellIndex[], values: CellValue[]) {
         const numCells = cells.length;
         if (numCells != values.length) {
             throw new Error('cells and values must have the same length');
@@ -579,7 +619,7 @@ export class Board {
 
         // Check if there are any weak links between candidates. If so, this isn't placeable.
         for (let c0 = 0; c0 < numCells - 1; c0++) {
-            let weakLinks0 = this.weakLinks[candidates[c0]];
+            const weakLinks0 = this.weakLinks[candidates[c0]];
             for (let c1 = c0 + 1; c1 < numCells; c1++) {
                 if (weakLinks0.includes(candidates[c1])) {
                     return false;
@@ -590,7 +630,7 @@ export class Board {
         return true;
     }
 
-    canPlaceDigitsAnyOrder(cells, values) {
+    canPlaceDigitsAnyOrder(cells: CellIndex[], values: CellValue[]) {
         const numCells = cells.length;
         if (numCells != values.length) {
             throw new Error('cells and values must have the same length');
@@ -608,7 +648,7 @@ export class Board {
             return false;
         }
 
-        for (let perm of permutations(values)) {
+        for (const perm of permutations(values)) {
             if (this.canPlaceDigits(cells, perm)) {
                 return true;
             }
@@ -617,11 +657,11 @@ export class Board {
         return false;
     }
 
-    valueNames(mask) {
+    valueNames(mask: CellMask) {
         return maskToString(mask, this.size);
     }
 
-    compactName(cells, mask = null) {
+    compactName(cells: CellIndex[], mask: CellMask = null) {
         let valuesString = '';
         if (mask) {
             valuesString += this.valueNames(mask);
@@ -638,49 +678,49 @@ export class Board {
 
         if (cells.length === 1) {
             // For consistency format this ourselves with lowercase r/c rather than cellName, which uses uppercase
-            return `${valuesString}r${cellCoords[0][0] + 1}c${cellCoords[0][1] + 1}`;
+            return `${valuesString}r${cellCoords[0].row + 1}c${cellCoords[0].col + 1}`;
         }
 
-        if (cellCoords.every(coord => coord[0] === cellCoords[0][0])) {
+        if (cellCoords.every(coord => coord.row === cellCoords[0].row)) {
             // All cells are in the same row
             return (
                 valuesString +
-                `r${cellCoords[0][0] + 1}c${cellCoords
-                    .map(coord => coord[1] + 1)
+                `r${cellCoords[0].row + 1}c${cellCoords
+                    .map(coord => coord.col + 1)
                     .sort((a, b) => a - b)
                     .join(cellSep)}`
             );
         }
 
-        if (cellCoords.every(coord => coord[1] === cellCoords[0][1])) {
+        if (cellCoords.every(coord => coord.col === cellCoords[0].col)) {
             // All cells are in the same column
             return (
                 valuesString +
                 `r${cellCoords
-                    .map(coord => coord[0] + 1)
+                    .map(coord => coord.row + 1)
                     .sort((a, b) => a - b)
-                    .join(cellSep)}c${cellCoords[0][1] + 1}`
+                    .join(cellSep)}c${cellCoords[0].col + 1}`
             );
         }
 
-        const colsPerRow = new Array(this.size);
+        const colsPerRow: number[][] = new Array(this.size);
         for (let i = 0; i < this.size; i++) {
             colsPerRow[i] = [];
         }
-        for (let [row, col] of cellCoords) {
+        for (const { row, col } of cellCoords) {
             colsPerRow[row].push(col + 1);
         }
         for (let i = 0; i < this.size; i++) {
             colsPerRow[i].sort((a, b) => a - b);
         }
 
-        let groups = [];
+        const groups: string[] = [];
         for (let i = 0; i < this.size; i++) {
             if (colsPerRow[i].length === 0) {
                 continue;
             }
 
-            let rowsInGroup = [i + 1];
+            const rowsInGroup = [i + 1];
             for (let j = i + 1; j < this.size; j++) {
                 if (colsPerRow[j].every((value, index) => value === colsPerRow[i][index])) {
                     rowsInGroup.push(j + 1);
@@ -694,9 +734,10 @@ export class Board {
         return valuesString + groups.join(groupSep);
     }
 
-    performElims(elims) {
+    // TODO: Is this probably the same thing as clearCandidates
+    performElims(elims: CandidateIndex[]) {
         let changed = false;
-        for (let elim of elims) {
+        for (const elim of elims) {
             const [cellIndex, value] = this.candidateToIndexAndValue(elim);
             if (!this.clearValue(cellIndex, value)) {
                 return LogicResult.INVALID;
@@ -706,31 +747,31 @@ export class Board {
         return changed ? LogicResult.CHANGED : LogicResult.UNCHANGED;
     }
 
-    describeCandidates(candidates, isElim = false) {
+    describeCandidates(candidates: CandidateIndex[], isElim: boolean = false) {
         const minusSign = isElim ? '-' : '';
         // If all candidates are for the same cell, describe it as a single cell
-        const cellIndexes = new Set();
-        for (let cand of candidates) {
+        const cellIndexes: Set<CellIndex> = new Set();
+        for (const cand of candidates) {
             cellIndexes.add(this.cellIndexFromCandidate(cand));
         }
         if (cellIndexes.size === 1) {
-            const cellIndex = cellIndexes.values().next().value;
+            const cellIndex: CellIndex = cellIndexes.values().next().value;
             const cellCoords = this.cellCoords(cellIndex);
-            var candMask = 0;
-            for (let cand of candidates) {
+            let candMask = 0;
+            for (const cand of candidates) {
                 candMask |= valueBit(this.valueFromCandidate(cand));
             }
             // For consistency format this ourselves with lowercase r/c rather than cellName, which uses uppercase
-            return `${minusSign}${this.valueNames(candMask)}r${cellCoords[0] + 1}c${cellCoords[0] + 1}`;
+            return `${minusSign}${this.valueNames(candMask)}r${cellCoords.row + 1}c${cellCoords.col + 1}`;
         }
 
-        const candsByVal = Array.from({ length: this.size }, () => []);
-        for (let cand of candidates) {
+        const candsByVal: CandidateIndex[][] = Array.from({ length: this.size }, () => []);
+        for (const cand of candidates) {
             const [cellIndex, value] = this.candidateToIndexAndValue(cand);
             candsByVal[value - 1].push(cellIndex);
         }
 
-        let candDescs = [];
+        const candDescs: string[] = [];
         for (let value = 1; value <= this.size; value++) {
             const candCells = candsByVal[value - 1];
             if (candCells.length > 0) {
@@ -740,13 +781,13 @@ export class Board {
         }
         return candDescs.join(';');
     }
-    describeElims(elims) {
+    describeElims(elims: CandidateIndex[]) {
         return this.describeCandidates(elims, true);
     }
 
     // Pass in an array of candidate indexes
     // Returns an array of candidate indexes which are eliminated by the input candidates
-    calcElimsForCandidateIndices(candidateIndexes) {
+    calcElimsForCandidateIndices(candidateIndexes: CandidateIndex[]): CandidateIndex[] {
         if (candidateIndexes.length === 0) {
             return [];
         }
@@ -771,10 +812,10 @@ export class Board {
     }
 
     // eslint-disable-next-line no-unused-vars
-    evaluateWeakLinks(cells, logicalStepDesc) {
+    evaluateWeakLinks(cells: CellIndex[], logicalStepDesc: string[]) {
         // Only allow eliminations for candidates within the cells
         const candidatesSet = new Set();
-        for (let cell of cells) {
+        for (const cell of cells) {
             let cellMask = this.cells[cell];
             while (cellMask !== 0) {
                 const value = minValue(cellMask);
@@ -784,30 +825,30 @@ export class Board {
         }
 
         // Check for "cell forcing" eliminations that originate from the given cells
-        for (let cell of cells) {
-            let elimSet = null;
-            let cellMask = this.cells[cell];
+        for (const cell of cells) {
+            let elimSet: Set<CandidateIndex> | null = null;
+            const cellMask = this.cells[cell];
             while (cellMask !== 0) {
                 const value = minValue(cellMask);
                 const candidateIndex = this.candidateIndex(cell, value);
                 const weakLinks = this.weakLinks[candidateIndex];
                 if (elimSet === null) {
                     elimSet = new Set();
-                    for (let elimCandidate of weakLinks) {
+                    for (const elimCandidate of weakLinks) {
                         if (candidatesSet.has(elimCandidate)) {
                             elimSet.add(elimCandidate);
                         }
                     }
                 } else {
                     // Interesection of the weak links for this candidate and the previous candidates
-                    const toDelete = [];
-                    for (let elimCandidate of elimSet) {
+                    const toDelete: CandidateIndex[] = [];
+                    for (const elimCandidate of elimSet) {
                         if (!weakLinks.includes(elimCandidate)) {
                             toDelete.push(elimCandidate);
                         }
                     }
 
-                    for (let elimCandidate of toDelete) {
+                    for (const elimCandidate of toDelete) {
                         elimSet.delete(elimCandidate);
                     }
                 }
@@ -862,7 +903,7 @@ export class Board {
                 return LogicResult.INVALID;
             }
 
-            let exactlyOnce = atLeastOnce & ~moreThanOnce;
+            const exactlyOnce = atLeastOnce & ~moreThanOnce;
             for (const cellIndex of regionCells) {
                 const cellMask = cells[cellIndex] & exactlyOnce;
                 if (cellMask) {
@@ -877,27 +918,27 @@ export class Board {
         return this.nonGivenCount === 0 ? LogicResult.COMPLETE : changed ? LogicResult.CHANGED : LogicResult.UNCHANGED;
     }
 
-    isGiven(cellIndex) {
-        return this.cells[cellIndex] & this.givenBit;
+    isGiven(cellIndex: CellIndex): boolean {
+        return (this.cells[cellIndex] & this.givenBit) !== 0;
     }
 
-    isGivenMask(cellMask) {
-        return cellMask & this.givenBit;
+    isGivenMask(cellMask: CellMask): boolean {
+        return (cellMask & this.givenBit) !== 0;
     }
 
-    isGivenValue(value) {
-        return valueBit(value) & this.givenBit;
+    isGivenValue(value: CellValue): boolean {
+        return (valueBit(value) & this.givenBit) !== 0;
     }
 
-    getValue(cellIndex) {
+    getValue(cellIndex: CellIndex): CellValue {
         return minValue(this.cells[cellIndex] & ~this.givenBit);
     }
 
-    getValueArray() {
+    getValueArray(): CellValue[] {
         return Array.from({ length: this.size * this.size }, (_, i) => (this.isGiven(i) ? this.getValue(i) : 0));
     }
 
-    setAsGiven(cellIndex, value) {
+    setAsGiven(cellIndex: CellIndex, value: CellValue): boolean {
         if (!this.constraintsFinalized) {
             throw new Error('Constraints must be finalized before calling setAsGiven');
         }
@@ -944,7 +985,7 @@ export class Board {
         return true;
     }
 
-    applyGivenPencilMarks(cellIndex, pencilMarks) {
+    applyGivenPencilMarks(cellIndex: CellIndex, pencilMarks: CellValue[]): boolean {
         const pencilMarkBits = pencilMarks.reduce((bits, value) => bits | valueBit(value), 0);
 
         if (this.cells[cellIndex] & this.givenBit || popcount(this.cells[cellIndex]) === 1) {
@@ -956,7 +997,7 @@ export class Board {
         return this.enforceNewMask(cellIndex, origMask);
     }
 
-    findUnassignedLocation(ignoreMasks = null) {
+    findUnassignedLocation(ignoreMasks: CellMask[] | null = null): CellIndex {
         const { size, givenBit, cells } = this;
         let minCandidates = size + 1;
         let minCandidateIndex = null;
@@ -985,7 +1026,10 @@ export class Board {
         return minCandidateIndex;
     }
 
-    async findSolution(options, isCancelled) {
+    async findSolution(
+        options: SolveOptions | null | undefined,
+        isCancelled: (() => boolean) | undefined
+    ): Promise<Board | { cancelled: true } | null> {
         const { random = false } = options || {};
         const jobStack = [this.clone()];
         let lastCancelCheckTime = Date.now();
@@ -1049,7 +1093,13 @@ export class Board {
         return null; // No solution found
     }
 
-    async countSolutions(maxSolutions, reportProgress, isCancelled, solutionsSeen, solutionEvent) {
+    async countSolutions(
+        maxSolutions: number,
+        reportProgress: ((numSolutions: number) => void) | null | undefined,
+        isCancelled: (() => boolean) | null | undefined,
+        solutionsSeen: Set<string> | null | undefined,
+        solutionEvent: ((board: Board) => void) | null | undefined
+    ): Promise<{ numSolutions: number; cancelled: boolean }> {
         const jobStack = [this.clone()];
         let numSolutions = 0;
         let lastReportTime = Date.now();
@@ -1061,8 +1111,8 @@ export class Board {
                 await new Promise(resolve => setTimeout(resolve, 0));
 
                 // Check if the job was cancelled
-                if (isCancelled()) {
-                    return { numSolutions, isCancelled: true };
+                if (isCancelled && isCancelled()) {
+                    return { numSolutions, cancelled: true };
                 }
 
                 // Report progress
@@ -1094,7 +1144,7 @@ export class Board {
 
                         numSolutions++;
                         if (maxSolutions > 0 && numSolutions === maxSolutions) {
-                            return { numSolutions, isCancelled: false };
+                            return { numSolutions, cancelled: false };
                         }
                     }
                 } else {
@@ -1104,7 +1154,7 @@ export class Board {
 
                     numSolutions++;
                     if (maxSolutions > 0 && numSolutions === maxSolutions) {
-                        return { numSolutions, isCancelled: false };
+                        return { numSolutions, cancelled: false };
                     }
                 }
                 continue;
@@ -1115,7 +1165,7 @@ export class Board {
                 // Puzzle is complete, return the solution
                 numSolutions++;
                 if (maxSolutions > 0 && numSolutions === maxSolutions) {
-                    return { numSolutions, isCancelled: false };
+                    return { numSolutions, cancelled: false };
                 }
                 continue;
             }
@@ -1142,10 +1192,13 @@ export class Board {
             }
         }
 
-        return { numSolutions, isCancelled: false };
+        return { numSolutions, cancelled: false };
     }
 
-    async calcTrueCandidates(maxSolutionsPerCandidate, isCancelled) {
+    async calcTrueCandidates(
+        maxSolutionsPerCandidate: number,
+        isCancelled: (() => boolean) | null | undefined
+    ): Promise<{ cancelled: true } | { invalid: true } | { counts?: number[]; candidates: number[] }> {
         const { size, allValues } = this;
         const totalCells = size * size;
         const totalCandidates = totalCells * size;
@@ -1168,7 +1221,7 @@ export class Board {
 
         const attemptedCandidates = Array.from({ length: size * size }, () => 0);
         const candidateCounts = wantSolutionCounts ? Array.from({ length: totalCandidates }, () => 0) : null;
-        const solutionsSeen = wantSolutionCounts ? new Set() : null;
+        const solutionsSeen: Set<string> | null = wantSolutionCounts ? new Set() : null;
 
         // Loop until we've found all true candidates
         let lastReportTime = Date.now();
@@ -1192,7 +1245,7 @@ export class Board {
                     await new Promise(resolve => setTimeout(resolve, 0));
 
                     // Check if the job was cancelled
-                    if (isCancelled()) {
+                    if (isCancelled && isCancelled()) {
                         return { cancelled: true };
                     }
 
@@ -1225,7 +1278,7 @@ export class Board {
                     }
 
                     // Find solutions for the new board
-                    const { isCancelled } = await newBoard.countSolutions(remainingSolutions, null, isCancelled, solutionsSeen, solutionBoard => {
+                    const { cancelled } = await newBoard.countSolutions(remainingSolutions, null, isCancelled, solutionsSeen, solutionBoard => {
                         // Update all candidate counts for this solution
                         for (let cellIndex = 0; cellIndex < totalCells; cellIndex++) {
                             const cellMask = solutionBoard.cells[cellIndex] & allValues;
@@ -1240,8 +1293,8 @@ export class Board {
                         }
                     });
 
-                    if (isCancelled) {
-                        return { isCancelled: true };
+                    if (cancelled) {
+                        return { cancelled: true };
                     }
 
                     if (candidateCounts[candidateIndex] === 0) {
@@ -1250,12 +1303,18 @@ export class Board {
                         removedCandidates = true;
                     }
                 } else {
+                    function checkCancelled(solution: any): solution is { cancelled: true } {
+                        return solution.cancelled;
+                    }
+
                     // Find any solution
                     const solution = await newBoard.findSolution({}, isCancelled);
                     if (solution === null) {
                         // This candidate is impossible
                         board.clearCellMask(cellIndex, chosenValueMask);
                         removedCandidates = true;
+                    } else if (checkCancelled(solution)) {
+                        return { cancelled: true };
                     } else {
                         // Mark all candidates for this solution as attempted
                         for (let cellIndex = 0; cellIndex < totalCells; cellIndex++) {
@@ -1284,8 +1343,8 @@ export class Board {
         }
     }
 
-    async logicalStep(isCancelled) {
-        const desc = [];
+    async logicalStep(isCancelled: (() => boolean) | null | undefined) {
+        const desc: string[] = [];
         let lastCancelCheckTime = Date.now();
         for (const logicalStep of this.logicalSteps) {
             if (Date.now() - lastCancelCheckTime > 100) {
@@ -1293,7 +1352,7 @@ export class Board {
                 await new Promise(resolve => setTimeout(resolve, 0));
 
                 // Check if the job was cancelled
-                if (isCancelled()) {
+                if (isCancelled && isCancelled()) {
                     return { cancelled: true };
                 }
                 lastCancelCheckTime = Date.now();
@@ -1310,8 +1369,8 @@ export class Board {
         return { unchanged: true };
     }
 
-    async logicalSolve(isCancelled) {
-        const desc = [];
+    async logicalSolve(isCancelled: (() => boolean) | null | undefined) {
+        const desc: string[] = [];
         let lastCancelCheckTime = Date.now();
         let changed = false;
         while (true) {

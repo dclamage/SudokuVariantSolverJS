@@ -66,7 +66,7 @@ class SudokuVariantSolver {
                 },
                 () => this.eventCanceled
             );
-            if (countResult.isCancelled) {
+            if (countResult.cancelled) {
                 this.messageCallback({ result: 'count', count: countResult.numSolutions, complete: false, cancelled: true });
             } else {
                 this.messageCallback({ result: 'count', count: countResult.numSolutions, complete: true });
