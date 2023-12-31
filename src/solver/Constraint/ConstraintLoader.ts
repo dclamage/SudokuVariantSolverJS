@@ -1,3 +1,4 @@
+import ConstraintBuilder from '../ConstraintBuilder';
 import * as ArrowSumConstraint from './ArrowSumConstraint';
 import * as FixedSumConstraint from './FixedSumConstraint';
 import * as GeneralCellPairConstraint from './GeneralCellPairConstraint';
@@ -9,7 +10,7 @@ import * as QuadrupleConstraint from './QuadrupleConstraint';
 
 let isRegistered = false;
 
-export function registerAllConstraints(constraintBuilder) {
+export function registerAllConstraints(constraintBuilder: ConstraintBuilder) {
     if (isRegistered) {
         return;
     }
