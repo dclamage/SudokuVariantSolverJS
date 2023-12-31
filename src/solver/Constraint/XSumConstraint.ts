@@ -1,15 +1,18 @@
+import { Board } from '../Board';
+import ConstraintBuilder from '../ConstraintBuilder';
 import { cellName, valueBit } from '../SolveUtility';
+import { FPuzzlesCell } from './FPuzzlesInterfaces';
 import { FixedSumConstraint } from './FixedSumConstraint';
 import { OrConstraint } from './OrConstraint';
 
-export function register(constraintBuilder) {
-    constraintBuilder.registerConstraint('xsum', (board, params) => {
+export function register(constraintBuilder: ConstraintBuilder) {
+    constraintBuilder.registerConstraint('xsum', (board: Board, params: FPuzzlesCell) => {
         let initialCellIndex = 0;
         let directionAsCellIndexOffset = 0;
 
-        let coords = params.cell.split('C');
-        coords[0] = coords[0].slice(1);
-        coords = coords.map(c => parseInt(c, 10));
+        const coordStrs = params.cell.split('C');
+        coordStrs[0] = coordStrs[0].slice(1);
+        const coords = coordStrs.map(c => parseInt(c, 10));
         if (coords[0] === 0) {
             // Top x-sum
             initialCellIndex = coords[1] - 1;
@@ -32,12 +35,12 @@ export function register(constraintBuilder) {
             throw new Error('Invalid X-sum location');
         }
 
-        let sumCells = [];
-        let subboards = [];
+        const sumCells: string[] = [];
+        const subboards: Board[] = [];
         for (let digit = 1, cellIndex = initialCellIndex; digit <= board.size; ++digit, cellIndex += directionAsCellIndexOffset) {
             sumCells.push(cellName(cellIndex, board.size));
 
-            let subboard = board.subboardClone();
+            const subboard = board.subboardClone();
 
             // In the ith branch, the first cell of the xsum has value i
             subboard.keepCellMask(initialCellIndex, valueBit(digit));
