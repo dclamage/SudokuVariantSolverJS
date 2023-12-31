@@ -25,8 +25,8 @@ import { Constraint, ConstraintResult } from './Constraint/Constraint';
 import { LogicResult } from './Enums/LogicResult';
 import { LogicalStep } from './LogicalStep/LogicalStep';
 
-type RegionType = string;
-type Region = {
+export type RegionType = string;
+export type Region = {
     name: string;
     fromConstraint: null | Constraint;
     type: RegionType;

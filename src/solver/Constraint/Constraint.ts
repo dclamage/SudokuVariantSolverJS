@@ -45,14 +45,14 @@ export class Constraint {
     //  - isRepeat is true if this is not the first time init has been called on this constraint
     // Never call board.setAsGiven from init as not all weak links have been added yet, so they may not be respected.
     //  - Instead, use board.keepCellMask(cell, valueBit(value)) so that it will be a naked single at the appropriate time.
-    init(board: Board, isRepeat: boolean): number {
+    init(board: Board, isRepeat: boolean): 0 | 1 | 2 {
         return ConstraintResult.UNCHANGED;
     }
 
     // Final initialization of the constraint on the board, which may NOT modify the board
     // finalize is called after all constraints have successfully been inited, so constraints may, for example, assume all weak links have been added.
     // Returns either ConstraintResult.UNCHANGED or ConstraintResult.INVALID
-    finalize(board: Board): number {
+    finalize(board: Board): 0 | 1 | 2 {
         return ConstraintResult.UNCHANGED;
     }
 
