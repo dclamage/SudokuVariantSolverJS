@@ -142,7 +142,7 @@ export function* combinations<T>(array: T[], size: number): Generator<T[]> {
 }
 
 export function* combinationsUncached<T>(array: T[], size: number): Generator<T[]> {
-    function* combine(start: number, prefix: T[], depth: number) {
+    function* combine(start: number, prefix: T[], depth: number): Generator<T[]> {
         if (depth === size) {
             yield prefix.slice();
         } else {
