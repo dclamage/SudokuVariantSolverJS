@@ -8,7 +8,7 @@ export type IsPairAllowedFn = (value1: number, value2: number) => boolean;
 export type NegativePairsGeneratorFn = (board: Board) => Generator<[CellIndex, CellIndex]> | null;
 
 export interface GeneralCellPairConstraintParams {
-    cellsPairs: string[][];
+    cellPairs: [CellIndex, CellIndex][];
 }
 
 export class GeneralCellPairConstraint extends Constraint {
@@ -27,13 +27,10 @@ export class GeneralCellPairConstraint extends Constraint {
         board: Board,
         params: GeneralCellPairConstraintParams
     ) {
-        const cellPairs: [CellIndex, CellIndex][] = params.cellsPairs
-            .map(cells => cells.map(cellName => cellIndexFromName(cellName, board.size)).sort((a, b) => a - b))
-            .map(cells => [cells[0], cells[1]]);
         super(board, constraintName, specificName);
 
-        this.cellPairs = cellPairs;
-        this.cellPairKeys = cellPairs.map(cellPair => cellPair[0] * board.size * board.size + cellPair[1]);
+        this.cellPairs = params.cellPairs;
+        this.cellPairKeys = this.cellPairs.map(cellPair => cellPair[0] * board.size * board.size + cellPair[1]);
         this.constraintGroup = constraintGroup;
         this.isPairAllowed = isPairAllowed;
         this.negativePairsGenerator = negativePairsGenerator;
@@ -249,8 +246,12 @@ export function register(constraintBuilder: ConstraintBuilder) {
             const isAllowed: IsPairAllowedFn = (value1, value2) => Math.abs(value1 - value2) === numValue;
             const negativePairsGenerator: NegativePairsGeneratorFn | null =
                 (hasNonconsecutive && numValue === 1) || hasDifferentNegative ? orthogonalPairsGenerator : null;
+            const cellPairs: [CellIndex, CellIndex][] = instances
+                .map(instance => instance.cells)
+                .map(cells => cells.map(cellName => cellIndexFromName(cellName, board.size)).sort((a, b) => a - b))
+                .map(cells => [cells[0], cells[1]]);
             const params = {
-                cellsPairs: instances.map(instance => instance.cells),
+                cellPairs,
             };
             const constraint = new GeneralCellPairConstraint(
                 'Difference',
@@ -294,8 +295,12 @@ export function register(constraintBuilder: ConstraintBuilder) {
             const numValue = Number(value);
             const isAllowed: IsPairAllowedFn = (value1, value2) => value1 === numValue * value2 || value2 === numValue * value1;
             const negativePairsGenerator: NegativePairsGeneratorFn = hasNegative ? orthogonalPairsGenerator : null;
+            const cellPairs: [CellIndex, CellIndex][] = instances
+                .map(instance => instance.cells)
+                .map(cells => cells.map(cellName => cellIndexFromName(cellName, board.size)).sort((a, b) => a - b))
+                .map(cells => [cells[0], cells[1]]);
             const params = {
-                cellsPairs: instances.map(instance => instance.cells),
+                cellPairs,
             };
             const constraint = new GeneralCellPairConstraint(
                 'Ratio',
@@ -343,8 +348,12 @@ export function register(constraintBuilder: ConstraintBuilder) {
             const numValue = Number(value);
             const isAllowed: IsPairAllowedFn = (value1, value2) => value1 + value2 === numValue;
             const negativePairsGenerator: NegativePairsGeneratorFn = hasNegative ? orthogonalPairsGenerator : null;
+            const cellPairs: [CellIndex, CellIndex][] = instances
+                .map(instance => instance.cells)
+                .map(cells => cells.map(cellName => cellIndexFromName(cellName, board.size)).sort((a, b) => a - b))
+                .map(cells => [cells[0], cells[1]]);
             const params = {
-                cellsPairs: instances.map(instance => instance.cells),
+                cellPairs,
             };
             const constraint = new GeneralCellPairConstraint('XV', `XV`, 'sum', isAllowed, negativePairsGenerator, board, params);
             constraints.push(constraint);
@@ -374,8 +383,12 @@ export function register(constraintBuilder: ConstraintBuilder) {
             const numValue = Number(value);
             const isAllowed: IsPairAllowedFn = (value1, value2) => value1 + value2 === numValue;
             const negativePairsGenerator: NegativePairsGeneratorFn = hasNegative ? orthogonalPairsGenerator : null;
+            const cellPairs: [CellIndex, CellIndex][] = instances
+                .map(instance => instance.cells)
+                .map(cells => cells.map(cellName => cellIndexFromName(cellName, board.size)).sort((a, b) => a - b))
+                .map(cells => [cells[0], cells[1]]);
             const params = {
-                cellsPairs: instances.map(instance => instance.cells),
+                cellPairs,
             };
             const constraint = new GeneralCellPairConstraint('Sum', `Sum of ${value}`, 'sum', isAllowed, negativePairsGenerator, board, params);
             constraints.push(constraint);

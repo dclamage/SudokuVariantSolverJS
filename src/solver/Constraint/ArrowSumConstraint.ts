@@ -1,13 +1,13 @@
 import { Board } from '../Board';
 import ConstraintBuilder from '../ConstraintBuilder';
-import { cellIndexFromName, cellName, minValue, valueBit, valuesList, removeDuplicates } from '../SolveUtility';
+import { cellIndexFromName, cellName, minValue, valueBit, valuesList, removeDuplicates, CellIndex } from '../SolveUtility';
 import { SumCellsHelper } from '../SumCellsHelper';
 import { Constraint, ConstraintResult } from './Constraint';
 import { FPuzzlesArrowEntry } from './FPuzzlesInterfaces';
 
 export interface ArrowSumConstraintParams {
-    circleCells: string[];
-    arrowCells: string[];
+    circleCells: CellIndex[];
+    arrowCells: CellIndex[];
 }
 
 export class ArrowSumConstraint extends Constraint {
@@ -18,20 +18,16 @@ export class ArrowSumConstraint extends Constraint {
     allCellsSet: Set<number>;
 
     constructor(board: Board, params: ArrowSumConstraintParams) {
-        const circleCells = params.circleCells.map((cellName: string) => cellIndexFromName(cellName, board.size));
-        const arrowCells = params.arrowCells.map((cellName: string) => cellIndexFromName(cellName, board.size));
-        const allCells = [...circleCells, ...arrowCells];
-
-        const specificName = `Arrow at ${cellName(circleCells[0], board.size)}`;
+        const specificName = `Arrow at ${cellName(params.circleCells[0], board.size)}`;
         super(board, 'Arrow', specificName);
 
-        this.circleCells = circleCells;
+        this.circleCells = params.circleCells;
 
-        this.arrowCells = arrowCells;
-        this.arrowCellsSum = new SumCellsHelper(board, arrowCells);
+        this.arrowCells = params.arrowCells;
+        this.arrowCellsSum = new SumCellsHelper(board, params.arrowCells);
 
-        this.allCells = allCells;
-        this.allCellsSet = new Set(allCells);
+        this.allCells = [...params.circleCells, ...params.arrowCells];
+        this.allCellsSet = new Set(this.allCells);
     }
 
     init(board: Board, isRepeat: boolean) {
@@ -453,9 +449,11 @@ export function register(constraintBuilder: ConstraintBuilder) {
     constraintBuilder.registerConstraint('arrow', (board: Board, params: FPuzzlesArrowEntry) => {
         const constraints = [];
         for (const line of params.lines) {
+            const circleCells = params.cells.map((cellName: string) => cellIndexFromName(cellName, board.size));
+            const arrowCells = line.slice(1).map((cellName: string) => cellIndexFromName(cellName, board.size));
             const arrowParams: ArrowSumConstraintParams = {
-                circleCells: params.cells,
-                arrowCells: line.slice(1),
+                circleCells,
+                arrowCells,
             };
             constraints.push(new ArrowSumConstraint(board, arrowParams));
         }

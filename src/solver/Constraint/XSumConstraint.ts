@@ -1,6 +1,6 @@
 import { Board } from '../Board';
 import ConstraintBuilder from '../ConstraintBuilder';
-import { cellName, valueBit } from '../SolveUtility';
+import { CellIndex, valueBit } from '../SolveUtility';
 import { FPuzzlesCell } from './FPuzzlesInterfaces';
 import { FixedSumConstraint } from './FixedSumConstraint';
 import { OrConstraint } from './OrConstraint';
@@ -35,10 +35,10 @@ export function register(constraintBuilder: ConstraintBuilder) {
             throw new Error('Invalid X-sum location');
         }
 
-        const sumCells: string[] = [];
+        const sumCells: CellIndex[] = [];
         const subboards: Board[] = [];
         for (let digit = 1, cellIndex = initialCellIndex; digit <= board.size; ++digit, cellIndex += directionAsCellIndexOffset) {
-            sumCells.push(cellName(cellIndex, board.size));
+            sumCells.push(cellIndex);
 
             const subboard = board.subboardClone();
 

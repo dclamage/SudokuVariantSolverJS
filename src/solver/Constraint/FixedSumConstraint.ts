@@ -6,7 +6,7 @@ import { Constraint, ConstraintResult } from './Constraint';
 import { FPuzzlesLittleKillerSumEntry } from './FPuzzlesInterfaces';
 
 export interface FixedSumConstraintParams {
-    cells: string[];
+    cells: CellIndex[];
     sum: number;
 }
 
@@ -17,11 +17,10 @@ export class FixedSumConstraint extends Constraint {
     sumHelper: SumCellsHelper;
 
     constructor(constraintName: string, specificName: string, board: Board, params: FixedSumConstraintParams) {
-        const cells = params.cells.map((cellName: string) => cellIndexFromName(cellName, board.size));
         super(board, constraintName, specificName);
 
         this.sum = params.sum;
-        this.cells = cells.sort((a: number, b: number) => a - b);
+        this.cells = params.cells.sort((a: number, b: number) => a - b);
         this.cellsSet = new Set(this.cells);
     }
 
@@ -134,9 +133,10 @@ export function register(constraintBuilder: ConstraintBuilder) {
             return [];
         }
 
+        const cells = params.cells.map((cellName: string) => cellIndexFromName(cellName, board.size));
         const clueCell = params.cell;
         const lkParams: FixedSumConstraintParams = {
-            cells: params.cells,
+            cells,
             sum: parseInt(params.value, 10),
         };
         const constraintName = 'Little Killer';
