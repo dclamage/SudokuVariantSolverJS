@@ -1,6 +1,6 @@
-import { Board } from "./Board";
+import { Board } from './Board';
 
-export function popcount(x: number) :number{
+export function popcount(x: number): number {
     x -= (x >> 1) & 0x55555555;
     x = (x & 0x33333333) + ((x >> 2) & 0x33333333);
     x = (x + (x >> 4)) & 0x0f0f0f0f;
@@ -64,7 +64,7 @@ export function valuesMask(values: number[]): number {
 }
 
 export function valuesList(mask: number): number[] {
-    const values :number[]= [];
+    const values: number[] = [];
     while (mask !== 0) {
         const value = minValue(mask);
         values.push(value);
@@ -93,7 +93,7 @@ export function binomialCoefficient(n: number, k: number): number {
     return result;
 }
 
-const combinationIndicesCache:number[][][][] = [];
+const combinationIndicesCache: number[][][][] = [];
 
 // Precompute indices for combinations
 for (let n = 1; n <= 9; n++) {
@@ -103,7 +103,7 @@ for (let n = 1; n <= 9; n++) {
     }
 }
 
-function* _generateCombinationIndices(n: number, k: number, start: number = 0, prefix: number[] = []):Generator<number[] >{
+function* _generateCombinationIndices(n: number, k: number, start: number = 0, prefix: number[] = []): Generator<number[]> {
     if (prefix.length === k) {
         yield prefix.slice();
     } else {
@@ -153,9 +153,9 @@ export function* combinationsCached<T>(array: T[], size: number): Generator<T[]>
     }
 }
 
-export function* permutations<T>(array:T[]):Generator<T[]> {
+export function* permutations<T>(array: T[]): Generator<T[]> {
     const n = array.length;
-    let c = new Array(n).fill(0);
+    const c = new Array(n).fill(0);
 
     yield array.slice();
 
@@ -175,11 +175,11 @@ export function* permutations<T>(array:T[]):Generator<T[]> {
 }
 
 // Helper for memo keys
-export function cellsKey(prefix: string, cells: any, size: any): string {
+export function cellsKey(prefix: string, cells: number[], size: number): string {
     return prefix + appendCellNames(cells, size);
 }
 
-export function appendInts(ints: any[]):string {
+export function appendInts(ints: number[]): string {
     return ints.map(i => '|' + i).join('');
 }
 
@@ -191,7 +191,7 @@ export function maskToString(mask: number, size: number): string {
     return valuesList(mask).join(size >= 10 ? ',' : '');
 }
 
-export function appendCellValueKey(board: Board, cells: number[]):string {
+export function appendCellValueKey(board: Board, cells: number[]): string {
     let builder = '';
     cells.forEach(cellIndex => {
         const mask = board.cells[cellIndex];

@@ -3,15 +3,34 @@ module.exports = {
         browser: true,
         es2021: true,
     },
-    extends: ['eslint:recommended', 'plugin:jest/recommended'],
+    extends: ['eslint:recommended', 'plugin:jest/recommended', 'plugin:@typescript-eslint/recommended'],
     overrides: [
+        {
+            files: ['**/*.ts', '**/*.tsx'],
+            parser: '@typescript-eslint/parser',
+            parserOptions: {
+                project: './tsconfig.json',
+            },
+            plugins: ['@typescript-eslint'],
+            rules: {
+                '@typescript-eslint/no-unused-vars': ['error', { vars: 'all', args: 'none', ignoreRestSiblings: false }],
+            },
+        },
+        {
+            files: ['**/*.js', '**/*.jsx'],
+            parser: 'espree',
+            rules: {
+                '@typescript-eslint/no-unused-vars': 'off',
+            },
+        },
         {
             env: {
                 node: true,
             },
-            files: ['.eslintrc.{js,cjs}'],
+            files: ['.eslintrc.{js,cjs}', '.eslintrc.{ts,cts}'],
             parserOptions: {
-                sourceType: 'script',
+                sourceType: 'module',
+                project: './tsconfig.json',
             },
         },
         {
@@ -21,19 +40,26 @@ module.exports = {
             },
         },
         {
-            files: ['**/*.test.js', '**/*.spec.js'],
+            files: ['**/*.test.js', '**/*.spec.js', '**/*.test.ts', '**/*.spec.ts'],
             env: {
                 jest: true,
             },
         },
     ],
+    parser: '@typescript-eslint/parser',
     parserOptions: {
         ecmaVersion: 'latest',
         sourceType: 'module',
     },
-    plugins: ['import', 'jest'],
+    plugins: ['import', 'jest', '@typescript-eslint'],
+    settings: {
+        'import/resolver': {
+            typescript: {},
+        },
+    },
     rules: {
         'no-constant-condition': 'off',
+        'no-unused-vars': ['error', { vars: 'all', args: 'none', ignoreRestSiblings: false }],
         'import/no-unresolved': 'error',
         'import/named': 'error',
         'import/default': 'error',
@@ -54,6 +80,8 @@ module.exports = {
             {
                 js: 'never',
                 jsx: 'never',
+                ts: 'never',
+                tsx: 'never',
             },
         ],
     },
