@@ -99,9 +99,9 @@ export class Board {
     regions: Region[];
     constraints: Constraint[];
     constraintsFinalized: boolean;
-    constraintStates: any[];
+    constraintStates: Cloneable[];
     constraintStateIsCloned: (undefined | true)[];
-    memos: any;
+    memos: Map<string, unknown>;
     logicalSteps: LogicalStep[];
 
     constructor(size: number | undefined = undefined) {
@@ -118,7 +118,7 @@ export class Board {
             this.constraintsFinalized = false;
             this.constraintStates = [];
             this.constraintStateIsCloned = [];
-            this.memos = {};
+            this.memos = new Map();
             this.logicalSteps = [
                 new NakedSingle(this),
                 new HiddenSingle(this),
@@ -165,8 +165,9 @@ export class Board {
         clone.weakLinks = this.weakLinks.map(links => links.slice()); // Deep copy
         clone.regions = [...this.regions]; // Deep copy
         clone.constraints = []; // Don't inherit constraints
+        clone.constraintStates = [];
         clone.constraintsFinalized = this.constraintsFinalized;
-        clone.memos = {}; // Don't inherit memos
+        clone.memos = new Map(); // Don't inherit memos
         clone.logicalSteps = this.logicalSteps;
         return clone;
     }
@@ -344,7 +345,7 @@ export class Board {
     }
 
     getState<T extends Cloneable>(stateKey: StateKey<T>): T {
-        return this.constraintStates[stateKey];
+        return this.constraintStates[stateKey] as T;
     }
 
     getStateMut<T extends Cloneable>(stateKey: StateKey<T>): T {
@@ -352,7 +353,7 @@ export class Board {
             this.constraintStateIsCloned[stateKey] = true;
             this.constraintStates[stateKey] = this.constraintStates[stateKey].clone();
         }
-        return this.constraintStates[stateKey];
+        return this.constraintStates[stateKey] as T;
     }
 
     addNonRepeatWeakLinks(cellIndex1: CellIndex, cellIndex2: CellIndex) {
@@ -385,13 +386,13 @@ export class Board {
         }
     }
 
-    getMemo<T = any>(key: string): T {
+    getMemo<T>(key: string): T {
         // Simply return the value at the key, or null if it doesn't exist
-        return this.memos[key] || null;
+        return (this.memos.get(key) as T) || null;
     }
 
-    storeMemo<T = any>(key: string, val: T) {
-        this.memos[key] = val;
+    storeMemo<T>(key: string, val: T) {
+        this.memos.set(key, val);
     }
 
     enforceNewMask(cellIndex: CellIndex, origMask: CellMask): boolean {

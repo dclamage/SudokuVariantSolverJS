@@ -1,4 +1,4 @@
-import { CellIndex, combinations, maskToString, popcount, valueBit, valuesList } from '../SolveUtility';
+import { CandidateIndex, CellIndex, combinations, maskToString, popcount, valueBit, valuesList } from '../SolveUtility';
 import { LogicResult } from '../Enums/LogicResult';
 import { Board } from '../Board';
 import { LogicalStep } from './LogicalStep';
@@ -56,7 +56,7 @@ export class NakedTupleAndPointing extends LogicalStep {
                     }
 
                     // Go through each value individually and build up the eliminations
-                    const elimsSet = new Set();
+                    const elimsSet = new Set<CandidateIndex>();
                     for (const value of valuesList(tupleMask)) {
                         // Generate the list of candidate indexes in the tuple
                         const valueMask = valueBit(value);

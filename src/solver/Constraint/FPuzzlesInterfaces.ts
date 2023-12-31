@@ -80,7 +80,7 @@ export interface FPuzzlesBoard {
     regionsumline?: FPuzzlesLines[];
     difference?: FPuzzlesCells[];
     xv?: FPuzzlesCells[];
-	sum? : FPuzzlesCells[];
+    sum?: FPuzzlesCells[];
     ratio?: FPuzzlesCells[];
     clone?: FPuzzlesClone[];
     quadruple?: FPuzzlesQuadruple[];

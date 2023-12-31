@@ -57,7 +57,7 @@ export class CardinalityConstraint extends Constraint {
             return ConstraintResult.INVALID;
         }
 
-        const state = board.getStateMut(this.stateKey);
+        const state = board.getStateMut<CardinalityConstraintState>(this.stateKey);
 
         // Check if any candidates have already been eliminated or satisfied
         state.candidates = state.candidates.filter((candidate: CandidateIndex) => {
@@ -132,22 +132,26 @@ export class CardinalityConstraint extends Constraint {
     }
 
     enforce(board: Board, cellIndex: CellIndex, value: CellValue) {
-        const constState = board.getState(this.stateKey);
+        // This prevents the accidental use of constState beyond this scope.
+        let candidatePos;
+        {
+            const constState = board.getState<CardinalityConstraintState>(this.stateKey);
 
-        // Early exit for pre-encoded / satisfied constraints
-        if (constState.candidates.length === 0) {
-            return this.allowedCounts.includes(constState.numSatisfiedCandidates);
-        }
+            // Early exit for pre-encoded / satisfied constraints
+            if (constState.candidates.length === 0) {
+                return this.allowedCounts.includes(constState.numSatisfiedCandidates);
+            }
 
-        const candidate = board.candidateIndex(cellIndex, value);
-        const candidatePos = constState.candidates.indexOf(candidate);
-        if (candidatePos === -1) {
-            // Unrelated candidate, ignore
-            return true;
+            const candidate = board.candidateIndex(cellIndex, value);
+            candidatePos = constState.candidates.indexOf(candidate);
+            if (candidatePos === -1) {
+                // Unrelated candidate, ignore
+                return true;
+            }
         }
 
         // Remove candidate and increment numSatisfiedCandidates
-        const mutState = board.getStateMut(this.stateKey);
+        const mutState = board.getStateMut<CardinalityConstraintState>(this.stateKey);
         mutState.numSatisfiedCandidates++;
         mutState.candidates.splice(candidatePos, 1);
 
@@ -161,22 +165,26 @@ export class CardinalityConstraint extends Constraint {
     }
 
     enforceCandidateElim(board: Board, cellIndex: CellIndex, value: CellValue) {
-        const constState = board.getState(this.stateKey);
+        // This prevents the accidental use of constState beyond this scope.
+        let candidatePos;
+        {
+            const constState = board.getState<CardinalityConstraintState>(this.stateKey);
 
-        // Early exit for pre-encoded / satisfied constraints
-        if (constState.candidates.length === 0) {
-            return this.allowedCounts.includes(constState.numSatisfiedCandidates);
-        }
+            // Early exit for pre-encoded / satisfied constraints
+            if (constState.candidates.length === 0) {
+                return this.allowedCounts.includes(constState.numSatisfiedCandidates);
+            }
 
-        const candidate = board.candidateIndex(cellIndex, value);
-        const candidatePos = constState.candidates.indexOf(candidate);
-        if (candidatePos === -1) {
-            // Unrelated candidate, ignore
-            return true;
+            const candidate = board.candidateIndex(cellIndex, value);
+            candidatePos = constState.candidates.indexOf(candidate);
+            if (candidatePos === -1) {
+                // Unrelated candidate, ignore
+                return true;
+            }
         }
 
         // Remove candidate and don't increment numSatisfiedCandidates
-        const mutState = board.getStateMut(this.stateKey);
+        const mutState = board.getStateMut<CardinalityConstraintState>(this.stateKey);
         mutState.candidates.splice(candidatePos, 1);
 
         // If there are no candidates left, numSatisfiedCandidates must be in allowedCounts
@@ -189,7 +197,7 @@ export class CardinalityConstraint extends Constraint {
     }
 
     logicStep(board: Board, logicalStepDescription: string[]) {
-        const constState = board.getState(this.stateKey);
+        const constState = board.getState<CardinalityConstraintState>(this.stateKey);
 
         // Early exit for pre-encoded / satisfied constraints
         if (constState.candidates.length === 0) {
@@ -227,7 +235,7 @@ export class CardinalityConstraint extends Constraint {
                 return ConstraintResult.INVALID;
             }
             // If that worked, we should clear ourselves
-            const mutState = board.getStateMut(this.stateKey);
+            const mutState = board.getStateMut<CardinalityConstraintState>(this.stateKey);
             mutState.candidates.length = 0;
             return ConstraintResult.CHANGED;
         } else if (maxPossible === minCount) {
@@ -237,7 +245,7 @@ export class CardinalityConstraint extends Constraint {
                 return ConstraintResult.INVALID;
             }
             // If that worked, we should clear ourselves
-            const mutState = board.getStateMut(this.stateKey);
+            const mutState = board.getStateMut<CardinalityConstraintState>(this.stateKey);
             mutState.numSatisfiedCandidates += mutState.candidates.length;
             mutState.candidates.length = 0;
             return ConstraintResult.CHANGED;
