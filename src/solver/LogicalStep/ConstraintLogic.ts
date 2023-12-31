@@ -9,7 +9,7 @@ export class ConstraintLogic extends LogicalStep {
     // TODO: Update to enum
     step(board: Board, desc: string[]): 0 | 1 | 2 {
         const { constraints } = board;
-        for (let constraint of constraints) {
+        for (const constraint of constraints) {
             const proxyDesc: string[] = [];
             // TODO: Update to enum
             const result: 0 | 1 | 2 = constraint.logicStep(board, proxyDesc);

@@ -39,7 +39,7 @@ export class HiddenSingle extends LogicalStep {
                 return LogicResult.INVALID;
             }
 
-            let exactlyOnce = atLeastOnce & ~moreThanOnce;
+            const exactlyOnce = atLeastOnce & ~moreThanOnce;
             for (const cellIndex of regionCells) {
                 const cellMask = cells[cellIndex];
                 const newCellMask = cellMask & exactlyOnce;
