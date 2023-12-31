@@ -17,7 +17,7 @@ export class KillerCageConstraint extends Constraint {
     sumCells: SumCellsHelper;
 
     constructor(board: Board, params: KillerCageConstraintParams) {
-        const cells = params.cells;
+        const cells = params.cells.toSorted((a, b) => a - b);
         const specificName =
             params.value > 0
                 ? `Killer Cage ${params.value} at ${cellName(cells[0], board.size)}`
@@ -30,7 +30,7 @@ export class KillerCageConstraint extends Constraint {
         } else {
             this.sum = value;
         }
-        this.cells = cells.sort((a, b) => a - b);
+        this.cells = cells.toSorted((a, b) => a - b);
         this.cellsSet = new Set(this.cells);
     }
 
