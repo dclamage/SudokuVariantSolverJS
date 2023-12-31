@@ -2,12 +2,11 @@ import { Board } from '../Board';
 import { CandidateIndex, CellCoords, CellIndex, CellMask, CellValue } from '../SolveUtility';
 
 // Reflects what has happened to the board
-// TODO: Convert this to enum
-export const LogicalStepResult = Object.freeze({
-    UNCHANGED: 0,
-    CHANGED: 1,
-    INVALID: 2,
-});
+export enum LogicalStepResult {
+    UNCHANGED,
+    CHANGED,
+    INVALID,
+}
 
 export class LogicalStep {
     name: string;

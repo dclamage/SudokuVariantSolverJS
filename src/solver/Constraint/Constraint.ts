@@ -2,12 +2,11 @@ import { Board } from '../Board';
 import { CellCoords, CellIndex, CellValue } from '../SolveUtility';
 
 // Reflects what has happened to the board
-// TODO: Convert this to a typescript enum near end of conversion
-export const ConstraintResult = Object.freeze({
-    UNCHANGED: 0,
-    CHANGED: 1,
-    INVALID: 2,
-});
+export enum ConstraintResult {
+    UNCHANGED,
+    CHANGED,
+    INVALID,
+}
 
 // Convenience class that constraint states can inherit from if they only need to be shallow-cloned
 export class ConstraintState {

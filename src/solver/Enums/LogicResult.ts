@@ -1,7 +1,6 @@
-// TODO: Convert to enum
-export const LogicResult = Object.freeze({
-    UNCHANGED: 0,
-    CHANGED: 1,
-    INVALID: 2,
-    COMPLETE: 3,
-});
+export enum LogicResult {
+    UNCHANGED,
+    CHANGED,
+    INVALID,
+    COMPLETE,
+}
