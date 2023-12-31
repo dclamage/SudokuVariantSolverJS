@@ -1,8 +1,11 @@
+import { Board } from '../Board';
+import ConstraintBuilder from '../ConstraintBuilder';
 import { cellIndexFromName } from '../SolveUtility';
 import { CardinalityConstraint } from './CardinalityConstraint';
+import { FPuzzlesQuadruple } from './FPuzzlesInterfaces';
 
-export function register(constraintBuilder) {
-    constraintBuilder.registerConstraint('quadruple', (board, params) => {
+export function register(constraintBuilder: ConstraintBuilder) {
+    constraintBuilder.registerConstraint('quadruple', (board: Board, params: FPuzzlesQuadruple) => {
         const constraints = [];
         const explicitDigitsOccurrences = new Map(params.values.map(x => [x, params.values.filter(y => x == y).length]));
         const constraintName = `Quadruple ${params.values.toSorted().join('')} at ${params.cells[0]}`;
@@ -12,7 +15,7 @@ export function register(constraintBuilder) {
 
         // Handle explicit digits
         // Each explicit digit must occur between [count, count + implicitCount] times
-        for (let [explicitDigit, numOccurrences] of explicitDigitsOccurrences.entries()) {
+        for (const [explicitDigit, numOccurrences] of explicitDigitsOccurrences.entries()) {
             constraints.push(
                 new CardinalityConstraint(constraintName, specificName + ` ${explicitDigit} x ${numOccurrences}`, board, {
                     candidates: params.cells.map(cellName => board.candidateIndex(cellIndexFromName(cellName, board.size), explicitDigit)),
