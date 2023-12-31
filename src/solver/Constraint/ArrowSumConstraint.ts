@@ -317,10 +317,10 @@ export class ArrowSumConstraint extends Constraint {
             return ConstraintResult.UNCHANGED;
         }
 
-        const possiblePillValues = removeDuplicates(
+        const possiblePillValues: number[] = removeDuplicates(
             this.getPillSums(board, 0, '')
-                .map(val => parseInt(val, 10))
-                .sort((a, b) => a - b)
+                .map((val: string) => parseInt(val, 10))
+                .sort((a: number, b: number) => a - b)
         );
 
         // Make the arrow sum conform to the possible pill values
@@ -386,7 +386,7 @@ export class ArrowSumConstraint extends Constraint {
         return ConstraintResult.UNCHANGED;
     }
 
-    getPillSums(board: { cells: number[]; allValues: number }, circleIndex: number, sumPrefix = '') {
+    getPillSums(board: Board, circleIndex: number, sumPrefix = ''): string[] {
         if (circleIndex >= this.circleCells.length) {
             return [sumPrefix];
         }
@@ -406,7 +406,7 @@ export class ArrowSumConstraint extends Constraint {
         return sums;
     }
 
-    getPillValuesForSum(board: { cells: number[]; allValues: number }, sumStr: string, circleIndex = 0, sumValues = []) {
+    getPillValuesForSum(board: Board, sumStr: string, circleIndex: number = 0, sumValues: number[] = []): number[][] {
         if (circleIndex >= this.circleCells.length) {
             if (sumStr === sumValues.join('')) {
                 return [sumValues];
@@ -431,7 +431,7 @@ export class ArrowSumConstraint extends Constraint {
         return sums;
     }
 
-    getCircleValue(board: { cells: number[] }) {
+    getCircleValue(board: Board) {
         if (this.circleCells.length === 1) {
             return minValue(board.cells[this.circleCells[0]]);
         }
@@ -440,7 +440,7 @@ export class ArrowSumConstraint extends Constraint {
         return parseInt(circleValue, 10);
     }
 
-    getArrowSum(board: { cells: number[] }) {
+    getArrowSum(board: Board) {
         let arrowSum = 0;
         for (const arrowCell of this.arrowCells) {
             arrowSum += minValue(board.cells[arrowCell]);

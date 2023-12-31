@@ -49,10 +49,7 @@ export class CardinalityConstraint extends Constraint {
         this.stateKey = board.registerState(new CardinalityConstraintState(params.candidates));
     }
 
-    init(
-        board: Board,
-        isRepeat: boolean
-    ) {
+    init(board: Board, isRepeat: boolean) {
         if (this.allowedCounts.length === 0) {
             // No allowed counts == broken constraint
             // Handle this case gracefully as encodings may include this in an Or constraint;
@@ -134,11 +131,7 @@ export class CardinalityConstraint extends Constraint {
         return ConstraintResult.UNCHANGED;
     }
 
-    enforce(
-        board: Board,
-        cellIndex: CellIndex,
-        value: CellValue
-    ) {
+    enforce(board: Board, cellIndex: CellIndex, value: CellValue) {
         const constState = board.getState(this.stateKey);
 
         // Early exit for pre-encoded / satisfied constraints
@@ -167,11 +160,7 @@ export class CardinalityConstraint extends Constraint {
         return mutState.numSatisfiedCandidates <= maxCount;
     }
 
-    enforceCandidateElim(
-        board: Board,
-        cellIndex: CellIndex,
-        value: CellValue
-    ) {
+    enforceCandidateElim(board: Board, cellIndex: CellIndex, value: CellValue) {
         const constState = board.getState(this.stateKey);
 
         // Early exit for pre-encoded / satisfied constraints
@@ -199,10 +188,7 @@ export class CardinalityConstraint extends Constraint {
         return mutState.numSatisfiedCandidates + mutState.candidates.length >= minCount;
     }
 
-    logicStep(
-        board: Board,
-        logicalStepDescription: string[]
-    ) {
+    logicStep(board: Board, logicalStepDescription: string[]) {
         const constState = board.getState(this.stateKey);
 
         // Early exit for pre-encoded / satisfied constraints
