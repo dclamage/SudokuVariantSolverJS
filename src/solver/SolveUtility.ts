@@ -4,6 +4,8 @@ export type CandidateIndex = number;
 export type CellIndex = number;
 export type CellMask = number;
 export type CellValue = number;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export type StateKey<T> = number;
 
 export interface CellCoords {
     row: number;

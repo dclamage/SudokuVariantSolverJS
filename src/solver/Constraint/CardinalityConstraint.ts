@@ -1,17 +1,26 @@
-import { valueBit } from '../SolveUtility';
+import { Board } from '../Board';
+import { CandidateIndex, CellIndex, CellValue, StateKey, valueBit } from '../SolveUtility';
 import { Constraint, ConstraintResult } from './Constraint';
 
 class CardinalityConstraintState {
-    constructor(candidates) {
+    numSatisfiedCandidates: number;
+    candidates: CandidateIndex[];
+
+    constructor(candidates: CandidateIndex[]) {
         this.numSatisfiedCandidates = 0;
         this.candidates = candidates.slice();
     }
 
     clone() {
-        let clone = Object.assign(Object.create(Object.getPrototypeOf(this)), this);
+        const clone = Object.assign(Object.create(Object.getPrototypeOf(this)), this);
         clone.candidates = this.candidates.slice();
         return clone;
     }
+}
+
+export interface CardinalityConstraintParams {
+    candidates: CandidateIndex[];
+    allowedCounts: number[];
 }
 
 // TODO: CardinalityConstraint can be specialized for a couple cases for better perf:
@@ -21,7 +30,10 @@ class CardinalityConstraintState {
 // For now, we only implement the generic case where none of this is taken into account,
 // which will also become the fallback case when the special cases do not apply.
 export class CardinalityConstraint extends Constraint {
-    constructor(constraintName, specificName, board, params) {
+    allowedCounts: number[];
+    stateKey: StateKey<CardinalityConstraintState>;
+
+    constructor(constraintName: string, specificName: string, board: Board, params: CardinalityConstraintParams) {
         super(board, constraintName, specificName);
 
         // Check that candidates contains no duplicates
@@ -33,11 +45,14 @@ export class CardinalityConstraint extends Constraint {
             }
         }
 
-        this.allowedCounts = params.allowedCounts.toSorted().filter(count => count <= params.candidates.length);
+        this.allowedCounts = params.allowedCounts.toSorted().filter((count: number) => count <= params.candidates.length);
         this.stateKey = board.registerState(new CardinalityConstraintState(params.candidates));
     }
 
-    init(board, isRepeat) {
+    init(
+        board: Board,
+        isRepeat: boolean
+    ) {
         if (this.allowedCounts.length === 0) {
             // No allowed counts == broken constraint
             // Handle this case gracefully as encodings may include this in an Or constraint;
@@ -48,9 +63,9 @@ export class CardinalityConstraint extends Constraint {
         const state = board.getStateMut(this.stateKey);
 
         // Check if any candidates have already been eliminated or satisfied
-        state.candidates = state.candidates.filter(candidate => {
+        state.candidates = state.candidates.filter((candidate: CandidateIndex) => {
             const [cellIndex, value] = board.candidateToIndexAndValue(candidate);
-            if (board.cells[cellIndex] & (valueBit(value) === 0)) {
+            if ((board.cells[cellIndex] & valueBit(value)) === 0) {
                 // Candidate was eliminated
                 return false;
             } else if (board.isGiven(cellIndex)) {
@@ -80,7 +95,7 @@ export class CardinalityConstraint extends Constraint {
                 if (result === ConstraintResult.INVALID) {
                     return ConstraintResult.INVALID;
                 }
-                changed |= result === ConstraintResult.CHANGED;
+                changed = changed || result === ConstraintResult.CHANGED;
             }
 
             // Fully encoded in board, so we don't have to do anything anymore
@@ -119,7 +134,11 @@ export class CardinalityConstraint extends Constraint {
         return ConstraintResult.UNCHANGED;
     }
 
-    enforce(board, cellIndex, value) {
+    enforce(
+        board: Board,
+        cellIndex: CellIndex,
+        value: CellValue
+    ) {
         const constState = board.getState(this.stateKey);
 
         // Early exit for pre-encoded / satisfied constraints
@@ -148,7 +167,11 @@ export class CardinalityConstraint extends Constraint {
         return mutState.numSatisfiedCandidates <= maxCount;
     }
 
-    enforceCandidateElim(board, cellIndex, value) {
+    enforceCandidateElim(
+        board: Board,
+        cellIndex: CellIndex,
+        value: CellValue
+    ) {
         const constState = board.getState(this.stateKey);
 
         // Early exit for pre-encoded / satisfied constraints
@@ -176,7 +199,10 @@ export class CardinalityConstraint extends Constraint {
         return mutState.numSatisfiedCandidates + mutState.candidates.length >= minCount;
     }
 
-    logicStep(board, logicalStepDescription) {
+    logicStep(
+        board: Board,
+        logicalStepDescription: string[]
+    ) {
         const constState = board.getState(this.stateKey);
 
         // Early exit for pre-encoded / satisfied constraints

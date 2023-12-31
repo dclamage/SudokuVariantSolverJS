@@ -14,6 +14,7 @@ module.exports = {
             plugins: ['@typescript-eslint'],
             rules: {
                 '@typescript-eslint/no-unused-vars': ['error', { vars: 'all', args: 'none', ignoreRestSiblings: false }],
+                'no-unused-vars': 'off',
             },
         },
         {
@@ -21,6 +22,7 @@ module.exports = {
             parser: 'espree',
             rules: {
                 '@typescript-eslint/no-unused-vars': 'off',
+                'no-unused-vars': ['error', { vars: 'all', args: 'none', ignoreRestSiblings: false }],
             },
         },
         {
@@ -59,7 +61,6 @@ module.exports = {
     },
     rules: {
         'no-constant-condition': 'off',
-        'no-unused-vars': ['error', { vars: 'all', args: 'none', ignoreRestSiblings: false }],
         'import/no-unresolved': 'error',
         'import/named': 'error',
         'import/default': 'error',
