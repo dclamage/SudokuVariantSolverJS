@@ -9,6 +9,7 @@ import * as LittleKillerConstraint from './LittleKillerConstraint';
 import * as QuadrupleConstraint from './QuadrupleConstraint';
 import * as RegionConstraint from './RegionConstraint';
 import * as RegionSumLinesConstraint from './RegionSumLinesConstraint';
+import * as SandwichSumConstraint from './SandwichSumConstraint';
 import * as SingleCellConstraints from './SingleCellConstraints';
 import * as XSumConstraint from './XSumConstraint';
 
@@ -30,6 +31,7 @@ export function registerAllConstraints(constraintBuilder: ConstraintBuilder) {
     QuadrupleConstraint.register(constraintBuilder);
     RegionConstraint.register(constraintBuilder);
     RegionSumLinesConstraint.register(constraintBuilder);
+    SandwichSumConstraint.register(constraintBuilder);
     SingleCellConstraints.register(constraintBuilder);
     XSumConstraint.register(constraintBuilder);
 

@@ -16,9 +16,6 @@ nabner?: FPuzzlesLines[];
 // CloneConstraint (uses WeakLinksConstraint)
 clone?: FPuzzlesClone[];
 
-// SandwichSumConstraint
-sandwichsum?: FPuzzlesCell[];
-
 // EqualSumConstraint (rename RegionSumLinesConstraint)
 doublearrow?: FPuzzlesLines[];
 zipperline?: FPuzzlesLines[];
