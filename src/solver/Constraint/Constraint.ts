@@ -1,4 +1,5 @@
 import { Board } from '../Board';
+import { CellCoords, CellIndex, CellValue } from '../SolveUtility';
 
 // Reflects what has happened to the board
 // TODO: Convert this to a typescript enum near end of conversion
@@ -59,14 +60,14 @@ export class Constraint {
     // Triggers when a value is set in a cell
     // Return true if the constraint is still satisfiable (false means the constraint is violated).
     // Do not modify the board (it cannot be reported to the user)
-    enforce(board: Board, cellIndex: number, value: number): boolean {
+    enforce(board: Board, cellIndex: CellIndex, value: CellValue): boolean {
         return true;
     }
 
     // Triggers when a candidate is eliminated from a cell
     // Return true if the constraint is still satisfiable (false means the constraint is violated).
     // Do not modify the board (it cannot be reported to the user)
-    enforceCandidateElim(board: Board, cellIndex: number, value: number): boolean {
+    enforceCandidateElim(board: Board, cellIndex: CellIndex, value: CellValue): boolean {
         return true;
     }
 
@@ -85,30 +86,27 @@ export class Constraint {
     }
 
     // Utility functions
-    taxiCabDistance(cellCoords1: [number, number], cellCoords2: [number, number]): number {
-        const [row1, col1] = cellCoords1;
-        const [row2, col2] = cellCoords2;
-        return Math.abs(row1 - row2) + Math.abs(col1 - col2);
+    taxiCabDistance(cellCoords1: CellCoords, cellCoords2: CellCoords): number {
+        return Math.abs(cellCoords1.row - cellCoords2.row) + Math.abs(cellCoords1.col - cellCoords2.col);
     }
 
-    isAdjacent(cellCoords1: [number, number], cellCoords2: [number, number]): boolean {
+    isAdjacent(cellCoords1: CellCoords, cellCoords2: CellCoords): boolean {
         return this.taxiCabDistance(cellCoords1, cellCoords2) === 1;
     }
 
-    isDiagonal(cellCoords1: [number, number], cellCoords2: [number, number]): boolean {
+    isDiagonal(cellCoords1: CellCoords, cellCoords2: CellCoords): boolean {
         return this.taxiCabDistance(cellCoords1, cellCoords2) === 2;
     }
 
-    getOffset(board: Board, cellIndex1: number, cellIndex2: number): [number, number] {
-        const [row1, col1] = board.cellCoords(cellIndex1);
-        const [row2, col2] = board.cellCoords(cellIndex2);
-        // END: be15d9bcejpp
-        return [row2 - row1, col2 - col1];
+    getOffset(board: Board, cellIndex1: number, cellIndex2: number): CellCoords {
+        const { row: row1, col: col1 } = board.cellCoords(cellIndex1);
+        const { row: row2, col: col2 } = board.cellCoords(cellIndex2);
+        return { row: row2 - row1, col: col2 - col1 };
     }
 
-    getAbsoluteOffset(board: Board, cellIndex1, cellIndex2) {
-        const [row1, col1] = board.cellCoords(cellIndex1);
-        const [row2, col2] = board.cellCoords(cellIndex2);
+    getAbsoluteOffset(board: Board, cellIndex1: CellIndex, cellIndex2: CellIndex) {
+        const { row: row1, col: col1 } = board.cellCoords(cellIndex1);
+        const { row: row2, col: col2 } = board.cellCoords(cellIndex2);
         return [Math.abs(row2 - row1), Math.abs(col2 - col1)];
     }
 }

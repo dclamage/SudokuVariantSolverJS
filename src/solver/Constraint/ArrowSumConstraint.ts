@@ -1,11 +1,25 @@
+import { Board } from '../Board';
+import ConstraintBuilder from '../ConstraintBuilder';
 import { cellIndexFromName, cellName, minValue, valueBit, valuesList, removeDuplicates } from '../SolveUtility';
 import { SumCellsHelper } from '../SumCellsHelper';
 import { Constraint, ConstraintResult } from './Constraint';
+import { FPuzzlesArrowEntry } from './FPuzzlesInterfaces';
+
+export interface ArrowSumConstraintParams {
+    circleCells: string[];
+    arrowCells: string[];
+}
 
 export class ArrowSumConstraint extends Constraint {
-    constructor(board, params) {
-        const circleCells = params.circleCells.map(cellName => cellIndexFromName(cellName, board.size));
-        const arrowCells = params.arrowCells.map(cellName => cellIndexFromName(cellName, board.size));
+    circleCells: number[];
+    arrowCells: number[];
+    arrowCellsSum: SumCellsHelper;
+    allCells: number[];
+    allCellsSet: Set<number>;
+
+    constructor(board: Board, params: ArrowSumConstraintParams) {
+        const circleCells = params.circleCells.map((cellName: string) => cellIndexFromName(cellName, board.size));
+        const arrowCells = params.arrowCells.map((cellName: string) => cellIndexFromName(cellName, board.size));
         const allCells = [...circleCells, ...arrowCells];
 
         const specificName = `Arrow at ${cellName(circleCells[0], board.size)}`;
@@ -20,19 +34,19 @@ export class ArrowSumConstraint extends Constraint {
         this.allCellsSet = new Set(allCells);
     }
 
-    init(board, isRepeat) {
+    init(board: Board, isRepeat: boolean) {
         if (this.arrowCells.length === 1 && this.circleCells.length === 1) {
             return this.initClone(board, isRepeat);
         }
 
         if (this.circleCells.length === 1) {
-            return this.initCircle(board, isRepeat);
+            return this.initCircle(board);
         }
 
         return this.initPill(board, isRepeat);
     }
 
-    initClone(board, isRepeat) {
+    initClone(board: Board, isRepeat: boolean) {
         if (!isRepeat) {
             const circleCell = this.circleCells[0];
             const arrowCell = this.arrowCells[0];
@@ -41,8 +55,7 @@ export class ArrowSumConstraint extends Constraint {
         return ConstraintResult.UNCHANGED;
     }
 
-    // eslint-disable-next-line no-unused-vars
-    initCircle(board, isRepeat) {
+    initCircle(board: Board) {
         const { size } = board;
         const circleCell = this.circleCells[0];
         const circleCellMask = board.cells[circleCell];
@@ -106,7 +119,7 @@ export class ArrowSumConstraint extends Constraint {
 
             // Determine which candidates were eliminated
             const circleCandidate = board.candidateIndex(circleCell, circleValue);
-            for (let arrowCell of this.arrowCells) {
+            for (const arrowCell of this.arrowCells) {
                 const oldMask = board.cells[arrowCell] & ~board.allValues;
                 const newMask = boardClone.cells[arrowCell] & ~board.allValues;
                 let eliminatedMask = oldMask & ~newMask;
@@ -140,7 +153,7 @@ export class ArrowSumConstraint extends Constraint {
     }
 
     // eslint-disable-next-line no-unused-vars
-    initPill(board, isRepeat) {
+    initPill(board: Board, isRepeat: boolean) {
         const [sumMin, sumMax] = this.arrowCellsSum.sumRange(board);
         const sumMinLength = sumMin.toString().length;
         const sumMaxLength = sumMax.toString().length;
@@ -187,7 +200,7 @@ export class ArrowSumConstraint extends Constraint {
     }
 
     // eslint-disable-next-line no-unused-vars
-    enforce(board, cellIndex, value) {
+    enforce(board: Board, cellIndex: number, value: number) {
         // Clones are enforced entirely by weak links
         if (this.arrowCells.length === 1 && this.circleCells.length === 1) {
             return true;
@@ -215,7 +228,7 @@ export class ArrowSumConstraint extends Constraint {
         return true;
     }
 
-    logicStep(board, logicalStepDescription) {
+    logicStep(board: Board, logicalStepDescription: string[]) {
         if (this.arrowCells.length === 1) {
             // Clones are enforced entirely by weak links
             return ConstraintResult.UNCHANGED;
@@ -228,7 +241,7 @@ export class ArrowSumConstraint extends Constraint {
         return this.logicStepPill(board, logicalStepDescription);
     }
 
-    logicStepCircle(board, logicalStepDescription) {
+    logicStepCircle(board: Board, logicalStepDescription: string[]) {
         const circleCell = this.circleCells[0];
         const circleCellMask = board.cells[circleCell];
 
@@ -296,9 +309,9 @@ export class ArrowSumConstraint extends Constraint {
         return ConstraintResult.UNCHANGED;
     }
 
-    logicStepPill(board, logicalStepDescription) {
-        const circleCellGiven = board.isGiven(this.circleCell);
-        const arrowCellsGiven = this.arrowCells.every(cell => board.isGiven(cell));
+    logicStepPill(board: Board, logicalStepDescription: string[]) {
+        const circleCellGiven = this.circleCells.every(cellIndex => board.isGiven(cellIndex));
+        const arrowCellsGiven = this.arrowCells.every(cellIndex => board.isGiven(cellIndex));
         if (circleCellGiven && arrowCellsGiven) {
             // Done: enforce should have already verified the sum.
             return ConstraintResult.UNCHANGED;
@@ -333,7 +346,7 @@ export class ArrowSumConstraint extends Constraint {
             // Keep only the possible pill values
             const possiblePillValuesMask = new Array(this.circleCells.length).fill(0);
             for (let i = 0; i < this.circleCells.length; i++) {
-                for (let possiblePillValue of possiblePillValues) {
+                for (const possiblePillValue of possiblePillValues) {
                     possiblePillValuesMask[i] |= valueBit(possiblePillValue[i]);
                 }
             }
@@ -373,7 +386,7 @@ export class ArrowSumConstraint extends Constraint {
         return ConstraintResult.UNCHANGED;
     }
 
-    getPillSums(board, circleIndex, sumPrefix = '') {
+    getPillSums(board: { cells: number[]; allValues: number }, circleIndex: number, sumPrefix = '') {
         if (circleIndex >= this.circleCells.length) {
             return [sumPrefix];
         }
@@ -393,7 +406,7 @@ export class ArrowSumConstraint extends Constraint {
         return sums;
     }
 
-    getPillValuesForSum(board, sumStr, circleIndex = 0, sumValues = []) {
+    getPillValuesForSum(board: { cells: number[]; allValues: number }, sumStr: string, circleIndex = 0, sumValues = []) {
         if (circleIndex >= this.circleCells.length) {
             if (sumStr === sumValues.join('')) {
                 return [sumValues];
@@ -418,7 +431,7 @@ export class ArrowSumConstraint extends Constraint {
         return sums;
     }
 
-    getCircleValue(board) {
+    getCircleValue(board: { cells: number[] }) {
         if (this.circleCells.length === 1) {
             return minValue(board.cells[this.circleCells[0]]);
         }
@@ -427,20 +440,20 @@ export class ArrowSumConstraint extends Constraint {
         return parseInt(circleValue, 10);
     }
 
-    getArrowSum(board) {
+    getArrowSum(board: { cells: number[] }) {
         let arrowSum = 0;
-        for (let arrowCell of this.arrowCells) {
+        for (const arrowCell of this.arrowCells) {
             arrowSum += minValue(board.cells[arrowCell]);
         }
         return arrowSum;
     }
 }
 
-export function register(constraintBuilder) {
-    constraintBuilder.registerConstraint('arrow', (board, params) => {
+export function register(constraintBuilder: ConstraintBuilder) {
+    constraintBuilder.registerConstraint('arrow', (board: Board, params: FPuzzlesArrowEntry) => {
         const constraints = [];
-        for (let line of params.lines) {
-            const arrowParams = {
+        for (const line of params.lines) {
+            const arrowParams: ArrowSumConstraintParams = {
                 circleCells: params.cells,
                 arrowCells: line.slice(1),
             };

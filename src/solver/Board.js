@@ -96,7 +96,7 @@ export class Board {
     }
 
     cellCoords(cellIndex) {
-        return [Math.floor(cellIndex / this.size), cellIndex % this.size];
+        return { row: Math.floor(cellIndex / this.size), col: cellIndex % this.size };
     }
 
     candidateIndexRC(row, col, value) {
