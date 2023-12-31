@@ -1,5 +1,5 @@
 import { Board } from '../Board';
-import { CandidateIndex, CellMask, cellName, maskToString, popcount, valuesList } from '../SolveUtility';
+import { CandidateIndex, cellName, maskToString, popcount, valuesList } from '../SolveUtility';
 import { LogicalStep } from './LogicalStep';
 
 export class CellForcing extends LogicalStep {
@@ -18,7 +18,7 @@ export class CellForcing extends LogicalStep {
                 }
 
                 const cellCandidates: CandidateIndex[] = valuesList(cellMask).map(value => board.candidateIndex(cellIndex, value));
-                const elims: CellMask[] = board.calcElimsForCandidateIndices(cellCandidates);
+                const elims: CandidateIndex[] = board.calcElimsForCandidateIndices(cellCandidates);
                 if (elims.length === 0) {
                     continue;
                 }
