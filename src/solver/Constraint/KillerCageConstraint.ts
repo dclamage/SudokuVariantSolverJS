@@ -153,11 +153,8 @@ export class KillerCageConstraint extends Constraint {
 }
 
 export function register(constraintBuilder: ConstraintBuilder) {
-    constraintBuilder.registerConstraint(
-        'killercage',
-        (board: Board, params: FPuzzlesKillerCageEntry) => {
-            const cells = params.cells.map(cellName => cellIndexFromName(cellName, board.size));
-            return new KillerCageConstraint(board, { cells: cells, value: parseInt(params.value, 10) });
-        }
-    );
+    constraintBuilder.registerConstraint('killercage', (board: Board, params: FPuzzlesKillerCageEntry) => {
+        const cells = params.cells.map(cellName => cellIndexFromName(cellName, board.size));
+        return new KillerCageConstraint(board, { cells: cells, value: parseInt(params.value, 10) });
+    });
 }
