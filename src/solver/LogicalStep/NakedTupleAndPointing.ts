@@ -1,17 +1,18 @@
-import { combinations, maskToString, popcount, valueBit, valuesList } from '../SolveUtility';
+import { CandidateIndex, CellIndex, combinations, maskToString, popcount, valueBit, valuesList } from '../SolveUtility';
 import { LogicResult } from '../Enums/LogicResult';
+import { Board } from '../Board';
 import { LogicalStep } from './LogicalStep';
 
 export class NakedTupleAndPointing extends LogicalStep {
-    constructor(board) {
+    constructor(board: Board) {
         super(board, 'Naked Tuple and Pointing');
     }
 
-    step(board, desc) {
+    step(board: Board, desc: string[]) {
         const { size, cells } = board;
         for (let tupleSize = 2; tupleSize < size; tupleSize++) {
             for (const region of board.regions) {
-                const regionCells = region.cells;
+                const regionCells: CellIndex[] = region.cells;
                 if (regionCells.length <= tupleSize) {
                     continue;
                 }
@@ -36,7 +37,7 @@ export class NakedTupleAndPointing extends LogicalStep {
                 }
 
                 // Look through all combinations of cells that could be a tuple
-                for (let tupleCells of combinations(potentialTupleCells, tupleSize)) {
+                for (const tupleCells of combinations(potentialTupleCells, tupleSize)) {
                     const tupleMask = tupleCells.reduce((accumulator, cell) => accumulator | cell.cellMask, 0);
                     if (popcount(tupleMask) !== tupleSize) {
                         continue;
@@ -55,8 +56,8 @@ export class NakedTupleAndPointing extends LogicalStep {
                     }
 
                     // Go through each value individually and build up the eliminations
-                    const elimsSet = new Set();
-                    for (let value of valuesList(tupleMask)) {
+                    const elimsSet = new Set<CandidateIndex>();
+                    for (const value of valuesList(tupleMask)) {
                         // Generate the list of candidate indexes in the tuple
                         const valueMask = valueBit(value);
                         const tupleCandidates = [];
@@ -90,7 +91,7 @@ export class NakedTupleAndPointing extends LogicalStep {
 
             // Look for "pointing" of the same tuple size
             for (const region of board.regions) {
-                const regionCells = region.cells;
+                const regionCells: CellIndex[] = region.cells;
 
                 // Can only point from regions that must contain all values
                 if (regionCells.length !== size) {

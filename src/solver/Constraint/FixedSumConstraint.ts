@@ -1,18 +1,30 @@
-import { cellIndexFromName, hasValue, valueBit } from '../SolveUtility';
+import { Board } from '../Board';
+import ConstraintBuilder from '../ConstraintBuilder';
+import { CellIndex, CellValue, cellIndexFromName, hasValue, valueBit } from '../SolveUtility';
 import { SumCellsHelper } from '../SumCellsHelper';
 import { Constraint, ConstraintResult } from './Constraint';
+import { FPuzzlesLittleKillerSumEntry } from './FPuzzlesInterfaces';
+
+export interface FixedSumConstraintParams {
+    cells: CellIndex[];
+    sum: number;
+}
 
 export class FixedSumConstraint extends Constraint {
-    constructor(constraintName, specificName, board, params) {
-        const cells = params.cells.map(cellName => cellIndexFromName(cellName, board.size));
+    cells: CellIndex[];
+    cellsSet: Set<CellIndex>;
+    sum: number;
+    sumHelper: SumCellsHelper;
+
+    constructor(constraintName: string, specificName: string, board: Board, params: FixedSumConstraintParams) {
         super(board, constraintName, specificName);
 
         this.sum = params.sum;
-        this.cells = cells.sort((a, b) => a - b);
+        this.cells = params.cells.toSorted((a: number, b: number) => a - b);
         this.cellsSet = new Set(this.cells);
     }
 
-    init(board, isRepeat) {
+    init(board: Board, isRepeat: boolean) {
         // Size 1 is just a given
         if (this.cells.length === 1) {
             if (isRepeat) {
@@ -84,7 +96,7 @@ export class FixedSumConstraint extends Constraint {
     }
 
     // eslint-disable-next-line no-unused-vars
-    enforce(board, cellIndex, value) {
+    enforce(board: Board, cellIndex: CellIndex, value: CellValue) {
         if (this.cellsSet.has(cellIndex)) {
             const givenSum = this.getGivenSum(board);
             if (givenSum > this.sum || (givenSum !== this.sum && this.isCompleted(board))) {
@@ -94,7 +106,7 @@ export class FixedSumConstraint extends Constraint {
         return true;
     }
 
-    logicStep(board, logicalStepDescription) {
+    logicStep(board: Board, logicalStepDescription: string[]) {
         if (this.sumHelper) {
             return this.sumHelper.logicStep(board, [this.sum], logicalStepDescription);
         }
@@ -102,12 +114,12 @@ export class FixedSumConstraint extends Constraint {
     }
 
     // Returns if all the cells in the cage are givens
-    isCompleted(board) {
+    isCompleted(board: Board) {
         return this.cells.every(cell => board.isGiven(cell));
     }
 
     // Returns the sum of all the given cells in the cage
-    getGivenSum(board) {
+    getGivenSum(board: Board) {
         return this.cells
             .filter(cell => board.isGiven(cell))
             .map(cell => board.getValue(cell))
@@ -115,15 +127,16 @@ export class FixedSumConstraint extends Constraint {
     }
 }
 
-export function register(constraintBuilder) {
-    constraintBuilder.registerConstraint('littlekillersum', (board, params) => {
+export function register(constraintBuilder: ConstraintBuilder) {
+    constraintBuilder.registerConstraint('littlekillersum', (board: Board, params: FPuzzlesLittleKillerSumEntry): Constraint | Array<Constraint> => {
         if (!params.value) {
             return [];
         }
 
+        const cells = params.cells.map((cellName: string) => cellIndexFromName(cellName, board.size));
         const clueCell = params.cell;
-        const lkParams = {
-            cells: params.cells,
+        const lkParams: FixedSumConstraintParams = {
+            cells,
             sum: parseInt(params.value, 10),
         };
         const constraintName = 'Little Killer';

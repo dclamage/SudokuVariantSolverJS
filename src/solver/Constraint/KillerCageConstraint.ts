@@ -1,27 +1,40 @@
-import { cellIndexFromName, cellName, hasValue, valueBit } from '../SolveUtility';
+import { Board } from '../Board';
+import ConstraintBuilder from '../ConstraintBuilder';
+import { CellIndex, CellValue, cellIndexFromName, cellName, hasValue, valueBit } from '../SolveUtility';
 import { SumCellsHelper } from '../SumCellsHelper';
 import { Constraint, ConstraintResult } from './Constraint';
+import { FPuzzlesKillerCageEntry } from './FPuzzlesInterfaces';
+
+interface KillerCageConstraintParams {
+    cells: CellIndex[];
+    value: number;
+}
 
 export class KillerCageConstraint extends Constraint {
-    constructor(board, params) {
-        const cells = params.cells.map(cellName => cellIndexFromName(cellName, board.size));
+    cells: CellIndex[];
+    cellsSet: Set<CellIndex>;
+    sum: number;
+    sumCells: SumCellsHelper;
+
+    constructor(board: Board, params: KillerCageConstraintParams) {
+        const cells = params.cells.toSorted((a, b) => a - b);
         const specificName =
             params.value > 0
                 ? `Killer Cage ${params.value} at ${cellName(cells[0], board.size)}`
                 : `Killer Cage at ${cellName(cells[0], board.size)}`;
         super(board, 'Killer Cage', specificName);
 
-        const value = parseInt(params.value, 10);
+        const value = params.value;
         if (isNaN(value) || value < 0) {
             this.sum = 0;
         } else {
             this.sum = value;
         }
-        this.cells = cells.sort((a, b) => a - b);
+        this.cells = cells.toSorted((a, b) => a - b);
         this.cellsSet = new Set(this.cells);
     }
 
-    init(board, isRepeat) {
+    init(board: Board, isRepeat: boolean) {
         // Size 1 killer cages are givens
         if (this.cells.length === 1) {
             if (isRepeat) {
@@ -108,7 +121,7 @@ export class KillerCageConstraint extends Constraint {
     }
 
     // eslint-disable-next-line no-unused-vars
-    enforce(board, cellIndex, value) {
+    enforce(board: Board, cellIndex: CellIndex, value: CellValue) {
         if (this.sum > 0 && this.cellsSet.has(cellIndex)) {
             const givenSum = this.getGivenSum(board);
             if (givenSum > this.sum || (givenSum !== this.sum && this.isCompleted(board))) {
@@ -118,7 +131,7 @@ export class KillerCageConstraint extends Constraint {
         return true;
     }
 
-    logicStep(board, logicalStepDescription) {
+    logicStep(board: Board, logicalStepDescription: string[]) {
         if (this.sumCells) {
             return this.sumCells.logicStep(board, [this.sum], logicalStepDescription);
         }
@@ -126,12 +139,12 @@ export class KillerCageConstraint extends Constraint {
     }
 
     // Returns if all the cells in the cage are givens
-    isCompleted(board) {
+    isCompleted(board: Board) {
         return this.cells.every(cell => board.isGiven(cell));
     }
 
     // Returns the sum of all the given cells in the cage
-    getGivenSum(board) {
+    getGivenSum(board: Board) {
         return this.cells
             .filter(cell => board.isGiven(cell))
             .map(cell => board.getValue(cell))
@@ -139,6 +152,9 @@ export class KillerCageConstraint extends Constraint {
     }
 }
 
-export function register(constraintBuilder) {
-    constraintBuilder.registerConstraint('killercage', (board, params) => new KillerCageConstraint(board, params));
+export function register(constraintBuilder: ConstraintBuilder) {
+    constraintBuilder.registerConstraint('killercage', (board: Board, params: FPuzzlesKillerCageEntry) => {
+        const cells = params.cells.map(cellName => cellIndexFromName(cellName, board.size));
+        return new KillerCageConstraint(board, { cells: cells, value: parseInt(params.value, 10) });
+    });
 }

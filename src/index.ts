@@ -1,16 +1,32 @@
-import { Board } from './solver/Board';
+import { Board, SolveOptions } from './solver/Board';
 import { registerAllConstraints } from './solver/Constraint/ConstraintLoader';
+import { FPuzzlesBoard } from './solver/Constraint/FPuzzlesInterfaces';
 import ConstraintBuilder from './solver/ConstraintBuilder';
-import { minValue, valueBit, valuesList, valuesMask } from './solver/SolveUtility';
+import { CellMask, CellValue, minValue, valueBit, valuesList, valuesMask } from './solver/SolveUtility';
+
+export type ExpandedCandidates = ({ given: true; value: number } | number[])[];
+
+// TODO: Update after we have types for board format
+export type SolverInputData = { board: FPuzzlesBoard; options?: SolveOptions };
+export type SolverResult =
+    | { result: 'invalid' }
+    | { result: 'cancelled' }
+    | { result: 'solution'; solution: CellValue[] }
+    | { result: 'no solution' }
+    | { result: 'truecandidates'; candidates: ExpandedCandidates; counts?: number[] }
+    | { result: 'count'; count: number; complete: boolean; cancelled?: true }
+    | { result: 'step'; desc: string; candidates?: ExpandedCandidates; invalid?: boolean; changed?: boolean }
+    | { result: 'logicalsolve'; desc: string[]; candidates?: ExpandedCandidates; invalid: boolean; changed: boolean };
 
 /**
  * Represents a solver for a Sudoku variant puzzle.
  */
 class SudokuVariantSolver {
-    eventCanceled = false;
-    constraintBuilder = null;
+    eventCanceled: boolean = false;
+    constraintBuilder: ConstraintBuilder;
+    messageCallback: (result: SolverResult) => void;
 
-    constructor(messageCallback) {
+    constructor(messageCallback: (result: SolverResult) => void) {
         this.messageCallback = messageCallback;
         this.constraintBuilder = new ConstraintBuilder();
         registerAllConstraints(this.constraintBuilder);
@@ -22,7 +38,7 @@ class SudokuVariantSolver {
      * @param {Object} data.board - The Sudoku board in the f-puzzles format.
      * @param {Object} [data.options] - The options for solving.
      */
-    async solve(data) {
+    async solve(data: SolverInputData) {
         this.eventCanceled = false;
 
         const board = this.createBoard(data.board);
@@ -30,13 +46,11 @@ class SudokuVariantSolver {
             this.messageCallback({ result: 'invalid' });
         } else {
             const solution = await board.findSolution(data.options || {}, () => this.eventCanceled);
-            if (solution) {
-                if (solution.cancelled) {
-                    this.messageCallback({ result: 'cancelled' });
-                } else {
-                    const solutionValues = solution.getValueArray();
-                    this.messageCallback({ result: 'solution', solution: solutionValues });
-                }
+            if (solution.result === 'cancelled') {
+                this.messageCallback({ result: 'cancelled' });
+            } else if (solution.result === 'board') {
+                const solutionValues = solution.board.getValueArray();
+                this.messageCallback({ result: 'solution', solution: solutionValues });
             } else {
                 this.messageCallback({ result: 'no solution' });
             }
@@ -51,7 +65,7 @@ class SudokuVariantSolver {
      * @param {number} [data.options.maxSolutions=0] - The maximum number of solutions to count.
      * @returns {Promise<void>} - A promise that resolves when the counting is complete.
      */
-    async countSolutions(data) {
+    async countSolutions(data: SolverInputData) {
         this.eventCanceled = false;
 
         const board = this.createBoard(data.board);
@@ -66,10 +80,10 @@ class SudokuVariantSolver {
                 },
                 () => this.eventCanceled
             );
-            if (countResult.isCancelled) {
-                this.messageCallback({ result: 'count', count: countResult.numSolutions, complete: false, cancelled: true });
+            if (countResult.result === 'cancelled partial count') {
+                this.messageCallback({ result: 'count', count: countResult.count, complete: false, cancelled: true });
             } else {
-                this.messageCallback({ result: 'count', count: countResult.numSolutions, complete: true });
+                this.messageCallback({ result: 'count', count: countResult.count, complete: true });
             }
         }
     }
@@ -79,9 +93,9 @@ class SudokuVariantSolver {
      * If a givenBit is provided, it marks the values that contain the givenBit as "given" and returns the minimum value.
      * @param {number[]} candidates - The array of mask values representing the candidates.
      * @param {number} givenBit - The bit value to check against the mask values.
-     * @returns {Array<{given: boolean, value: number[]}>} - The expanded candidates array.
+     * @returns {Array<{given: true, value: number} | number[]>} - The expanded candidates array.
      */
-    expandCandidates(candidates, givenBit) {
+    expandCandidates(candidates: CellMask[], givenBit: CellMask | null | undefined = undefined): ExpandedCandidates {
         if (!givenBit) {
             return candidates?.map(mask => valuesList(mask));
         }
@@ -102,7 +116,7 @@ class SudokuVariantSolver {
      * @param {number} [data.options.maxSolutionsPerCandidate=1] - The maximum number of solutions per candidate.
      * @returns {Promise<void>} - A promise that resolves when the true candidates are calculated.
      */
-    async trueCandidates(data) {
+    async trueCandidates(data: SolverInputData) {
         this.eventCanceled = false;
 
         const board = this.createBoard(data.board);
@@ -112,14 +126,18 @@ class SudokuVariantSolver {
             const { maxSolutionsPerCandidate = 1 } = data.options || {};
 
             const trueCandidatesResult = await board.calcTrueCandidates(maxSolutionsPerCandidate, () => this.eventCanceled);
-            if (trueCandidatesResult.invalid) {
+            if (trueCandidatesResult.result === 'no solution') {
                 this.messageCallback({ result: 'invalid' });
-            } else if (trueCandidatesResult.cancelled) {
+            } else if (trueCandidatesResult.result === 'cancelled') {
                 this.messageCallback({ result: 'cancelled' });
-            } else {
+            } else if (trueCandidatesResult.result === 'true candidates with per-candidate solution count') {
                 const { candidates, counts } = trueCandidatesResult;
                 const expandedCandidates = this.expandCandidates(candidates);
                 this.messageCallback({ result: 'truecandidates', candidates: expandedCandidates, counts: counts });
+            } else {
+                const { candidates } = trueCandidatesResult;
+                const expandedCandidates = this.expandCandidates(candidates);
+                this.messageCallback({ result: 'truecandidates', candidates: expandedCandidates });
             }
         }
     }
@@ -131,7 +149,7 @@ class SudokuVariantSolver {
      * @param {Object} data.board - The Sudoku board in the f-puzzles format.
      * @returns {boolean} - True if the candidate values differ, false otherwise.
      */
-    candidatesDiffer(board, data) {
+    candidatesDiffer(board: Board, data: SolverInputData): boolean {
         const size = board.size;
         for (let i = 0; i < size; i++) {
             for (let j = 0; j < size; j++) {
@@ -145,7 +163,7 @@ class SudokuVariantSolver {
                     const haveGivenPencilmarks = dataCell.givenPencilMarks?.length > 0;
                     const haveCenterPencilmarks = dataCell.centerPencilMarks?.length > 0;
                     if (haveGivenPencilmarks && haveCenterPencilmarks) {
-                        dataCellMask = valuesMask(dataCell.givenPencilMarks.filter(value => dataCell.centerPencilMarks.includes(value)));
+                        dataCellMask = valuesMask(dataCell.givenPencilMarks.filter((value: CellValue) => dataCell.centerPencilMarks.includes(value)));
                     } else if (haveGivenPencilmarks) {
                         dataCellMask = valuesMask(dataCell.givenPencilMarks);
                     } else if (haveCenterPencilmarks) {
@@ -168,7 +186,7 @@ class SudokuVariantSolver {
      * @param {Object} data.board - The Sudoku board in the f-puzzles format.
      * @returns {void}
      */
-    async step(data) {
+    async step(data: SolverInputData): Promise<void> {
         this.eventCanceled = false;
 
         const board = this.createBoard(data.board, true);
@@ -209,7 +227,7 @@ class SudokuVariantSolver {
         });
     }
 
-    async logicalSolve(data) {
+    async logicalSolve(data: SolverInputData) {
         this.eventCanceled = false;
 
         const board = this.createBoard(data.board, true);
@@ -219,15 +237,15 @@ class SudokuVariantSolver {
         }
 
         const solveResult = await board.logicalSolve(() => this.eventCanceled);
-        if (solveResult.cancelled) {
+        if (solveResult.result === 'cancelled partial logical solve') {
             this.messageCallback({ result: 'cancelled' });
             return;
         }
 
-        let desc = solveResult.desc;
+        const desc = solveResult.desc;
         if (board.nonGivenCount === 0) {
             desc.push('Solved!');
-        } else if (solveResult.invalid) {
+        } else if (solveResult.result === 'logically invalid') {
             desc.push('Board is invalid!');
         } else {
             desc.push('No logical steps found.');
@@ -238,8 +256,8 @@ class SudokuVariantSolver {
             result: 'logicalsolve',
             desc,
             candidates: expandedCandidates,
-            invalid: solveResult.invalid,
-            changed: solveResult.changed,
+            invalid: solveResult.result === 'logically invalid',
+            changed: solveResult.result !== 'logically invalid' && solveResult.changed,
         });
     }
 
@@ -250,7 +268,7 @@ class SudokuVariantSolver {
      * @param {boolean} keepPencilMarks - True to keep pencil marks, false to remove them.
      * @returns {Board} The board.
      */
-    createBoard(boardData, keepPencilMarks = false) {
+    createBoard(boardData: FPuzzlesBoard, keepPencilMarks: boolean = false): Board {
         const size = boardData.size;
         const board = new Board(size);
 
@@ -323,7 +341,7 @@ class SudokuVariantSolver {
                             return null;
                         }
                     } else if (haveGivenPencilmarks && haveCenterPencilmarks) {
-                        const pencilMarks = srcCell.givenPencilMarks.filter(value => srcCell.centerPencilMarks.includes(value));
+                        const pencilMarks = srcCell.givenPencilMarks.filter((value: CellValue) => srcCell.centerPencilMarks.includes(value));
                         if (!board.applyGivenPencilMarks(cellIndex, pencilMarks)) {
                             return null;
                         }
@@ -374,10 +392,10 @@ class SudokuVariantSolver {
      *
      * @param {object} boardData - The board data.
      */
-    applyDefaultRegions(boardData) {
+    applyDefaultRegions(boardData: FPuzzlesBoard) {
         const size = boardData.size;
 
-        const regionSizes = {};
+        const regionSizes = { w: 0, h: 0 };
         for (let h = 1; h * h <= size; h++) {
             if (size % h === 0) {
                 regionSizes.w = size / h;

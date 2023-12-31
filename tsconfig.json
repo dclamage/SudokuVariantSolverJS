@@ -1,9 +1,14 @@
 {
   "compilerOptions": {
     "outDir": "./dist/",
+    "noImplicitAny": true,
+    "lib": [
+      "ESNext.Array"
+    ],
     "module": "es6",
     "target": "es6",
     "allowJs": true,
-    "moduleResolution": "node"
+    "moduleResolution": "node",
+    "sourceMap": true,
   }
 }

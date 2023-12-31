@@ -1,12 +1,14 @@
+import { Board } from '../Board';
 import { cellName, minValue } from '../SolveUtility';
 import { LogicalStep, LogicalStepResult } from './LogicalStep';
 
 export class NakedSingle extends LogicalStep {
-    constructor(board) {
+    constructor(board: Board) {
         super(board, 'Naked Single');
     }
 
-    step(board, desc) {
+    // TODO: Update return type to enum
+    step(board: Board, desc: string[]): 0 | 1 | 2 {
         if (board.nakedSingles.length === 0) {
             return LogicalStepResult.UNCHANGED;
         }

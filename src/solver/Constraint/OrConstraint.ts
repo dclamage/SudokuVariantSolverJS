@@ -1,16 +1,25 @@
-import { valueBit, minValue } from '../SolveUtility';
+import { Board } from '../Board';
+import { valueBit, minValue, CellIndex, CellValue } from '../SolveUtility';
 import { Constraint, ConstraintResult } from './Constraint';
 
+interface OrConstraintParams {
+    subboards: Board[];
+}
+
 export class OrConstraint extends Constraint {
-    constructor(constraintName, specificName, board, params) {
+    numCells: number;
+    numCandidates: number;
+    subboards: Board[];
+
+    constructor(constraintName: string, specificName: string, board: Board, params: OrConstraintParams) {
         const { subboards } = params;
         super(board, constraintName, specificName);
         this.numCells = board.size * board.size;
-        this.numCandidates = board.numCells * board.size;
+        this.numCandidates = board.size * board.size * board.size;
         this.subboards = subboards;
     }
 
-    init(board, isRepeat) {
+    init(board: Board, isRepeat: boolean) {
         this.subboards = this.subboards.filter(subboard => {
             // Copy state downwards
             for (let cellIndex = 0; cellIndex < this.numCells; ++cellIndex) {
@@ -52,13 +61,13 @@ export class OrConstraint extends Constraint {
             const boardLinks = board.weakLinks[candidate];
 
             // Find the interesction of all subboard weak links for this candidate
-            let newLinks = this.subboards[0][candidate].filter(link => !boardLinks.includes(link));
+            let newLinks = this.subboards[0].weakLinks[candidate].filter(link => !boardLinks.includes(link));
             if (newLinks.length === 0) {
                 continue;
             }
 
             for (let subBoardIndex = 1; subBoardIndex < this.subboards.length; ++subBoardIndex) {
-                const subBoardLinks1 = this.subboards[subBoardIndex][candidate];
+                const subBoardLinks1 = this.subboards[subBoardIndex].weakLinks[candidate];
                 newLinks = newLinks.filter(link => subBoardLinks1.includes(link));
                 if (newLinks.length === 0) {
                     break;
@@ -105,9 +114,9 @@ export class OrConstraint extends Constraint {
         return clone;
     }
 
-    enforce(board, cellIndex, value) {
-        let invalidSubboards = null;
-        for (let subboard of this.subboards) {
+    enforce(board: Board, cellIndex: CellIndex, value: CellValue) {
+        let invalidSubboards: Board[] | null = null;
+        for (const subboard of this.subboards) {
             if (!subboard.setAsGiven(cellIndex, value)) {
                 if (invalidSubboards === null) {
                     invalidSubboards = [];
@@ -122,9 +131,9 @@ export class OrConstraint extends Constraint {
         return true;
     }
 
-    enforceCandidateElim(board, cellIndex, value) {
-        let invalidSubboards = null;
-        for (let subboard of this.subboards) {
+    enforceCandidateElim(board: Board, cellIndex: CellIndex, value: CellValue) {
+        let invalidSubboards: Board[] | null = null;
+        for (const subboard of this.subboards) {
             if (!subboard.clearValue(cellIndex, value)) {
                 if (invalidSubboards === null) {
                     invalidSubboards = [];
@@ -139,7 +148,7 @@ export class OrConstraint extends Constraint {
         return true;
     }
 
-    logicStep(board, logicalStepDescription) {
+    logicStep(board: Board, logicalStepDescription: string[]) {
         this.subboards = this.subboards.filter(subboard => {
             // Transfer deductions downward
             for (let cellIndex = 0; cellIndex < this.numCells; ++cellIndex) {
@@ -174,7 +183,7 @@ export class OrConstraint extends Constraint {
 
         // Transfer deductions shared by all subboards upward
         let changed = ConstraintResult.UNCHANGED;
-        let elims = [];
+        const elims = [];
         for (let cellIndex = 0; cellIndex < this.numCells; ++cellIndex) {
             const cellMask = this.subboards.reduce((mask, subboard) => mask | subboard.cells[cellIndex], 0);
             let removedMask = board.cells[cellIndex] & ~cellMask;
@@ -198,22 +207,6 @@ export class OrConstraint extends Constraint {
     }
 }
 
-export function register(constraintBuilder) {
-    constraintBuilder.registerConstraint('orconstraint', (board, params) => {
-        let subboards = [];
-        for (const constraint of params.constraints) {
-            let subboard = board.subboardClone();
-            constraintBuilder.buildConstraints(constraint, subboard, false);
-
-            subboards.push(subboard);
-        }
-        return new OrConstraint(
-            `Or Constraint on (${subboards.map(sub => sub.constraints.map(constraint => constraint.toString()).join(' && ')).join(') || (')})`,
-            `Or Constraint on (${subboards
-                .map(sub => sub.constraints.map(constraint => constraint.toSpecificString()).join(' && '))
-                .join(') || (')})`,
-            board,
-            { subboards: subboards }
-        );
-    });
+export interface OrConstraintBuilderParams {
+    constraints: Constraint[];
 }

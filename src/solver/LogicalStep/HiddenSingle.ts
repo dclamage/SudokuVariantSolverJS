@@ -1,13 +1,14 @@
+import { Board } from '../Board';
 import { LogicResult } from '../Enums/LogicResult';
 import { cellName, maskToString, minValue } from '../SolveUtility';
 import { LogicalStep } from './LogicalStep';
 
 export class HiddenSingle extends LogicalStep {
-    constructor(board) {
+    constructor(board: Board) {
         super(board, 'Hidden Single');
     }
 
-    step(board, desc) {
+    step(board: Board, desc: string[]) {
         const { size, givenBit, cells, allValues } = board;
         for (const region of board.regions) {
             const regionCells = region.cells;
@@ -38,7 +39,7 @@ export class HiddenSingle extends LogicalStep {
                 return LogicResult.INVALID;
             }
 
-            let exactlyOnce = atLeastOnce & ~moreThanOnce;
+            const exactlyOnce = atLeastOnce & ~moreThanOnce;
             for (const cellIndex of regionCells) {
                 const cellMask = cells[cellIndex];
                 const newCellMask = cellMask & exactlyOnce;
