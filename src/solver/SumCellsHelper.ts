@@ -216,7 +216,7 @@ export class SumCellsHelper {
         return ConstraintResult.UNCHANGED;
     }
 
-    sumRange(board: Board) {
+    sumRange(board: Board): [number, number] {
         let minSum = 0;
         let maxSum = 0;
         for (const group of this.groups) {
@@ -227,7 +227,7 @@ export class SumCellsHelper {
         return [minSum, maxSum];
     }
 
-    possibleSums(board: Board) {
+    possibleSums(board: Board): number[] {
         let completedSum = 0;
         const incompleteGroupsSums = [];
         for (const group of this.groups) {
@@ -275,7 +275,7 @@ export class SumCellsHelper {
             const group = groups[groupIndex];
             for (let i = 0; i < group.length; i++) {
                 const sum = group[i];
-                const subSums: Iterable<number> = SumCellsHelper.enumerateSums(groups, groupIndex + 1);
+                const subSums = SumCellsHelper.enumerateSums(groups, groupIndex + 1);
                 for (const subSum of subSums) {
                     yield sum + subSum;
                 }

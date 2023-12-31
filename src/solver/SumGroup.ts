@@ -43,7 +43,7 @@ export class SumGroup {
         }
     }
 
-    minMaxSum(board: Board) {
+    minMaxSum(board: Board): [number, number] {
         // Trivial case of max number of cells
         if (this.cells.length === board.size) {
             const sum = (board.size * (board.size + 1)) / 2;
@@ -62,7 +62,7 @@ export class SumGroup {
         return minMax;
     }
 
-    calcMinMaxSum(board: Board) {
+    calcMinMaxSum(board: Board): [number, number] {
         // Check if the excluded value must be included
         if (this.cells.some(cell => (board.cells[cell] & this.includeMask & ~board.givenBit) === 0)) {
             return [0, 0];
@@ -141,17 +141,17 @@ export class SumGroup {
         return [min, max];
     }
 
-    restrictSumToArray(board: Board, sum: number) {
+    restrictSumToArray(board: Board, sum: number): RestrictSumResult {
         return this.restrictSumsToArray(board, [sum]);
     }
 
-    restrictSumsToArray(board: Board, sums: number[]) {
+    restrictSumsToArray(board: Board, sums: number[]): RestrictSumResult {
         const sumsSet = new Set(sums);
         const sortedSums = Array.from(sumsSet).sort((a, b) => a - b);
         return this.restrictSumHelper(board, sortedSums);
     }
 
-    restrictMinMaxSum(board: Board, minSum: number, maxSum: number) {
+    restrictMinMaxSum(board: Board, minSum: number, maxSum: number): number {
         const sortedSums: number[] = [];
         for (let sum = minSum; sum <= maxSum; sum++) {
             sortedSums.push(sum);
@@ -159,11 +159,11 @@ export class SumGroup {
         return this.restrictSums(board, sortedSums);
     }
 
-    restrictSum(board: Board, sum: number) {
+    restrictSum(board: Board, sum: number): number {
         return this.restrictSums(board, [sum]);
     }
 
-    restrictSums(board: Board, sums: number[]) {
+    restrictSums(board: Board, sums: number[]): number {
         const sumsSet = new Set(sums);
         const sortedSums = Array.from(sumsSet).sort((a, b) => a - b);
 
@@ -305,7 +305,7 @@ export class SumGroup {
         return { constraintResult: constraintResult, masks: resultMasks };
     }
 
-    applySumResult(board: Board, resultMasks: CellMask[]) {
+    applySumResult(board: Board, resultMasks: CellMask[]): boolean {
         for (let cellIndex = 0; cellIndex < this.cells.length; cellIndex++) {
             const cell = this.cells[cellIndex];
             if (!board.setCellMask(cell, resultMasks[cellIndex])) {
@@ -377,7 +377,7 @@ export class SumGroup {
         return sortedSums;
     }
 
-    isSumPossible(board: Board, sum: number) {
+    isSumPossible(board: Board, sum: number): boolean {
         let unsetCells = this.cells;
         const givenSum = this.givenSum(board);
         if (givenSum > sum) {
@@ -442,7 +442,7 @@ export class SumGroup {
         return combMask & this.includeMask;
     }
 
-    givenSum(board: Board) {
+    givenSum(board: Board): number {
         let sum = 0;
         for (let i = 0; i < this.cells.length; i++) {
             sum += this.getGivenValue(board.cells[this.cells[i]]);
@@ -450,7 +450,7 @@ export class SumGroup {
         return sum;
     }
 
-    getGivenValue(mask: CellMask) {
+    getGivenValue(mask: CellMask): number {
         if ((mask & this.givenBit) !== 0 || popcount(mask) === 1) {
             return minValue(mask);
         }
