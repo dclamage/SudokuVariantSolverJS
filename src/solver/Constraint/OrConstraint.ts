@@ -1,5 +1,4 @@
 import { Board } from '../Board';
-import ConstraintBuilder from '../ConstraintBuilder';
 import { valueBit, minValue, CellIndex, CellValue } from '../SolveUtility';
 import { Constraint, ConstraintResult } from './Constraint';
 
@@ -210,24 +209,4 @@ export class OrConstraint extends Constraint {
 
 export interface OrConstraintBuilderParams {
     constraints: Constraint[];
-}
-
-export function register(constraintBuilder: ConstraintBuilder) {
-    constraintBuilder.registerConstraint('orconstraint', (board: Board, params: OrConstraintBuilderParams) => {
-        const subboards: Board[] = [];
-        for (const constraint of params.constraints) {
-            const subboard = board.subboardClone();
-            constraintBuilder.buildConstraints(constraint, subboard, false);
-
-            subboards.push(subboard);
-        }
-        return new OrConstraint(
-            `Or Constraint on (${subboards.map(sub => sub.constraints.map(constraint => constraint.toString()).join(' && ')).join(') || (')})`,
-            `Or Constraint on (${subboards
-                .map(sub => sub.constraints.map(constraint => constraint.toSpecificString()).join(' && '))
-                .join(') || (')})`,
-            board,
-            { subboards: subboards }
-        );
-    });
 }

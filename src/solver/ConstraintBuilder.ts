@@ -1,22 +1,23 @@
+import { Board } from './Board';
 import { Constraint } from './Constraint/Constraint';
+import { FPuzzlesBoard } from './Constraint/FPuzzlesInterfaces';
 
 // Constraint files export a register function which registers them to a provided ConstraintBuilder.
 // The build function takes a board and parameter object and returns a constraint instance or an array of constraint instances.
 // Example:
 // constraintBuilder.registerConstraint("killercage", (board, params) => new KillerCageConstraint(board, params));
 
+export type ConstraintBuilderFunction = (board: Board, params: unknown) => Constraint | Constraint[];
+export type AggregateConstraintBuilderFunction = (board: Board, boardData: FPuzzlesBoard) => Constraint | Constraint[];
+
 class ConstraintBuilder {
-    constraintBuilder = {};
-    aggregateConstraintBuilders = [];
-    constraintNames = [];
+    constraintBuilder: Map<string, ConstraintBuilderFunction> = new Map();
+    aggregateConstraintBuilders: AggregateConstraintBuilderFunction[] = [];
+    constraintNames: string[] = [];
 
-    constructor() {
-        this.constraintBuilder = {};
-        this.aggregateConstraintBuilders = [];
-        this.constraintNames = [];
-    }
+    constructor() {}
 
-    buildConstraints(boardData, board, finalize = true) {
+    buildConstraints(boardData: FPuzzlesBoard, board: Board, finalize: boolean = true) {
         for (const builder of this.aggregateConstraintBuilders) {
             const newConstraints = builder(board, boardData);
             if (Array.isArray(newConstraints)) {
@@ -34,12 +35,17 @@ class ConstraintBuilder {
         }
 
         for (const constraintName of this.constraintNames) {
-            const constraintData = boardData[constraintName];
+            if (!(constraintName in boardData)) {
+                continue;
+            }
+
+            const constraintKey = constraintName as keyof FPuzzlesBoard;
+            const constraintData = boardData[constraintKey];
             if (!constraintData || !Array.isArray(constraintData) || constraintData.length === 0) {
                 continue;
             }
 
-            const builder = this.constraintBuilder[constraintName];
+            const builder = this.constraintBuilder.get(constraintName);
             if (builder) {
                 for (const instance of constraintData) {
                     const newConstraint = builder(board, instance);
@@ -63,13 +69,13 @@ class ConstraintBuilder {
     }
 
     // Assumes the data is an array of constraint instances and sends one instance at a time
-    registerConstraint(constraintName, builder) {
-        this.constraintBuilder[constraintName] = builder;
+    registerConstraint(constraintName: string, builder: ConstraintBuilderFunction) {
+        this.constraintBuilder.set(constraintName, builder);
         this.constraintNames.push(constraintName);
     }
 
     // Always called, and sends the entire board data
-    registerAggregateConstraint(builder) {
+    registerAggregateConstraint(builder: AggregateConstraintBuilderFunction) {
         this.aggregateConstraintBuilders.push(builder);
     }
 }
