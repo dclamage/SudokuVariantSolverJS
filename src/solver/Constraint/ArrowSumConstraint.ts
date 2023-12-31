@@ -21,12 +21,12 @@ export class ArrowSumConstraint extends Constraint {
         const specificName = `Arrow at ${cellName(params.circleCells[0], board.size)}`;
         super(board, 'Arrow', specificName);
 
-        this.circleCells = params.circleCells;
+        this.circleCells = params.circleCells.slice();
 
-        this.arrowCells = params.arrowCells;
-        this.arrowCellsSum = new SumCellsHelper(board, params.arrowCells);
+        this.arrowCells = params.arrowCells.slice();
+        this.arrowCellsSum = new SumCellsHelper(board, this.arrowCells);
 
-        this.allCells = [...params.circleCells, ...params.arrowCells];
+        this.allCells = [...this.circleCells, ...this.arrowCells];
         this.allCellsSet = new Set(this.allCells);
     }
 
