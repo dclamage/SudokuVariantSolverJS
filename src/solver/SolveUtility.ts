@@ -1,5 +1,9 @@
 import { Board } from './Board';
 
+export type CandidateIndex = number;
+export type CellIndex = number;
+export type CellMask = number;
+
 export function popcount(x: number): number {
     x -= (x >> 1) & 0x55555555;
     x = (x & 0x33333333) + ((x >> 2) & 0x33333333);

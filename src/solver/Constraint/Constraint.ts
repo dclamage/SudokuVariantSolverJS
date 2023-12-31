@@ -1,6 +1,7 @@
 import { Board } from '../Board';
 
 // Reflects what has happened to the board
+// TODO: Convert this to a typescript enum near end of conversion
 export const ConstraintResult = Object.freeze({
     UNCHANGED: 0,
     CHANGED: 1,
