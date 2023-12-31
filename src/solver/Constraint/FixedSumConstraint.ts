@@ -20,7 +20,7 @@ export class FixedSumConstraint extends Constraint {
         super(board, constraintName, specificName);
 
         this.sum = params.sum;
-        this.cells = params.cells.sort((a: number, b: number) => a - b);
+        this.cells = params.cells.toSorted((a: number, b: number) => a - b);
         this.cellsSet = new Set(this.cells);
     }
 
