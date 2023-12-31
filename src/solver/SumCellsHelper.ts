@@ -141,7 +141,7 @@ export class SumCellsHelper {
             }
 
             if (constraintResult === ConstraintResult.CHANGED) {
-                const elims = [];
+                const elims: CellMask[] = [];
                 for (let i = 0; i < numCells; i++) {
                     const cell = group.cells[i];
                     let removedMask = oldMasks[i] & ~board.cells[cell];
@@ -166,7 +166,7 @@ export class SumCellsHelper {
         const minDof = possibleSumMax - minSum;
         const maxDof = maxSum - possibleSumMin;
 
-        const elims = [];
+        const elims: CellMask[] = [];
         for (const { group, groupMin, groupMax } of groupMinMax) {
             if (groupMin === groupMax) {
                 continue;
@@ -229,7 +229,7 @@ export class SumCellsHelper {
 
     possibleSums(board: Board): number[] {
         let completedSum = 0;
-        const incompleteGroupsSums = [];
+        const incompleteGroupsSums: number[][] = [];
         for (const group of this.groups) {
             const possibleSums = group.possibleSums(board);
             if (possibleSums.length === 0) {
