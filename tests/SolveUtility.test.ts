@@ -1,14 +1,14 @@
 import { combinations, permutations } from '../src/solver/SolveUtility';
 
 describe('permutations function', () => {
-    const factorial = n => (n <= 1 ? 1 : n * factorial(n - 1));
+    const factorial = (n: number): number => (n <= 1 ? 1 : n * factorial(n - 1));
 
-    const testPermutations = inputArray => {
+    const testPermutations = (inputArray: number[]) => {
         const results = Array.from(permutations(inputArray));
         const expectedLength = factorial(inputArray.length);
         expect(results).toHaveLength(expectedLength);
 
-        const uniqueResults = new Set(results.map(JSON.stringify));
+        const uniqueResults = new Set(results.map(result => JSON.stringify(result)));
         expect(uniqueResults.size).toBe(expectedLength);
     };
 
@@ -34,21 +34,21 @@ describe('permutations function', () => {
 });
 
 describe('combinations function', () => {
-    function factorial(n) {
+    function factorial(n: number): number {
         return n <= 1 ? 1 : n * factorial(n - 1);
     }
 
-    function binomialCoefficient(n, k) {
+    function binomialCoefficient(n: number, k: number): number {
         return factorial(n) / (factorial(k) * factorial(n - k));
     }
 
-    function testCombinations(inputArray, size) {
+    function testCombinations(inputArray: number[], size: number) {
         const results = Array.from(combinations(inputArray, size));
         const expectedLength = binomialCoefficient(inputArray.length, size);
         expect(results).toHaveLength(expectedLength);
 
         // Check for uniqueness and correct size of each combination
-        const uniqueResults = new Set(results.map(JSON.stringify));
+        const uniqueResults = new Set(results.map(result => JSON.stringify(result)));
         expect(uniqueResults.size).toBe(expectedLength);
         results.forEach(combination => {
             expect(combination).toHaveLength(size);
