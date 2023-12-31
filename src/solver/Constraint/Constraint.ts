@@ -75,7 +75,7 @@ export class Constraint {
     // logicalStepDescription is an optional array of strings that will be filled with a description of the logic step
     // This is used to report the logic step to the user
     // Returns a ConstraintResult
-    logicStep(board: Board, logicalStepDescription: string[]): number {
+    logicStep(board: Board, logicalStepDescription: string[]): 0 | 1 | 2 {
         return ConstraintResult.UNCHANGED;
     }
 
