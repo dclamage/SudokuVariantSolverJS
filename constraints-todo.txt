@@ -4,6 +4,3 @@ palindrome?: FPuzzlesLines[];
 renban?: FPuzzlesLines[];
 whispers?: FPuzzlesLines[];
 nabner?: FPuzzlesLines[];
-
-// CloneConstraint (uses WeakLinksConstraint)
-clone?: FPuzzlesClone[];
