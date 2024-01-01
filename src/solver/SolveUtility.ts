@@ -12,6 +12,20 @@ export interface CellCoords {
     col: number;
 }
 
+export interface RawCellCoords {
+    rawRow: number;
+    rawCol: number;
+}
+
+export interface DirectionalCoords {
+    // First cell at the edge of the board
+    row: number;
+    col: number;
+    // Offset to add to move away from the edge clue
+    dRow: number;
+    dCol: number;
+}
+
 export function popcount(x: CellMask): number {
     x -= (x >> 1) & 0x55555555;
     x = (x & 0x33333333) + ((x >> 2) & 0x33333333);
@@ -228,6 +242,56 @@ export function cellIndexFromName(name: string, size: number): CellIndex {
     const row = parseInt(match[1]) - 1;
     const col = parseInt(match[2]) - 1;
     return row * size + col;
+}
+
+export function rawCellCoordsFromName(name: string): RawCellCoords {
+    name = name.toLowerCase();
+    const coordStrs = name.split('c');
+    coordStrs[0] = coordStrs[0].slice(1);
+    const [rawRow, rawCol] = coordStrs.map(c => parseInt(c, 10));
+    return { rawRow, rawCol };
+}
+
+export function edgeClueDirectionalCoordsFromRawCellCoords(rawCoords: RawCellCoords, size: number): DirectionalCoords {
+    const { rawRow, rawCol } = rawCoords;
+    if (rawRow === 0) {
+        // Top clue
+        return {
+            row: rawRow,
+            col: rawCol - 1,
+            dRow: 1,
+            dCol: 0,
+        };
+    } else if (rawRow === size + 1) {
+        // Bottom clue
+        return {
+            row: size - 1,
+            col: rawCol - 1,
+            dRow: -1,
+            dCol: 0,
+        };
+    } else if (rawCol === 0) {
+        // Left clue
+        return {
+            row: rawRow - 1,
+            col: 0,
+            dRow: 0,
+            dCol: 1,
+        };
+    } else if (rawCol === size + 1) {
+        // Right clue
+        return {
+            row: rawRow - 1,
+            col: size - 1,
+            dRow: 0,
+            dCol: -1,
+        };
+    }
+    throw new Error(`Provided RawCellCoords ${JSON.stringify(rawCoords)} does not correspond to an edge clue`);
+}
+
+export function parseEdgeClueCoords(name: string, size: number): DirectionalCoords {
+    return edgeClueDirectionalCoordsFromRawCellCoords(rawCellCoordsFromName(name), size);
 }
 
 export function sequenceEqual<T>(arr1: T[], arr2: T[]): boolean {
