@@ -3,6 +3,7 @@ import * as ArrowSumConstraint from './ArrowSumConstraint';
 import * as ChessConstraint from './ChessConstraint';
 import * as DiagonalConstraint from './DiagonalConstraint';
 import * as DisjointGroupsConstraint from './DisjointGroupsConstraint';
+import * as DoubleArrowConstraint from './DoubleArrowConstraint';
 import * as GeneralCellPairConstraint from './GeneralCellPairConstraint';
 import * as KillerCageConstraint from './KillerCageConstraint';
 import * as LittleKillerConstraint from './LittleKillerConstraint';
@@ -12,6 +13,7 @@ import * as RegionSumLinesConstraint from './RegionSumLinesConstraint';
 import * as SandwichSumConstraint from './SandwichSumConstraint';
 import * as SingleCellConstraints from './SingleCellConstraints';
 import * as XSumConstraint from './XSumConstraint';
+import * as ZipperLineConstraint from './ZipperLineConstraint';
 
 let isRegistered = false;
 
@@ -25,6 +27,7 @@ export function registerAllConstraints(constraintBuilder: ConstraintBuilder) {
     ChessConstraint.register(constraintBuilder);
     DiagonalConstraint.register(constraintBuilder);
     DisjointGroupsConstraint.register(constraintBuilder);
+    DoubleArrowConstraint.register(constraintBuilder);
     GeneralCellPairConstraint.register(constraintBuilder);
     KillerCageConstraint.register(constraintBuilder);
     LittleKillerConstraint.register(constraintBuilder);
@@ -34,6 +37,7 @@ export function registerAllConstraints(constraintBuilder: ConstraintBuilder) {
     SandwichSumConstraint.register(constraintBuilder);
     SingleCellConstraints.register(constraintBuilder);
     XSumConstraint.register(constraintBuilder);
+    ZipperLineConstraint.register(constraintBuilder);
 
     isRegistered = true;
 }
