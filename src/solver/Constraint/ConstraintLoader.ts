@@ -11,6 +11,7 @@ import * as GeneralCellPairConstraint from './GeneralCellPairConstraint';
 import * as IndexerConstraint from './IndexerConstraint';
 import * as KillerCageConstraint from './KillerCageConstraint';
 import * as LittleKillerConstraint from './LittleKillerConstraint';
+import * as LockoutConstraint from './LockoutConstraint';
 import * as ModularLineConstraint from './ModularLineConstraint';
 import * as NabnerConstraint from './NabnerConstraint';
 import * as QuadrupleConstraint from './QuadrupleConstraint';
@@ -45,6 +46,7 @@ export function registerAllConstraints(constraintBuilder: ConstraintBuilder) {
     IndexerConstraint.register(constraintBuilder);
     KillerCageConstraint.register(constraintBuilder);
     LittleKillerConstraint.register(constraintBuilder);
+    LockoutConstraint.register(constraintBuilder);
     ModularLineConstraint.register(constraintBuilder);
     NabnerConstraint.register(constraintBuilder);
     QuadrupleConstraint.register(constraintBuilder);
