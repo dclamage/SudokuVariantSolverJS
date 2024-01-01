@@ -9,6 +9,7 @@ import * as EntropicLineConstraint from './EntropicLineConstraint';
 import * as GeneralCellPairConstraint from './GeneralCellPairConstraint';
 import * as KillerCageConstraint from './KillerCageConstraint';
 import * as LittleKillerConstraint from './LittleKillerConstraint';
+import * as ModularLineConstraint from './ModularLineConstraint';
 import * as QuadrupleConstraint from './QuadrupleConstraint';
 import * as RegionConstraint from './RegionConstraint';
 import * as RegionSumLinesConstraint from './RegionSumLinesConstraint';
@@ -36,6 +37,7 @@ export function registerAllConstraints(constraintBuilder: ConstraintBuilder) {
     GeneralCellPairConstraint.register(constraintBuilder);
     KillerCageConstraint.register(constraintBuilder);
     LittleKillerConstraint.register(constraintBuilder);
+    ModularLineConstraint.register(constraintBuilder);
     QuadrupleConstraint.register(constraintBuilder);
     RegionConstraint.register(constraintBuilder);
     RegionSumLinesConstraint.register(constraintBuilder);
