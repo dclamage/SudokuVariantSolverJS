@@ -12,6 +12,7 @@ import * as IndexerConstraint from './IndexerConstraint';
 import * as KillerCageConstraint from './KillerCageConstraint';
 import * as LittleKillerConstraint from './LittleKillerConstraint';
 import * as ModularLineConstraint from './ModularLineConstraint';
+import * as NabnerConstraint from './NabnerConstraint';
 import * as QuadrupleConstraint from './QuadrupleConstraint';
 import * as RegionConstraint from './RegionConstraint';
 import * as RegionSumLinesConstraint from './RegionSumLinesConstraint';
@@ -45,6 +46,7 @@ export function registerAllConstraints(constraintBuilder: ConstraintBuilder) {
     KillerCageConstraint.register(constraintBuilder);
     LittleKillerConstraint.register(constraintBuilder);
     ModularLineConstraint.register(constraintBuilder);
+    NabnerConstraint.register(constraintBuilder);
     QuadrupleConstraint.register(constraintBuilder);
     RegionConstraint.register(constraintBuilder);
     RegionSumLinesConstraint.register(constraintBuilder);
