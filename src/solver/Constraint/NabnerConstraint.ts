@@ -22,7 +22,6 @@ export function register(constraintBuilder: ConstraintBuilder) {
                         weakLinks.push([cells[i] * board.size + digit, cells[i] * board.size + digit]);
                     }
                 }
-                console.log(weakLinks);
                 return new WeakLinksConstraint(board, { weakLinks }, 'Nabner', `Nabner at ${line[0]}`);
             }
 
