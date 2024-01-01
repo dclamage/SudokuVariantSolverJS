@@ -5,6 +5,7 @@ import * as ChessConstraint from './ChessConstraint';
 import * as DiagonalConstraint from './DiagonalConstraint';
 import * as DisjointGroupsConstraint from './DisjointGroupsConstraint';
 import * as DoubleArrowConstraint from './DoubleArrowConstraint';
+import * as EntropicLineConstraint from './EntropicLineConstraint';
 import * as GeneralCellPairConstraint from './GeneralCellPairConstraint';
 import * as KillerCageConstraint from './KillerCageConstraint';
 import * as LittleKillerConstraint from './LittleKillerConstraint';
@@ -31,6 +32,7 @@ export function registerAllConstraints(constraintBuilder: ConstraintBuilder) {
     DiagonalConstraint.register(constraintBuilder);
     DisjointGroupsConstraint.register(constraintBuilder);
     DoubleArrowConstraint.register(constraintBuilder);
+    EntropicLineConstraint.register(constraintBuilder);
     GeneralCellPairConstraint.register(constraintBuilder);
     KillerCageConstraint.register(constraintBuilder);
     LittleKillerConstraint.register(constraintBuilder);

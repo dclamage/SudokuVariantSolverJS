@@ -8,7 +8,6 @@ thermometer?: FPuzzlesLines[];
 palindrome?: FPuzzlesLines[];
 renban?: FPuzzlesLines[];
 whispers?: FPuzzlesLines[];
-entropicline?: FPuzzlesLines[];
 modularline?: FPuzzlesLines[];
 nabner?: FPuzzlesLines[];
 
