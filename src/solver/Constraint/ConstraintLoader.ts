@@ -1,5 +1,6 @@
 import ConstraintBuilder from '../ConstraintBuilder';
 import * as ArrowSumConstraint from './ArrowSumConstraint';
+import * as BetweenLineConstraint from './BetweenLineConstraint';
 import * as ChessConstraint from './ChessConstraint';
 import * as DiagonalConstraint from './DiagonalConstraint';
 import * as DisjointGroupsConstraint from './DisjointGroupsConstraint';
@@ -24,6 +25,7 @@ export function registerAllConstraints(constraintBuilder: ConstraintBuilder) {
 
     // Keep these (and the import) alphabetical for easier comparison to files
     ArrowSumConstraint.register(constraintBuilder);
+    BetweenLineConstraint.register(constraintBuilder);
     ChessConstraint.register(constraintBuilder);
     DiagonalConstraint.register(constraintBuilder);
     DisjointGroupsConstraint.register(constraintBuilder);
