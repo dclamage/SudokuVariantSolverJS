@@ -89,6 +89,22 @@ export function valuesMask(values: CellValue[]): CellMask {
     return values.reduce((mask, value) => mask | valueBit(value), 0);
 }
 
+export function maskStrictlyLower(value: CellValue): CellMask {
+    return (1 << (value - 1)) - 1;
+}
+
+export function maskStrictlyHigher(value: CellValue, size: number): CellMask {
+    return ~maskStrictlyLower(value) & allValues(size);
+}
+
+export function maskLowerOrEqual(value: CellValue): CellMask {
+    return (1 << value) - 1;
+}
+
+export function maskHigherOrEqual(value: CellValue, size: number): CellMask {
+    return ~maskLowerOrEqual(value) & allValues(size);
+}
+
 export function valuesList(mask: CellMask): CellValue[] {
     const values: number[] = [];
     while (mask !== 0) {
