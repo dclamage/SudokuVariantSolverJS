@@ -10,7 +10,7 @@ export function register(constraintBuilder: ConstraintBuilder) {
         const weakLinks: [CandidateIndex, CandidateIndex][] = [];
 
         const cellIndex = cellIndexFromName(params.cell, board.size);
-        for (let value = 1; value <= board.size; value += 2) {
+        for (let value = 2; value <= board.size; value += 2) {
             const candidateIndex = board.candidateIndex(cellIndex, value);
             weakLinks.push([candidateIndex, candidateIndex]);
         }
@@ -23,7 +23,7 @@ export function register(constraintBuilder: ConstraintBuilder) {
         const weakLinks: [CandidateIndex, CandidateIndex][] = [];
 
         const cellIndex = cellIndexFromName(params.cell, board.size);
-        for (let value = 2; value <= board.size; value += 2) {
+        for (let value = 1; value <= board.size; value += 2) {
             const candidateIndex = board.candidateIndex(cellIndex, value);
             weakLinks.push([candidateIndex, candidateIndex]);
         }
@@ -37,21 +37,24 @@ export function register(constraintBuilder: ConstraintBuilder) {
 
         const cellIndex = cellIndexFromName(params.cell, board.size);
         const cellCoords = board.cellCoords(cellIndex);
-        for (let offseti = -1; offseti <= 1; offseti += 2) {
-            for (let offsetj = -1; offsetj <= 1; offsetj += 2) {
-                const neighbori = cellCoords.row + offseti;
-                const neighborj = cellCoords.col + offsetj;
-                if (neighbori < 0 || neighbori >= board.size || neighborj < 0 || neighborj >= board.size) {
-                    continue;
-                }
-                const neighborIndex = board.cellIndex(neighbori, neighborj);
+        for (const offset of [
+            [-1, 0],
+            [1, 0],
+            [0, -1],
+            [0, 1],
+        ]) {
+            const neighbori = cellCoords.row + offset[0];
+            const neighborj = cellCoords.col + offset[1];
+            if (neighbori < 0 || neighbori >= board.size || neighborj < 0 || neighborj >= board.size) {
+                continue;
+            }
+            const neighborIndex = board.cellIndex(neighbori, neighborj);
 
-                for (let cellValue = 1; cellValue <= board.size; ++cellValue) {
-                    const candidateIndex = board.candidateIndex(cellIndex, cellValue);
-                    for (let neighborValue = cellValue; neighborValue >= 1; --neighborValue) {
-                        const neighborCandidateIndex = board.candidateIndex(neighborIndex, neighborValue);
-                        weakLinks.push([candidateIndex, neighborCandidateIndex]);
-                    }
+            for (let cellValue = 1; cellValue <= board.size; ++cellValue) {
+                const candidateIndex = board.candidateIndex(cellIndex, cellValue);
+                for (let neighborValue = cellValue; neighborValue >= 1; --neighborValue) {
+                    const neighborCandidateIndex = board.candidateIndex(neighborIndex, neighborValue);
+                    weakLinks.push([candidateIndex, neighborCandidateIndex]);
                 }
             }
         }
@@ -65,21 +68,24 @@ export function register(constraintBuilder: ConstraintBuilder) {
 
         const cellIndex = cellIndexFromName(params.cell, board.size);
         const cellCoords = board.cellCoords(cellIndex);
-        for (let offseti = -1; offseti <= 1; offseti += 2) {
-            for (let offsetj = -1; offsetj <= 1; offsetj += 2) {
-                const neighbori = cellCoords.row + offseti;
-                const neighborj = cellCoords.col + offsetj;
-                if (neighbori < 0 || neighbori >= board.size || neighborj < 0 || neighborj >= board.size) {
-                    continue;
-                }
-                const neighborIndex = board.cellIndex(neighbori, neighborj);
+        for (const offset of [
+            [-1, 0],
+            [1, 0],
+            [0, -1],
+            [0, 1],
+        ]) {
+            const neighbori = cellCoords.row + offset[0];
+            const neighborj = cellCoords.col + offset[1];
+            if (neighbori < 0 || neighbori >= board.size || neighborj < 0 || neighborj >= board.size) {
+                continue;
+            }
+            const neighborIndex = board.cellIndex(neighbori, neighborj);
 
-                for (let cellValue = 1; cellValue <= board.size; ++cellValue) {
-                    const candidateIndex = board.candidateIndex(cellIndex, cellValue);
-                    for (let neighborValue = cellValue; neighborValue <= board.size; ++neighborValue) {
-                        const neighborCandidateIndex = board.candidateIndex(neighborIndex, neighborValue);
-                        weakLinks.push([candidateIndex, neighborCandidateIndex]);
-                    }
+            for (let cellValue = 1; cellValue <= board.size; ++cellValue) {
+                const candidateIndex = board.candidateIndex(cellIndex, cellValue);
+                for (let neighborValue = cellValue; neighborValue <= board.size; ++neighborValue) {
+                    const neighborCandidateIndex = board.candidateIndex(neighborIndex, neighborValue);
+                    weakLinks.push([candidateIndex, neighborCandidateIndex]);
                 }
             }
         }

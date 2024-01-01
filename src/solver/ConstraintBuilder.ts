@@ -95,6 +95,7 @@ class ConstraintBuilder {
     // Assumes the data is a boolean and invokes the builder if the data is true
     registerBooleanConstraint(constraintName: string, builder: BooleanConstraintBuilderFunction) {
         this.booleanConstraintBuilder.set(constraintName, builder);
+        this.booleanConstraintNames.push(constraintName);
     }
 
     // Always called, and sends the entire board data
