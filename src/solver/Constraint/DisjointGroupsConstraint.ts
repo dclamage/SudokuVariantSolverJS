@@ -12,11 +12,7 @@ export function register(constraintBuilder: ConstraintBuilder) {
             throw new Error('Disjoint Groups constraint requires the same number of regions as the board size');
         }
 
-        const disjointCells: CellIndex[][] = new Array(size);
-        for (let i = 0; i < size; ++i) {
-            disjointCells.push([]);
-        }
-
+        const disjointCells: CellIndex[][] = Array.from({ length: size }, () => []);
         for (const region of regions) {
             for (let i = 0; i < size; ++i) {
                 disjointCells[i].push(region.cells[i]);
