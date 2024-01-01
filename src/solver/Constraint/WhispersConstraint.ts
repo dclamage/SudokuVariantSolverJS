@@ -9,7 +9,6 @@ export function register(constraintBuilder: ConstraintBuilder) {
         params.lines.map(line => {
             const defaultMinDifference = Math.ceil(board.size / 2);
             const minDifference = params.value ? parseInt(params.value, 10) : defaultMinDifference;
-            console.log(params, params.value, defaultMinDifference, minDifference);
 
             const cells = line.map(cellName => cellIndexFromName(cellName, board.size));
             const weakLinks: [CandidateIndex, CandidateIndex][] = [];
@@ -17,8 +16,6 @@ export function register(constraintBuilder: ConstraintBuilder) {
                 const compareLinks = (a: [CandidateIndex, CandidateIndex], b: [CandidateIndex, CandidateIndex]) => {
                     return (a[0] - b[0]) * board.size * board.size * board.size + (a[1] - b[1]);
                 };
-                console.log([...generateLEWeakLinks(board.size, cells[i], cells[i + 1], -minDifference)]);
-                console.log([...generateLEWeakLinks(board.size, cells[i + 1], cells[i], -minDifference)].map(x => x.sort((a, b) => a - b)));
                 const links1 = [...generateLEWeakLinks(board.size, cells[i], cells[i + 1], -minDifference)]
                     .map(x => x.sort((a, b) => a - b))
                     .sort(compareLinks);
@@ -26,7 +23,6 @@ export function register(constraintBuilder: ConstraintBuilder) {
                     .map(x => x.sort((a, b) => a - b))
                     .sort(compareLinks);
                 weakLinks.push(...sequenceIntersection(links1, links2, compareLinks));
-                console.log(links1, links2, weakLinks);
             }
 
             return new WeakLinksConstraint(
