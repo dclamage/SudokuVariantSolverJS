@@ -15,6 +15,7 @@ import * as ModularLineConstraint from './ModularLineConstraint';
 import * as QuadrupleConstraint from './QuadrupleConstraint';
 import * as RegionConstraint from './RegionConstraint';
 import * as RegionSumLinesConstraint from './RegionSumLinesConstraint';
+import * as RenbanConstraint from './RenbanConstraint';
 import * as SandwichSumConstraint from './SandwichSumConstraint';
 import * as SingleCellConstraints from './SingleCellConstraints';
 import * as SkyscraperConstraint from './SkyscraperConstraint';
@@ -46,6 +47,7 @@ export function registerAllConstraints(constraintBuilder: ConstraintBuilder) {
     QuadrupleConstraint.register(constraintBuilder);
     RegionConstraint.register(constraintBuilder);
     RegionSumLinesConstraint.register(constraintBuilder);
+    RenbanConstraint.register(constraintBuilder);
     SandwichSumConstraint.register(constraintBuilder);
     SingleCellConstraints.register(constraintBuilder);
     SkyscraperConstraint.register(constraintBuilder);
