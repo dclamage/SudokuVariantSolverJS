@@ -19,8 +19,12 @@ export function register(constraintBuilder: ConstraintBuilder) {
                 };
                 console.log([...generateLEWeakLinks(board.size, cells[i], cells[i + 1], -minDifference)]);
                 console.log([...generateLEWeakLinks(board.size, cells[i + 1], cells[i], -minDifference)].map(x => x.sort((a, b) => a - b)));
-                const links1 = [...generateLEWeakLinks(board.size, cells[i], cells[i + 1], -minDifference)].map(x => x.sort((a, b) => a - b)).sort(compareLinks);
-                const links2 = [...generateLEWeakLinks(board.size, cells[i + 1], cells[i], -minDifference)].map(x => x.sort((a, b) => a - b)).sort(compareLinks);
+                const links1 = [...generateLEWeakLinks(board.size, cells[i], cells[i + 1], -minDifference)]
+                    .map(x => x.sort((a, b) => a - b))
+                    .sort(compareLinks);
+                const links2 = [...generateLEWeakLinks(board.size, cells[i + 1], cells[i], -minDifference)]
+                    .map(x => x.sort((a, b) => a - b))
+                    .sort(compareLinks);
                 weakLinks.push(...sequenceIntersection(links1, links2, compareLinks));
                 console.log(links1, links2, weakLinks);
             }

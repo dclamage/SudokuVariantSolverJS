@@ -326,7 +326,7 @@ export function sequenceEqual<T>(arr1: T[], arr2: T[]): boolean {
 export function sequenceIntersection<T>(arr1: T[], arr2: T[], compare: (a: T, b: T) => number): T[] {
     let i = 0;
     let j = 0;
-    let out: T[] = [];
+    const out: T[] = [];
 
     while (i < arr1.length && j < arr2.length) {
         const result = compare(arr1[i], arr2[j]);
