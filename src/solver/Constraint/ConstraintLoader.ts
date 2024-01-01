@@ -20,6 +20,7 @@ import * as SandwichSumConstraint from './SandwichSumConstraint';
 import * as SingleCellConstraints from './SingleCellConstraints';
 import * as SkyscraperConstraint from './SkyscraperConstraint';
 import * as ThermometerConstraint from './ThermometerConstraint';
+import * as WhispersConstraint from './WhispersConstraint';
 import * as XSumConstraint from './XSumConstraint';
 import * as ZipperLineConstraint from './ZipperLineConstraint';
 
@@ -52,6 +53,7 @@ export function registerAllConstraints(constraintBuilder: ConstraintBuilder) {
     SingleCellConstraints.register(constraintBuilder);
     SkyscraperConstraint.register(constraintBuilder);
     ThermometerConstraint.register(constraintBuilder);
+    WhispersConstraint.register(constraintBuilder);
     XSumConstraint.register(constraintBuilder);
     ZipperLineConstraint.register(constraintBuilder);
 

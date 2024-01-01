@@ -318,6 +318,32 @@ export function sequenceEqual<T>(arr1: T[], arr2: T[]): boolean {
     return arr1.every((value, index) => value === arr2[index]);
 }
 
+// Assumes arr1 and arr2 are sorted
+// Compare should return:
+//  a < b: a negative number
+//  a == b: 0
+//  a > b: a positive number
+export function sequenceIntersection<T>(arr1: T[], arr2: T[], compare: (a: T, b: T) => number): T[] {
+    let i = 0;
+    let j = 0;
+    let out: T[] = [];
+
+    while (i < arr1.length && j < arr2.length) {
+        const result = compare(arr1[i], arr2[j]);
+        if (result < 0) {
+            ++i;
+        } else if (result > 0) {
+            ++j;
+        } else {
+            out.push(arr1[i]);
+            ++i;
+            ++j;
+        }
+    }
+
+    return out;
+}
+
 // Assumes arr is sorted
 export function removeDuplicates<T>(arr: T[]): T[] {
     if (!arr.length) {
