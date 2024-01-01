@@ -7,6 +7,7 @@ import * as DisjointGroupsConstraint from './DisjointGroupsConstraint';
 import * as DoubleArrowConstraint from './DoubleArrowConstraint';
 import * as EntropicLineConstraint from './EntropicLineConstraint';
 import * as GeneralCellPairConstraint from './GeneralCellPairConstraint';
+import * as IndexerConstraint from './IndexerConstraint';
 import * as KillerCageConstraint from './KillerCageConstraint';
 import * as LittleKillerConstraint from './LittleKillerConstraint';
 import * as ModularLineConstraint from './ModularLineConstraint';
@@ -35,6 +36,7 @@ export function registerAllConstraints(constraintBuilder: ConstraintBuilder) {
     DoubleArrowConstraint.register(constraintBuilder);
     EntropicLineConstraint.register(constraintBuilder);
     GeneralCellPairConstraint.register(constraintBuilder);
+    IndexerConstraint.register(constraintBuilder);
     KillerCageConstraint.register(constraintBuilder);
     LittleKillerConstraint.register(constraintBuilder);
     ModularLineConstraint.register(constraintBuilder);

@@ -274,11 +274,11 @@ export class Board {
         return true;
     }
 
-    getRegionsForType(type: RegionType) {
+    getRegionsForType(type: RegionType): Region[] {
         return this.regions.filter(region => region.type === type);
     }
 
-    getRegionsForCell(cellIndex: CellIndex, type: RegionType | null = null) {
+    getRegionsForCell(cellIndex: CellIndex, type: RegionType | null = null): Region[] {
         return this.regions.filter(region => region.cells.includes(cellIndex) && (type === null || region.type === type));
     }
 

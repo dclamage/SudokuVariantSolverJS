@@ -1,8 +1,3 @@
-// IndexerConstraint (uses WeakLinksConstraint)
-rowindexer?: FPuzzlesCells[];
-columnindexer?: FPuzzlesCells[];
-boxindexer?: FPuzzlesCells[];
-
 // WeakLinkLineConstraint (uses WeakLinksConstraint)
 thermometer?: FPuzzlesLines[];
 palindrome?: FPuzzlesLines[];
