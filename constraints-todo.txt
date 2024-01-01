@@ -14,6 +14,3 @@ nabner?: FPuzzlesLines[];
 
 // CloneConstraint (uses WeakLinksConstraint)
 clone?: FPuzzlesClone[];
-
-// SkyscraperConstraint
-skyscraper?: FPuzzlesCell[];
