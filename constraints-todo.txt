@@ -1,6 +1,5 @@
 // WeakLinkLineConstraint (uses WeakLinksConstraint)
 thermometer?: FPuzzlesLines[];
-palindrome?: FPuzzlesLines[];
 renban?: FPuzzlesLines[];
 whispers?: FPuzzlesLines[];
 nabner?: FPuzzlesLines[];
