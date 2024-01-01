@@ -25,7 +25,7 @@ export function register(constraintBuilder: ConstraintBuilder) {
                 weakLinks1.push(...generateLEWeakLinks(board.size, outer[0], middleCell, -1));
                 weakLinks1.push(...generateLEWeakLinks(board.size, middleCell, outer[1], -1));
             }
-            // outer[0] + 1 < outer[1]
+            // outer[0] + minUniqueMiddleValues < outer[1]
             weakLinks1.push(...generateLEWeakLinks(board.size, outer[0], outer[1], -1 - minUniqueMiddleValues));
             subboard1.addConstraint(
                 new WeakLinksConstraint(
@@ -43,7 +43,7 @@ export function register(constraintBuilder: ConstraintBuilder) {
                 weakLinks2.push(...generateLEWeakLinks(board.size, outer[1], middleCell, -1));
                 weakLinks2.push(...generateLEWeakLinks(board.size, middleCell, outer[0], -1));
             }
-            // outer[0] + 1 < outer[1]
+            // outer[0] + minUniqueMiddleValues < outer[1]
             weakLinks1.push(...generateLEWeakLinks(board.size, outer[1], outer[0], -1 - minUniqueMiddleValues));
             subboard2.addConstraint(
                 new WeakLinksConstraint(
