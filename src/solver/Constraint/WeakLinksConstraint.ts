@@ -52,7 +52,22 @@ export function* generateLEWeakLinks(
     k: number
 ): Generator<[CandidateIndex, CandidateIndex]> {
     for (let digit1 = 0; digit1 < size; ++digit1) {
-        for (let digit2 = 0; digit2 + k < digit1; ++digit2) {
+        for (let digit2 = 0; digit2 + k < digit1 && digit2 < size; ++digit2) {
+            yield [cellIndex1 * size + digit1, cellIndex2 * size + digit2];
+        }
+    }
+}
+
+export function* generateNEqWeakLinks(size: number, cellIndex1: CellIndex, cellIndex2: CellIndex): Generator<[CandidateIndex, CandidateIndex]> {
+    for (let digit1 = 0; digit1 < size; ++digit1) {
+        yield [cellIndex1 * size + digit1, cellIndex2 * size + digit1];
+    }
+}
+
+export function* generateEqWeakLinks(size: number, cellIndex1: CellIndex, cellIndex2: CellIndex): Generator<[CandidateIndex, CandidateIndex]> {
+    for (let digit1 = 0; digit1 < size; ++digit1) {
+        for (let digit2 = 0; digit2 < size; ++digit2) {
+            if (digit1 === digit2) continue;
             yield [cellIndex1 * size + digit1, cellIndex2 * size + digit2];
         }
     }

@@ -11,7 +11,11 @@ export class CellForcing extends LogicalStep {
     step(board: Board, desc: string[]): LogicResult {
         const { size, allValues, cells } = board;
         const numCells = size * size;
-        for (let numCandidates = 2; numCandidates < size; numCandidates++) {
+        // TODO: There should be preprocessing to restrict cell masks based on weak links,
+        // which means it should never be possible to do cell forcing when a cell has
+        // the maximum number of candidates. So we should implement this preprocessing,
+        // and this <= should be changed to <.
+        for (let numCandidates = 2; numCandidates <= size; numCandidates++) {
             for (let cellIndex = 0; cellIndex < numCells; cellIndex++) {
                 const cellMask = cells[cellIndex] & allValues;
                 if (popcount(cellMask) !== numCandidates) {

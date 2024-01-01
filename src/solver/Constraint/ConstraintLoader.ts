@@ -15,9 +15,12 @@ import * as ModularLineConstraint from './ModularLineConstraint';
 import * as QuadrupleConstraint from './QuadrupleConstraint';
 import * as RegionConstraint from './RegionConstraint';
 import * as RegionSumLinesConstraint from './RegionSumLinesConstraint';
+import * as RenbanConstraint from './RenbanConstraint';
 import * as SandwichSumConstraint from './SandwichSumConstraint';
 import * as SingleCellConstraints from './SingleCellConstraints';
 import * as SkyscraperConstraint from './SkyscraperConstraint';
+import * as ThermometerConstraint from './ThermometerConstraint';
+import * as WhispersConstraint from './WhispersConstraint';
 import * as XSumConstraint from './XSumConstraint';
 import * as ZipperLineConstraint from './ZipperLineConstraint';
 
@@ -45,9 +48,12 @@ export function registerAllConstraints(constraintBuilder: ConstraintBuilder) {
     QuadrupleConstraint.register(constraintBuilder);
     RegionConstraint.register(constraintBuilder);
     RegionSumLinesConstraint.register(constraintBuilder);
+    RenbanConstraint.register(constraintBuilder);
     SandwichSumConstraint.register(constraintBuilder);
     SingleCellConstraints.register(constraintBuilder);
     SkyscraperConstraint.register(constraintBuilder);
+    ThermometerConstraint.register(constraintBuilder);
+    WhispersConstraint.register(constraintBuilder);
     XSumConstraint.register(constraintBuilder);
     ZipperLineConstraint.register(constraintBuilder);
 

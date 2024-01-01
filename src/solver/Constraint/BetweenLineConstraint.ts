@@ -8,7 +8,6 @@ import { WeakLinksConstraint, generateLEWeakLinks } from './WeakLinksConstraint'
 export function register(constraintBuilder: ConstraintBuilder) {
     constraintBuilder.registerConstraint('betweenline', (board: Board, params: FPuzzlesLines) =>
         params.lines.flatMap(line => {
-            console.log('between line', line);
             if (line.length <= 2) {
                 return [];
             }
