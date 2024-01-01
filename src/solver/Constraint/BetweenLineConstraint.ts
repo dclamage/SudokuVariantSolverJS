@@ -1,6 +1,6 @@
 import { Board } from '../Board';
 import ConstraintBuilder from '../ConstraintBuilder';
-import { cellIndexFromName } from '../SolveUtility';
+import { CandidateIndex, cellIndexFromName } from '../SolveUtility';
 import { FPuzzlesLines } from './FPuzzlesInterfaces';
 import { OrConstraint } from './OrConstraint';
 import { WeakLinksConstraint, generateLEWeakLinks } from './WeakLinksConstraint';
@@ -21,7 +21,7 @@ export function register(constraintBuilder: ConstraintBuilder) {
 
             // outer[0] < middle < outer[1]
             const subboard1 = board.subboardClone();
-            const weakLinks1: [number, number][] = [];
+            const weakLinks1: [CandidateIndex, CandidateIndex][] = [];
             for (const middleCell of middle) {
                 weakLinks1.push(...generateLEWeakLinks(board.size, outer[0], middleCell, -1));
                 weakLinks1.push(...generateLEWeakLinks(board.size, middleCell, outer[1], -1));
@@ -39,7 +39,7 @@ export function register(constraintBuilder: ConstraintBuilder) {
 
             // outer[0] > middle > outer[1]
             const subboard2 = board.subboardClone();
-            const weakLinks2: [number, number][] = [];
+            const weakLinks2: [CandidateIndex, CandidateIndex][] = [];
             for (const middleCell of middle) {
                 weakLinks2.push(...generateLEWeakLinks(board.size, outer[1], middleCell, -1));
                 weakLinks2.push(...generateLEWeakLinks(board.size, middleCell, outer[0], -1));
