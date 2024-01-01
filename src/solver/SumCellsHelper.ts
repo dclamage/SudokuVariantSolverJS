@@ -76,6 +76,19 @@ export class SumCellsHelper {
             return ConstraintResult.INVALID;
         }
 
+        // One SumGroup -- just call it directly
+        if (this.groups.length === 1) {
+            const result = this.groups[0].restrictSums(board, possibleSums);
+            if (result === ConstraintResult.INVALID && logicalStepDescription) {
+                logicalStepDescription.push(
+                    `Cells ${board.compactName(this.cells)} cannot be restricted to the sum${
+                        possibleSums.length === 1 ? '' : 's'
+                    } ${possibleSums.join(',')}.`
+                );
+            }
+            return result;
+        }
+
         const sums = possibleSums.toSorted((a, b) => a - b);
 
         let completedSum = 0;
@@ -228,6 +241,11 @@ export class SumCellsHelper {
     }
 
     possibleSums(board: Board): number[] {
+        // One SumGroup -- just call it directly
+        if (this.groups.length === 1) {
+            return this.groups[0].possibleSums(board);
+        }
+
         let completedSum = 0;
         const incompleteGroupsSums: number[][] = [];
         for (const group of this.groups) {
