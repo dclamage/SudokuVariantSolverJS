@@ -1,6 +1,6 @@
 # Sudoku Variant Solver
 
-This project is a Sudoku Variant Solver library written in JavaScript. It's designed to solve various types of Sudoku puzzles, including those with additional constraints beyond the standard Sudoku rules.
+This project is a Sudoku Variant Solver library written in TypeScript and bundled to JavaScript. It's designed to solve various types of Sudoku puzzles, including those with additional constraints beyond the standard Sudoku rules.
 
 The solver is built with a modular architecture, allowing for the addition of new constraint types as needed. The core of the solver is located in the [src/solver](src/solver) directory, which includes the [Board.js](src/solver/Board.js) file for representing the Sudoku board and various files in the [Constraint](src/solver/Constraint) subdirectory for handling different types of constraints.
 
@@ -135,7 +135,7 @@ The `SudokuVariantSolver` class has various useful entry methods for solving a S
 
 The board format currently is identical to the [f-puzzles](https://f-puzzles.com) format, but in the future an internal format will be used and a builder class will be provided for constructing the board data.
 
-For examples of how the f-puzzles format works, see the descriptor in my [C# Sudoku Variant Solver](https://github.com/dclamage/SudokuSolver/blob/dev/SudokuSolver/PuzzleFormats/FPuzzlesBoard.cs)
+The f-puzzles format is described by the interfaces in [FPuzzlesInterfaces.ts](src/solver/Constraint/FPuzzlesInterfaces.ts).
 
 ### Data Structure
 
