@@ -10,6 +10,8 @@ export function register(constraintBuilder: ConstraintBuilder) {
             const cells = line.map(cellName => cellIndexFromName(cellName, board.size));
             const weakLinks: [CandidateIndex, CandidateIndex][] = [];
             for (let i = 0; i < cells.length - 1; ++i) {
+                // TODO: Don't add the transitive edges once we have cell forcing.
+                //       They make the generated weak links non-local while creating no additional deductions.
                 for (let j = i + 1; j < cells.length; ++j) {
                     weakLinks.push(...generateLEWeakLinks(board.size, cells[i], cells[j], i - j));
                 }

@@ -41,6 +41,9 @@ export class LogicalStep {
         this.maskBetweenExclusive = board.maskBetweenExclusive;
     }
 
+    // TODO: Consider adding `logicalStepDescription` here if we ever want to start logging logical steps taken during init
+    init(board: Board) {}
+
     // Returns the name of the logical step
     toString() {
         return this.name;

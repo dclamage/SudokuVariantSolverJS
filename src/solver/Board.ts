@@ -24,6 +24,7 @@ import { NakedTupleAndPointing } from './LogicalStep/NakedTupleAndPointing';
 import { Constraint, ConstraintResult } from './Constraint/Constraint';
 import { LogicResult } from './Enums/LogicResult';
 import { LogicalStep } from './LogicalStep/LogicalStep';
+import { BinaryImplicationLayeredGraph } from './BinaryImplicationLayeredGraph';
 
 export type RegionType = string;
 export type Region = {
@@ -95,7 +96,7 @@ export class Board {
     cells: CellMask[];
     nonGivenCount: number;
     nakedSingles: CellIndex[];
-    weakLinks: CandidateIndex[][];
+    binaryImplications: BinaryImplicationLayeredGraph;
     regions: Region[];
     constraints: Constraint[];
     constraintsFinalized: boolean;
@@ -112,7 +113,7 @@ export class Board {
             this.cells = new Array(size * size).fill(this.allValues);
             this.nonGivenCount = size * size;
             this.nakedSingles = [];
-            this.weakLinks = Array.from({ length: size * size * size }, () => []);
+            this.binaryImplications = new BinaryImplicationLayeredGraph(size * size * size);
             this.regions = [];
             this.constraints = [];
             this.constraintsFinalized = false;
@@ -139,7 +140,7 @@ export class Board {
         clone.cells = [...this.cells]; // Deep copy
         clone.nonGivenCount = this.nonGivenCount;
         clone.nakedSingles = [...this.nakedSingles]; // Deep copy
-        clone.weakLinks = this.weakLinks;
+        clone.binaryImplications = this.binaryImplications;
         clone.regions = this.regions;
         clone.constraints = this.constraints.map(constraint => constraint.clone()); // Clone constraints that need backtracking state
         clone.constraintsFinalized = this.constraintsFinalized;
@@ -164,7 +165,7 @@ export class Board {
         clone.cells = [...this.cells]; // Deep copy
         clone.nonGivenCount = this.nonGivenCount;
         clone.nakedSingles = [...this.nakedSingles]; // Deep copy
-        clone.weakLinks = this.weakLinks.map(links => links.slice()); // Deep copy
+        clone.binaryImplications = this.binaryImplications.subboardClone(); // Deep copy
         clone.regions = [...this.regions]; // Deep copy
         clone.constraints = []; // Don't inherit constraints
         clone.constraintStates = [];
@@ -231,17 +232,24 @@ export class Board {
     }
 
     addWeakLink(index1: CandidateIndex, index2: CandidateIndex): boolean {
-        if (index1 != index2 && !this.weakLinks[index1].includes(index2)) {
-            this.weakLinks[index1].push(index2);
-            this.weakLinks[index2].push(index1);
-            return true;
-        }
+        return this.binaryImplications.addImplication(index1, ~index2);
+    }
 
-        return false;
+    transferWeakLinkToParentSubboard(index1: CandidateIndex, index2: CandidateIndex): boolean {
+        return this.binaryImplications.transferImplicationToParent(index1, ~index2);
     }
 
     isWeakLink(index1: CandidateIndex, index2: CandidateIndex) {
-        return this.weakLinks[index1].includes(index2);
+        return this.binaryImplications.hasImplication(index1, ~index2);
+    }
+
+    hasNoWeakLinkBetween(indices1: CandidateIndex[], indices2: CandidateIndex[]) {
+        for (const index1 of indices1) {
+            if (this.binaryImplications.hasAnyCommonNegConsequences(index1, indices2)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     addRegion(name: string, cells: CellIndex[], type: RegionType, fromConstraint: null | Constraint = null, addWeakLinks: boolean = true): boolean {
@@ -501,6 +509,8 @@ export class Board {
         return valid;
     }
 
+    // TODO: Move this into BIG and possibly cache cliques there
+    //       Caching maximal cliques might be useful if I can think of how to do preprocessing passes with them
     isGroup(cells: CellIndex[]) {
         for (let i0 = 0; i0 < cells.length - 1; i0++) {
             const cell0 = cells[i0];
@@ -513,7 +523,7 @@ export class Board {
                 for (let value = 1; value <= this.size; value++) {
                     const candidate0 = this.candidateIndex(cell0, value);
                     const candidate1 = this.candidateIndex(cell1, value);
-                    if (!this.weakLinks[candidate0].includes(candidate1)) {
+                    if (!this.isWeakLink(candidate0, candidate1)) {
                         return false;
                     }
                 }
@@ -533,7 +543,7 @@ export class Board {
                 }
 
                 const candidate1 = this.candidateIndex(cell1, value);
-                if (!this.weakLinks[candidate0].includes(candidate1)) {
+                if (!this.isWeakLink(candidate0, candidate1)) {
                     return false;
                 }
             }
@@ -554,7 +564,7 @@ export class Board {
                     const value = minValue(valueMask);
                     const candidate0 = this.candidateIndex(cell0, value);
                     const candidate1 = this.candidateIndex(cell1, value);
-                    if (!this.weakLinks[candidate0].includes(candidate1)) {
+                    if (!this.isWeakLink(candidate0, candidate1)) {
                         return false;
                     }
                     valueMask ^= valueBit(value);
@@ -674,18 +684,11 @@ export class Board {
         }
 
         // Check if there are any weak links between candidates. If so, this isn't placeable.
-        for (let c0 = 0; c0 < numCells - 1; c0++) {
-            const weakLinks0 = this.weakLinks[candidates[c0]];
-            for (let c1 = c0 + 1; c1 < numCells; c1++) {
-                if (weakLinks0.includes(candidates[c1])) {
-                    return false;
-                }
-            }
-        }
-
-        return true;
+        return this.hasNoWeakLinkBetween(candidates, candidates);
     }
 
+    // TODO: I feel like this should loop over the cell masks restricted to values,
+    //       so eg if values is 1234 but cell0 can only be 12, we don't have to enumerate half of the permutations with cell0 = 3 or 4 at all
     canPlaceDigitsAnyOrder(cells: CellIndex[], values: CellValue[]) {
         const numCells = cells.length;
         if (numCells != values.length) {
@@ -842,14 +845,14 @@ export class Board {
     }
 
     // Pass in an array of candidate indexes
-    // Returns an array of candidate indexes which are eliminated by the input candidates
+    // Returns an array of candidate indexes which are eliminated by all of the input candidates
     calcElimsForCandidateIndices(candidateIndexes: CandidateIndex[]): CandidateIndex[] {
         if (candidateIndexes.length === 0) {
             return [];
         }
 
         // Seed the elims with the first candidate
-        let elims = this.weakLinks[candidateIndexes[0]].slice();
+        let elims: CandidateIndex[] = this.binaryImplications.getNegConsequences(candidateIndexes[0]);
 
         // Filter out already-eliminated candidates
         elims = elims.filter(candidateIndex => {
@@ -857,63 +860,16 @@ export class Board {
             return this.cells[cellIndex] & valueBit(value);
         });
 
+        let filteredOut: CandidateIndex[] = [];
         for (let i = 1; i < candidateIndexes.length; i++) {
             const candidateIndex = candidateIndexes[i];
-            const weakLinks = this.weakLinks[candidateIndex];
 
             // Intersect the weak links for this candidate and the previous candidates
-            elims = elims.filter(x => weakLinks.includes(x));
+            filteredOut.length = 0;
+            this.binaryImplications.filterOutNegConsequences(candidateIndex, elims, filteredOut);
+            [elims, filteredOut] = [filteredOut, elims];
         }
         return elims;
-    }
-
-    // eslint-disable-next-line no-unused-vars
-    evaluateWeakLinks(cells: CellIndex[], logicalStepDesc: string[]) {
-        // Only allow eliminations for candidates within the cells
-        const candidatesSet = new Set();
-        for (const cell of cells) {
-            let cellMask = this.cells[cell];
-            while (cellMask !== 0) {
-                const value = minValue(cellMask);
-                candidatesSet.add(this.candidateIndex(cell, value));
-                cellMask ^= valueBit(value);
-            }
-        }
-
-        // Check for "cell forcing" eliminations that originate from the given cells
-        for (const cell of cells) {
-            let elimSet: Set<CandidateIndex> | null = null;
-            const cellMask = this.cells[cell];
-            while (cellMask !== 0) {
-                const value = minValue(cellMask);
-                const candidateIndex = this.candidateIndex(cell, value);
-                const weakLinks = this.weakLinks[candidateIndex];
-                if (elimSet === null) {
-                    elimSet = new Set();
-                    for (const elimCandidate of weakLinks) {
-                        if (candidatesSet.has(elimCandidate)) {
-                            elimSet.add(elimCandidate);
-                        }
-                    }
-                } else {
-                    // Interesection of the weak links for this candidate and the previous candidates
-                    const toDelete: CandidateIndex[] = [];
-                    for (const elimCandidate of elimSet) {
-                        if (!weakLinks.includes(elimCandidate)) {
-                            toDelete.push(elimCandidate);
-                        }
-                    }
-
-                    for (const elimCandidate of toDelete) {
-                        elimSet.delete(elimCandidate);
-                    }
-                }
-
-                if (elimSet.size === 0) {
-                    break;
-                }
-            }
-        }
     }
 
     applyNakedSingles() {
@@ -1019,7 +975,7 @@ export class Board {
 
         // Apply any weak links
         const candidateIndex = this.candidateIndex(cellIndex, value);
-        for (const otherCandidateIndex of this.weakLinks[candidateIndex]) {
+        for (const otherCandidateIndex of this.binaryImplications.getNegConsequences(candidateIndex)) {
             const otherCellIndex = this.cellIndexFromCandidate(otherCandidateIndex);
             if (otherCellIndex === cellIndex) {
                 continue;

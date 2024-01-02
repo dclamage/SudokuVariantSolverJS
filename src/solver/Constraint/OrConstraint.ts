@@ -1,5 +1,5 @@
 import { Board } from '../Board';
-import { valueBit, minValue, CellIndex, CellValue } from '../SolveUtility';
+import { valueBit, minValue, CellIndex, CellValue, CandidateIndex } from '../SolveUtility';
 import { Constraint, ConstraintResult } from './Constraint';
 
 interface OrConstraintParams {
@@ -25,11 +25,6 @@ export class OrConstraint extends Constraint {
             for (let cellIndex = 0; cellIndex < this.numCells; ++cellIndex) {
                 subboard.keepCellMask(cellIndex, board.cells[cellIndex]);
             }
-            for (let candidate = 0; candidate < this.numCandidates; ++candidate) {
-                for (const weakLink of board.weakLinks[candidate]) {
-                    subboard.addWeakLink(candidate, weakLink);
-                }
-            }
             for (const { name, fromConstraint, type, cells } of board.regions) {
                 subboard.addRegion(name, cells, type, fromConstraint, false);
             }
@@ -49,36 +44,38 @@ export class OrConstraint extends Constraint {
         for (let cellIndex = 0; cellIndex < this.numCells; ++cellIndex) {
             const cellMask = this.subboards.reduce((mask, subboard) => mask | subboard.cells[cellIndex], 0);
             const result = board.keepCellMask(cellIndex, cellMask);
-            if (result == ConstraintResult.INVALID) {
+            if (result === ConstraintResult.INVALID) {
                 return ConstraintResult.INVALID;
-            } else if (result == ConstraintResult.CHANGED) {
+            } else if (result === ConstraintResult.CHANGED) {
                 changed = ConstraintResult.CHANGED;
             }
         }
 
         // Transfer weak links shared by all subboards up
+        let scratch: CandidateIndex[] = [];
         for (let candidate = 0; candidate < this.numCandidates; ++candidate) {
-            const boardLinks = board.weakLinks[candidate];
-
             // Find the interesction of all subboard weak links for this candidate
-            let newLinks = this.subboards[0].weakLinks[candidate].filter(link => !boardLinks.includes(link));
+            let newLinks = this.subboards[0].binaryImplications.getTopLayerNegConsequences(candidate);
+
+            for (let subboardIndex = 1; subboardIndex < this.subboards.length; ++subboardIndex) {
+                if (newLinks.length === 0) {
+                    break;
+                }
+                scratch.length = 0;
+                this.subboards[subboardIndex].binaryImplications.filterOutTopLayerNegConsequences(candidate, newLinks, scratch);
+                [newLinks, scratch] = [scratch, newLinks];
+            }
+
             if (newLinks.length === 0) {
                 continue;
             }
 
-            for (let subBoardIndex = 1; subBoardIndex < this.subboards.length; ++subBoardIndex) {
-                const subBoardLinks1 = this.subboards[subBoardIndex].weakLinks[candidate];
-                newLinks = newLinks.filter(link => subBoardLinks1.includes(link));
-                if (newLinks.length === 0) {
-                    break;
-                }
-            }
+            changed = ConstraintResult.CHANGED;
 
-            if (newLinks.length > 0) {
+            for (const subboard of this.subboards) {
                 for (const link of newLinks) {
-                    board.addWeakLink(candidate, link);
+                    subboard.transferWeakLinkToParentSubboard(candidate, link);
                 }
-                changed = ConstraintResult.CHANGED;
             }
         }
 
@@ -193,9 +190,9 @@ export class OrConstraint extends Constraint {
                 elims.push(board.candidateIndex(cellIndex, value));
             }
             const result = board.keepCellMask(cellIndex, cellMask);
-            if (result == ConstraintResult.INVALID) {
+            if (result === ConstraintResult.INVALID) {
                 return ConstraintResult.INVALID;
-            } else if (result == ConstraintResult.CHANGED) {
+            } else if (result === ConstraintResult.CHANGED) {
                 changed = ConstraintResult.CHANGED;
             }
         }

@@ -85,18 +85,6 @@ export class Constraint {
     }
 
     // Utility functions
-    taxiCabDistance(cellCoords1: CellCoords, cellCoords2: CellCoords): number {
-        return Math.abs(cellCoords1.row - cellCoords2.row) + Math.abs(cellCoords1.col - cellCoords2.col);
-    }
-
-    isAdjacent(cellCoords1: CellCoords, cellCoords2: CellCoords): boolean {
-        return this.taxiCabDistance(cellCoords1, cellCoords2) === 1;
-    }
-
-    isDiagonal(cellCoords1: CellCoords, cellCoords2: CellCoords): boolean {
-        return this.taxiCabDistance(cellCoords1, cellCoords2) === 2;
-    }
-
     getOffset(board: Board, cellIndex1: number, cellIndex2: number): CellCoords {
         const { row: row1, col: col1 } = board.cellCoords(cellIndex1);
         const { row: row2, col: col2 } = board.cellCoords(cellIndex2);
