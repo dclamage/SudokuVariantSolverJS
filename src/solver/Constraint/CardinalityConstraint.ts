@@ -31,6 +31,7 @@ export interface CardinalityConstraintParams {
 // which will also become the fallback case when the special cases do not apply.
 export class CardinalityConstraint extends Constraint {
     allowedCounts: number[];
+    initialCandidates: Uint8Array; // Dense array of 729 bytes is less memory than a sparse array of even just 4 elements, and faster too
     stateKey: StateKey<CardinalityConstraintState>;
 
     constructor(constraintName: string, specificName: string, board: Board, params: CardinalityConstraintParams) {
@@ -47,6 +48,10 @@ export class CardinalityConstraint extends Constraint {
 
         this.allowedCounts = params.allowedCounts.toSorted().filter((count: number) => count <= params.candidates.length);
         this.stateKey = board.registerState(new CardinalityConstraintState(params.candidates));
+        this.initialCandidates = new Uint8Array(board.size * board.size * board.size);
+        for (const candidate of params.candidates) {
+            this.initialCandidates[candidate] = 1;
+        }
     }
 
     init(board: Board, isRepeat: boolean) {
@@ -132,6 +137,12 @@ export class CardinalityConstraint extends Constraint {
     }
 
     enforce(board: Board, cellIndex: CellIndex, value: CellValue) {
+        // Early exit
+        const candidate = board.candidateIndex(cellIndex, value);
+        if (!this.initialCandidates[candidate]) {
+            return true;
+        }
+
         // This prevents the accidental use of constState beyond this scope.
         let candidatePos;
         {
@@ -142,7 +153,6 @@ export class CardinalityConstraint extends Constraint {
                 return this.allowedCounts.includes(constState.numSatisfiedCandidates);
             }
 
-            const candidate = board.candidateIndex(cellIndex, value);
             candidatePos = constState.candidates.indexOf(candidate);
             if (candidatePos === -1) {
                 // Unrelated candidate, ignore
@@ -165,6 +175,11 @@ export class CardinalityConstraint extends Constraint {
     }
 
     enforceCandidateElim(board: Board, cellIndex: CellIndex, value: CellValue) {
+        const candidate = board.candidateIndex(cellIndex, value);
+        if (!this.initialCandidates[candidate]) {
+            return true;
+        }
+
         // This prevents the accidental use of constState beyond this scope.
         let candidatePos;
         {
@@ -175,7 +190,6 @@ export class CardinalityConstraint extends Constraint {
                 return this.allowedCounts.includes(constState.numSatisfiedCandidates);
             }
 
-            const candidate = board.candidateIndex(cellIndex, value);
             candidatePos = constState.candidates.indexOf(candidate);
             if (candidatePos === -1) {
                 // Unrelated candidate, ignore
