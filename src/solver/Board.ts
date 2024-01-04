@@ -146,7 +146,7 @@ export class Board {
         clone.constraintStates = this.constraintStates.slice();
         clone.constraintStateIsCloned = [];
         // We can't mutate `this` state either as there may be a clone which references it
-        this.constraintStateIsCloned = []
+        this.constraintStateIsCloned = [];
         clone.memos = this.memos;
         clone.logicalSteps = this.logicalSteps;
         return clone;
