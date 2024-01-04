@@ -1131,15 +1131,15 @@ export class Board {
             const newCellBits = cellMask & ~valueBit(chosenValue);
             if (newCellBits !== 0) {
                 const newBoard = currentBoard.clone();
-                newBoard.cells[unassignedIndex] = newCellBits;
-                jobStack.push(newBoard);
+                if (newBoard.clearValue(unassignedIndex, chosenValue)) {
+                    jobStack.push(newBoard);
+                }
             }
 
             // Push the version where the cell is set to the chosen value
             {
-                const newBoard = currentBoard.clone();
-                if (newBoard.setAsGiven(unassignedIndex, chosenValue)) {
-                    jobStack.push(newBoard);
+                if (currentBoard.setAsGiven(unassignedIndex, chosenValue)) {
+                    jobStack.push(currentBoard);
                 }
             }
         }
@@ -1233,15 +1233,15 @@ export class Board {
             const newCellBits = cellMask & ~valueBit(chosenValue);
             if (newCellBits !== 0) {
                 const newBoard = currentBoard.clone();
-                newBoard.cells[unassignedIndex] = newCellBits;
-                jobStack.push(newBoard);
+                if (newBoard.clearValue(unassignedIndex, chosenValue)) {
+                    jobStack.push(newBoard);
+                }
             }
 
             // Push the version where the cell is set to the chosen value
             {
-                const newBoard = currentBoard.clone();
-                if (newBoard.setAsGiven(unassignedIndex, chosenValue)) {
-                    jobStack.push(newBoard);
+                if (currentBoard.setAsGiven(unassignedIndex, chosenValue)) {
+                    jobStack.push(currentBoard);
                 }
             }
         }
