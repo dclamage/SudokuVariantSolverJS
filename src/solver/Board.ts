@@ -143,8 +143,10 @@ export class Board {
         clone.regions = this.regions;
         clone.constraints = this.constraints.map(constraint => constraint.clone()); // Clone constraints that need backtracking state
         clone.constraintsFinalized = this.constraintsFinalized;
-        clone.constraintStates = this.constraintStates.map(state => state.clone());
-        clone.constraintStateIsCloned = new Array(this.constraintStates.length);
+        clone.constraintStates = this.constraintStates.slice();
+        clone.constraintStateIsCloned = [];
+        // We can't mutate `this` state either as there may be a clone which references it
+        this.constraintStateIsCloned = [];
         clone.memos = this.memos;
         clone.logicalSteps = this.logicalSteps;
         return clone;
