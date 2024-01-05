@@ -20,7 +20,7 @@ class RenbanConstraint extends Constraint {
     }
 
     init(board: Board, isRepeat: boolean): InitResult {
-        let changed = ConstraintResult.UNCHANGED;
+        const changed = ConstraintResult.UNCHANGED;
         const newConstraints: Constraint[] = [];
         if (!isRepeat) {
             const weakLinks: [CandidateIndex, CandidateIndex][] = [];
@@ -56,7 +56,7 @@ class RenbanConstraint extends Constraint {
         const allCellsMask = this.cells.reduce((acc, cell) => acc | board.cells[cell], 0) & board.allValues;
         const calcMissingDigits = (cellMask: CellMask) => {
             let missingMask = board.allValues & ~cellMask;
-            let missingDigits = [];
+            const missingDigits = [];
             while (missingMask > 0) {
                 missingDigits.push(minValue(missingMask));
                 missingMask &= missingMask - 1;
