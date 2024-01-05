@@ -7,13 +7,11 @@ import { FPuzzlesLines } from './FPuzzlesInterfaces';
 import { WeakLinksConstraint, generateLEWeakLinks, generateNEqWeakLinks } from './WeakLinksConstraint';
 
 class RenbanConstraint extends Constraint {
-    lineName: string;
     cells: CellIndex[];
     alreadyAddedCardinalityConstraints: Uint8Array;
 
-    constructor(board: Board, params: { cells: CellIndex[] }, lineName: string, constraintName: string, specificName: string) {
+    constructor(board: Board, params: { cells: CellIndex[] }, constraintName: string, specificName: string) {
         super(board, constraintName, specificName);
-        this.lineName = lineName;
         this.cells = params.cells.slice();
         // TODO: When cardinality constraints can be added natively to the board, we should be able to deduplicate better
         this.alreadyAddedCardinalityConstraints = new Uint8Array(board.size + 1);
@@ -123,7 +121,7 @@ class RenbanConstraint extends Constraint {
             if (!this.alreadyAddedCardinalityConstraints[requiredDigit]) {
                 this.alreadyAddedCardinalityConstraints[requiredDigit] = 1;
                 newCardinalityConstraints.push(
-                    new CardinalityConstraint('Renban', `Renban requires ${requiredDigit} on ${this.lineName}`, board, {
+                    new CardinalityConstraint('Renban', `${this.toSpecificString()} requires a ${requiredDigit}`, board, {
                         candidates: this.cells.map(cell => board.candidateIndex(cell, requiredDigit)),
                         allowedCounts: [1],
                     })
@@ -140,7 +138,7 @@ export function register(constraintBuilder: ConstraintBuilder) {
     constraintBuilder.registerConstraint('renban', (board: Board, params: FPuzzlesLines) =>
         params.lines.map(line => {
             const cells = line.map(cellName => cellIndexFromName(cellName, board.size));
-            return new RenbanConstraint(board, { cells }, `${line[0]}-${line[line.length - 1]}`, 'Renban', `Renban at ${line[0]}`);
+            return new RenbanConstraint(board, { cells }, 'Renban', `Renban at ${line[0]}`);
         })
     );
 }
