@@ -16,7 +16,7 @@ import {
     valueBit,
     valuesList,
 } from '../SolveUtility';
-import { Constraint, ConstraintResult } from './Constraint';
+import { Constraint, ConstraintResult, InitResult } from './Constraint';
 import { FPuzzlesCell } from './FPuzzlesInterfaces';
 
 interface SkyscraperConstraintParams {
@@ -33,7 +33,6 @@ export class SkyscraperConstraint extends Constraint {
     cellStart: CellIndex;
     cells: CellIndex[];
     cellsLookup: Set<CellIndex>;
-    needsLogic: boolean = true;
     memoPrefix: string;
 
     constructor(board: Board, params: SkyscraperConstraintParams) {
@@ -54,25 +53,20 @@ export class SkyscraperConstraint extends Constraint {
         this.memoPrefix = `Skyscraper|${this.clue}|${this.cellStart}`;
     }
 
-    init(board: Board, isRepeat: boolean): ConstraintResult {
-        if (!this.needsLogic) {
-            return ConstraintResult.UNCHANGED;
-        }
-
+    init(board: Board, isRepeat: boolean): InitResult {
         // A clue of 1 means the max value must be in the first cell
         if (this.clue === 1) {
-            this.needsLogic = false;
-
             const keepMask = valueBit(board.size);
-            board.keepCellMask(this.cells[0], keepMask);
+            return {
+                result: board.keepCellMask(this.cells[0], keepMask) ? ConstraintResult.CHANGED : ConstraintResult.UNCHANGED,
+                deleteConstraints: [this],
+            };
         }
 
         let changed = false;
 
         // A clue of the max value means that all digits must be in strict order
         if (this.clue === board.size) {
-            this.needsLogic = false;
-
             for (let v = 1; v <= board.size; ++v) {
                 const keepMask = valueBit(v);
                 const result = board.keepCellMask(this.cells[v - 1], keepMask);
@@ -81,6 +75,7 @@ export class SkyscraperConstraint extends Constraint {
                 }
                 changed = changed || result === ConstraintResult.CHANGED;
             }
+            return { result: changed ? ConstraintResult.CHANGED : ConstraintResult.UNCHANGED, deleteConstraints: [this] };
         } else {
             // Restrict high digits
             for (let cellIndex = 0; cellIndex < this.cells.length; ++cellIndex) {
@@ -101,7 +96,7 @@ export class SkyscraperConstraint extends Constraint {
     }
 
     enforce(board: Board, cellIndex: number, value: number): boolean {
-        if (!this.needsLogic || !this.cellsLookup.has(cellIndex)) {
+        if (!this.cellsLookup.has(cellIndex)) {
             return true;
         }
 
@@ -126,10 +121,6 @@ export class SkyscraperConstraint extends Constraint {
     }
 
     logicStep(board: Board, logicalStepDescription: string[]): ConstraintResult {
-        if (!this.needsLogic) {
-            return ConstraintResult.UNCHANGED;
-        }
-
         let changed = false;
 
         let memoKey = this.memoPrefix;

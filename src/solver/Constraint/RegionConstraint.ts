@@ -1,7 +1,7 @@
 import { Board } from '../Board';
 import ConstraintBuilder from '../ConstraintBuilder';
 import { CellIndex, cellIndexFromName, cellName } from '../SolveUtility';
-import { Constraint, ConstraintResult } from './Constraint';
+import { Constraint, ConstraintResult, InitResult } from './Constraint';
 import { FPuzzlesCells } from './FPuzzlesInterfaces';
 
 export interface RegionConstraintParams {
@@ -17,15 +17,11 @@ export class RegionConstraint extends Constraint {
         this.cells = params.cells.slice();
     }
 
-    init(board: Board, isRepeat: boolean): ConstraintResult {
-        if (isRepeat) {
-            return ConstraintResult.UNCHANGED;
-        }
-
-        if (board.addRegion(this.specificName, this.cells, this.constraintName)) {
-            return ConstraintResult.CHANGED;
-        }
-        return ConstraintResult.UNCHANGED;
+    init(board: Board, isRepeat: boolean): InitResult {
+        return {
+            result: board.addRegion(this.specificName, this.cells, this.constraintName) ? ConstraintResult.CHANGED : ConstraintResult.UNCHANGED,
+            deleteConstraints: [this],
+        };
     }
 }
 

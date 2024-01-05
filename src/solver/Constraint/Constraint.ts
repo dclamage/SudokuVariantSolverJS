@@ -8,6 +8,8 @@ export enum ConstraintResult {
     INVALID,
 }
 
+export type InitResult = ConstraintResult | { result: ConstraintResult; addConstraints?: Constraint[]; deleteConstraints?: Constraint[] };
+
 // Convenience class that constraint states can inherit from if they only need to be shallow-cloned
 export class ConstraintState {
     clone(): ConstraintState {
@@ -39,20 +41,28 @@ export class Constraint {
 
     // Initialize the constraint on the board, which may modify the board
     // Adding weak links should be done here
-    // Returns a ConstraintResult
+    // Returns an InitResult, which is either a ConstraintResult or an object of the form:
+    //  { result: ConstraintResult;
+    //    addConstraints?: Constraint[];
+    //    deleteConstraints?: Constraint[];
+    //  }
     // init is called repeatedly on every constraint until all constraints return ConstraintResult.UNCHANGED
     //  - This allows constraints to interact with each other
     //  - isRepeat is true if this is not the first time init has been called on this constraint
     // Never call board.setAsGiven from init as not all weak links have been added yet, so they may not be respected.
     //  - Instead, use board.keepCellMask(cell, valueBit(value)) so that it will be a naked single at the appropriate time.
-    init(board: Board, isRepeat: boolean): ConstraintResult {
+    init(board: Board, isRepeat: boolean): InitResult {
         return ConstraintResult.UNCHANGED;
     }
 
     // Final initialization of the constraint on the board, which may NOT modify the board
     // finalize is called after all constraints have successfully been inited, so constraints may, for example, assume all weak links have been added.
-    // Returns either ConstraintResult.UNCHANGED or ConstraintResult.INVALID
-    finalize(board: Board): ConstraintResult {
+    // The returned ConstraintResult must not be CHANGED, as it may not modify the board.
+    // Constraints may not be added here. However, as an exception, constraints may be deleted here.
+    //  { result: ConstraintResult;
+    //    deleteConstraints?: Constraint[];
+    //  }
+    finalize(board: Board): InitResult {
         return ConstraintResult.UNCHANGED;
     }
 

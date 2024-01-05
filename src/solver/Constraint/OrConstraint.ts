@@ -1,6 +1,6 @@
 import { Board } from '../Board';
 import { valueBit, minValue, CellIndex, CellValue, CandidateIndex } from '../SolveUtility';
-import { Constraint, ConstraintResult } from './Constraint';
+import { Constraint, ConstraintResult, InitResult } from './Constraint';
 
 interface OrConstraintParams {
     subboards: Board[];
@@ -12,14 +12,21 @@ export class OrConstraint extends Constraint {
     subboards: Board[];
 
     constructor(constraintName: string, specificName: string, board: Board, params: OrConstraintParams) {
-        const { subboards } = params;
-        super(board, constraintName, specificName);
-        this.numCells = board.size * board.size;
-        this.numCandidates = board.size * board.size * board.size;
-        this.subboards = subboards;
+        if (constraintName === undefined || specificName === undefined || board === undefined || params === undefined) {
+            super(undefined, undefined, undefined);
+            this.numCells = undefined;
+            this.numCandidates = undefined;
+            this.subboards = undefined;
+        } else {
+            const { subboards } = params;
+            super(board, constraintName, specificName);
+            this.numCells = board.size * board.size;
+            this.numCandidates = board.size * board.size * board.size;
+            this.subboards = subboards;
+        }
     }
 
-    init(board: Board, isRepeat: boolean) {
+    init(board: Board, isRepeat: boolean): InitResult {
         this.subboards = this.subboards.filter(subboard => {
             // Copy state downwards
             for (let cellIndex = 0; cellIndex < this.numCells; ++cellIndex) {
@@ -79,23 +86,16 @@ export class OrConstraint extends Constraint {
             }
         }
 
+        // Only a single subboard, send up all our constraints onto the main board and delete ourselves
+        if (this.subboards.length === 1) {
+            return { result: changed, addConstraints: this.subboards[0].constraints.slice(), deleteConstraints: [this] };
+        }
+
         return changed;
     }
 
     finalize() {
-        this.subboards = this.subboards.filter(subboard => {
-            for (const constraint of subboard.constraints) {
-                const result = constraint.finalize(subboard);
-                if (result === ConstraintResult.INVALID) {
-                    return false;
-                }
-                if (result === ConstraintResult.CHANGED) {
-                    throw new Error('finalize is not allowed to change the board');
-                }
-            }
-            subboard.constraintsFinalized = true;
-            return true;
-        });
+        this.subboards = this.subboards.filter(subboard => subboard.finalizeConstraintsNoInit());
 
         // No more subboards left == puzzle is broken
         return this.subboards.length === 0 ? ConstraintResult.INVALID : ConstraintResult.UNCHANGED;
@@ -103,7 +103,7 @@ export class OrConstraint extends Constraint {
 
     clone() {
         // Shallow copy everything
-        const clone = Object.assign(Object.create(Object.getPrototypeOf(this)), this);
+        const clone = Object.assign(new OrConstraint(undefined, undefined, undefined, undefined), this);
 
         // Clone each subboard
         clone.subboards = this.subboards.map(subboard => subboard.clone());

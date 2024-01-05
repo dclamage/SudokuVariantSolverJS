@@ -1,6 +1,6 @@
 import { Board } from '../Board';
 import { CandidateIndex, CellIndex, CellValue, StateKey, valueBit } from '../SolveUtility';
-import { Constraint, ConstraintResult } from './Constraint';
+import { Constraint, ConstraintResult, InitResult } from './Constraint';
 
 class CardinalityConstraintState {
     numSatisfiedCandidates: number;
@@ -54,7 +54,7 @@ export class CardinalityConstraint extends Constraint {
         }
     }
 
-    init(board: Board, isRepeat: boolean) {
+    init(board: Board, isRepeat: boolean): InitResult {
         if (this.allowedCounts.length === 0) {
             // No allowed counts == broken constraint
             // Handle this case gracefully as encodings may include this in an Or constraint;
@@ -81,8 +81,11 @@ export class CardinalityConstraint extends Constraint {
         });
 
         if (state.candidates.length === 0) {
-            // No candidates means we're either always satisfied or we're always broken.
-            return this.allowedCounts.includes(state.numSatisfiedCandidates) ? ConstraintResult.UNCHANGED : ConstraintResult.INVALID;
+            // No candidates means we're either always satisfied or we're always broken. Either way we can delete ourselves.
+            return {
+                result: this.allowedCounts.includes(state.numSatisfiedCandidates) ? ConstraintResult.UNCHANGED : ConstraintResult.INVALID,
+                deleteConstraints: [this],
+            };
         }
 
         const minCount = this.allowedCounts[0];
@@ -100,12 +103,8 @@ export class CardinalityConstraint extends Constraint {
                 changed = changed || result === ConstraintResult.CHANGED;
             }
 
-            // Fully encoded in board, so we don't have to do anything anymore
-            state.candidates = [];
-            state.numSatisfiedCandidates = 0;
-            this.allowedCounts = [0];
-
-            return changed ? ConstraintResult.CHANGED : ConstraintResult.UNCHANGED;
+            // Fully encoded in board, so we can delete ourselves
+            return { result: changed ? ConstraintResult.CHANGED : ConstraintResult.UNCHANGED, deleteConstraints: [this] };
         }
 
         // If the max count is 1, we can add weak links
@@ -123,12 +122,8 @@ export class CardinalityConstraint extends Constraint {
 
             // If the min count is 0, the weak links are all that's necessary.
             if (minCount === 0) {
-                // Fully encoded in board, so we don't have to do anything anymore
-                state.candidates = [];
-                state.numSatisfiedCandidates = 0;
-                this.allowedCounts = [0];
-
-                return ConstraintResult.UNCHANGED;
+                // Fully encoded in board, so we can delete ourselves
+                return { result: ConstraintResult.CHANGED, deleteConstraints: [this] };
             }
             return !isRepeat ? ConstraintResult.CHANGED : ConstraintResult.UNCHANGED;
         }

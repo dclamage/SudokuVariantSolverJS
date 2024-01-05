@@ -1,7 +1,7 @@
 import { Board } from '../Board';
 import ConstraintBuilder from '../ConstraintBuilder';
 import { CandidateIndex, cellIndexFromName, cellName, maxValue, minValue } from '../SolveUtility';
-import { Constraint, ConstraintResult } from './Constraint';
+import { Constraint, ConstraintResult, InitResult } from './Constraint';
 import { FPuzzlesLines } from './FPuzzlesInterfaces';
 import { OrConstraint } from './OrConstraint';
 import { generateLEWeakLinks } from './WeakLinksConstraint';
@@ -33,16 +33,18 @@ class BetweenLineConstraint extends Constraint {
             return ConstraintResult.INVALID;
         }
 
-        const middleCellMasks = this.middle.map(cell => board.cells[cell] & board.allValues);
-        for (const middleMask of middleCellMasks) {
-            // Invalid if the middle cannot be between the ends
-            if (minValue(middleMask) >= maxValue(endMask1) || maxValue(middleMask) <= minValue(endMask0)) {
+        let changed = ConstraintResult.UNCHANGED;
+        for (const middleCell of this.middle) {
+            const res = board.keepCellMask(middleCell, board.maskBetweenInclusive(minValue(endMask0) + 1, maxValue(endMask1) - 1));
+            if (res === ConstraintResult.INVALID) {
                 return ConstraintResult.INVALID;
+            } else if (res === ConstraintResult.CHANGED) {
+                changed = ConstraintResult.CHANGED;
             }
         }
 
         if (isRepeat) {
-            return ConstraintResult.UNCHANGED;
+            return changed;
         }
 
         // ends[0] < middle < ends[1]
@@ -60,6 +62,10 @@ class BetweenLineConstraint extends Constraint {
             board.addWeakLink(weakLink[0], weakLink[1]);
         }
         return ConstraintResult.CHANGED;
+    }
+
+    finalize(board: Board): InitResult {
+        return { result: ConstraintResult.UNCHANGED, deleteConstraints: [this] };
     }
 }
 

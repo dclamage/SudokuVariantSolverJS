@@ -94,6 +94,7 @@ export class Board {
     allValues: CellMask;
     givenBit: CellMask;
     cells: CellMask[];
+    invalidInit: boolean;
     nonGivenCount: number;
     nakedSingles: CellIndex[];
     binaryImplications: BinaryImplicationLayeredGraph;
@@ -111,6 +112,7 @@ export class Board {
             this.allValues = allValues(size);
             this.givenBit = 1 << size;
             this.cells = new Array(size * size).fill(this.allValues);
+            this.invalidInit = false;
             this.nonGivenCount = size * size;
             this.nakedSingles = [];
             this.binaryImplications = new BinaryImplicationLayeredGraph(size * size * size);
@@ -138,6 +140,7 @@ export class Board {
         clone.allValues = this.allValues;
         clone.givenBit = this.givenBit;
         clone.cells = [...this.cells]; // Deep copy
+        clone.invalidInit = this.invalidInit;
         clone.nonGivenCount = this.nonGivenCount;
         clone.nakedSingles = [...this.nakedSingles]; // Deep copy
         clone.binaryImplications = this.binaryImplications;
@@ -163,6 +166,7 @@ export class Board {
         clone.allValues = this.allValues;
         clone.givenBit = this.givenBit;
         clone.cells = [...this.cells]; // Deep copy
+        clone.invalidInit = this.invalidInit;
         clone.nonGivenCount = this.nonGivenCount;
         clone.nakedSingles = [...this.nakedSingles]; // Deep copy
         clone.binaryImplications = this.binaryImplications.subboardClone(); // Deep copy
@@ -212,7 +216,7 @@ export class Board {
     }
 
     maskStrictlyHigher(v: CellValue) {
-        return this.allValues ^ (1 << (v - 1));
+        return this.allValues ^ this.maskLowerOrEqual(v);
     }
 
     maskLowerOrEqual(v: CellValue) {
@@ -220,7 +224,7 @@ export class Board {
     }
 
     maskHigherOrEqual(v: CellValue) {
-        return this.allValues ^ ((1 << v) - 1);
+        return this.allValues ^ this.maskStrictlyLower(v);
     }
 
     maskBetweenInclusive(v1: CellValue, v2: CellValue) {
@@ -232,7 +236,27 @@ export class Board {
     }
 
     addWeakLink(index1: CandidateIndex, index2: CandidateIndex): boolean {
-        return this.binaryImplications.addImplication(index1, ~index2);
+        const [cellIndex1, value1] = this.candidateToIndexAndValue(index1);
+        const [cellIndex2, value2] = this.candidateToIndexAndValue(index2);
+
+        // We always want to add the weak link as current functions like isGroup rely on it
+        if (!this.binaryImplications.addImplication(index1, ~index2)) {
+            return false;
+        }
+
+        // Enforce weak link now if one of the candidates is already set
+        if ((this.cells[cellIndex1] & this.allValues) === valueBit(value1)) {
+            if (!this.clearCandidate(index2)) {
+                this.invalidInit = true;
+            }
+        }
+        if ((this.cells[cellIndex2] & this.allValues) === valueBit(value2)) {
+            if (!this.clearCandidate(index1)) {
+                this.invalidInit = true;
+            }
+        }
+
+        return true;
     }
 
     transferWeakLinkToParentSubboard(index1: CandidateIndex, index2: CandidateIndex): boolean {
@@ -299,43 +323,89 @@ export class Board {
     initConstraints(isRepeat: boolean = false): boolean {
         if (this.constraints.length > 0) {
             let haveChange = false;
+            const initedConstraints: Map<Constraint, boolean> = new Map();
             do {
                 haveChange = false;
 
+                let constraintsToAdd: Constraint[] = null;
+                let constraintsToDelete: Constraint[] = null;
+
                 for (const constraint of this.constraints) {
-                    const result = constraint.init(this, isRepeat);
-                    if (result === ConstraintResult.INVALID) {
+                    const result = constraint.init(this, isRepeat || initedConstraints.get(constraint) === true);
+                    initedConstraints.set(constraint, true);
+
+                    const constraintResult = typeof result === 'object' ? result.result : result;
+                    const payload = typeof result === 'object' ? result : null;
+                    if (constraintResult === ConstraintResult.INVALID) {
                         return false;
                     }
 
-                    if (result === ConstraintResult.CHANGED) {
+                    if (constraintResult === ConstraintResult.CHANGED) {
                         haveChange = true;
                     }
+
+                    if (payload) {
+                        if (payload.addConstraints) {
+                            constraintsToAdd = payload.addConstraints;
+                        }
+                        if (payload.deleteConstraints) {
+                            constraintsToDelete = payload.deleteConstraints;
+                        }
+                    }
+
+                    if (constraintsToAdd || constraintsToDelete) {
+                        haveChange = true;
+                        break;
+                    }
                 }
-                isRepeat = true;
+
+                if (constraintsToDelete) {
+                    this.constraints = this.constraints.filter(constraint => !constraintsToDelete.includes(constraint));
+                }
+                if (constraintsToAdd) {
+                    for (const constraint of constraintsToAdd) {
+                        this.constraints.push(constraint);
+                    }
+                }
             } while (haveChange);
         }
 
-        return true;
+        return !this.invalidInit;
     }
 
     finalizeConstraints() {
         if (!this.initConstraints()) {
             return false;
         }
+        return this.finalizeConstraintsNoInit();
+    }
 
+    finalizeConstraintsNoInit() {
+        const constraintsToDelete: Constraint[] = [];
         for (const constraint of this.constraints) {
             const result = constraint.finalize(this);
-            if (result === ConstraintResult.INVALID) {
+            const constraintResult = typeof result === 'object' ? result.result : result;
+            const payload = typeof result === 'object' ? result : null;
+
+            if (constraintResult === ConstraintResult.INVALID) {
                 return false;
             }
-            if (result === ConstraintResult.CHANGED) {
+            if (constraintResult === ConstraintResult.CHANGED) {
                 throw new Error('finalize is not allowed to change the board');
             }
+            if (payload) {
+                if (payload.addConstraints) {
+                    throw new Error('finalize may not add constraints!');
+                }
+                if (payload.deleteConstraints) {
+                    constraintsToDelete.push(...payload.deleteConstraints);
+                }
+            }
         }
+        this.constraints = this.constraints.filter(constraint => !constraintsToDelete.includes(constraint));
 
         this.constraintsFinalized = true;
-        return true;
+        return !this.invalidInit;
     }
 
     // Register/use mutable constraint state.
@@ -951,10 +1021,6 @@ export class Board {
     }
 
     setAsGiven(cellIndex: CellIndex, value: CellValue): boolean {
-        if (!this.constraintsFinalized) {
-            throw new Error('Constraints must be finalized before calling setAsGiven');
-        }
-
         const valueMask = valueBit(value);
         const { givenBit } = this;
         const cellMask = this.cells[cellIndex];
