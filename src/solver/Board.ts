@@ -94,6 +94,7 @@ export class Board {
     allValues: CellMask;
     givenBit: CellMask;
     cells: CellMask[];
+    invalidInit: boolean;
     nonGivenCount: number;
     nakedSingles: CellIndex[];
     binaryImplications: BinaryImplicationLayeredGraph;
@@ -111,6 +112,7 @@ export class Board {
             this.allValues = allValues(size);
             this.givenBit = 1 << size;
             this.cells = new Array(size * size).fill(this.allValues);
+            this.invalidInit = false;
             this.nonGivenCount = size * size;
             this.nakedSingles = [];
             this.binaryImplications = new BinaryImplicationLayeredGraph(size * size * size);
@@ -138,6 +140,7 @@ export class Board {
         clone.allValues = this.allValues;
         clone.givenBit = this.givenBit;
         clone.cells = [...this.cells]; // Deep copy
+        clone.invalidInit = this.invalidInit;
         clone.nonGivenCount = this.nonGivenCount;
         clone.nakedSingles = [...this.nakedSingles]; // Deep copy
         clone.binaryImplications = this.binaryImplications;
@@ -163,6 +166,7 @@ export class Board {
         clone.allValues = this.allValues;
         clone.givenBit = this.givenBit;
         clone.cells = [...this.cells]; // Deep copy
+        clone.invalidInit = this.invalidInit;
         clone.nonGivenCount = this.nonGivenCount;
         clone.nakedSingles = [...this.nakedSingles]; // Deep copy
         clone.binaryImplications = this.binaryImplications.subboardClone(); // Deep copy
@@ -232,7 +236,27 @@ export class Board {
     }
 
     addWeakLink(index1: CandidateIndex, index2: CandidateIndex): boolean {
-        return this.binaryImplications.addImplication(index1, ~index2);
+        const [cellIndex1, value1] = this.candidateToIndexAndValue(index1);
+        const [cellIndex2, value2] = this.candidateToIndexAndValue(index2);
+
+        // We always want to add the weak link as current functions like isGroup rely on it
+        if (!this.binaryImplications.addImplication(index1, ~index2)) {
+            return false;
+        }
+
+        // Enforce weak link now if one of the candidates is already set
+        if ((this.cells[cellIndex1] & this.allValues) === valueBit(value1)) {
+            if (!this.clearCandidate(index2)) {
+                this.invalidInit = true;
+            }
+        }
+        if ((this.cells[cellIndex2] & this.allValues) === valueBit(value2)) {
+            if (!this.clearCandidate(index1)) {
+                this.invalidInit = true;
+            }
+        }
+
+        return true;
     }
 
     transferWeakLinkToParentSubboard(index1: CandidateIndex, index2: CandidateIndex): boolean {
@@ -346,7 +370,7 @@ export class Board {
             } while (haveChange);
         }
 
-        return true;
+        return !this.invalidInit;
     }
 
     finalizeConstraints() {
@@ -381,7 +405,7 @@ export class Board {
         this.constraints = this.constraints.filter(constraint => !constraintsToDelete.includes(constraint));
 
         this.constraintsFinalized = true;
-        return true;
+        return !this.invalidInit;
     }
 
     // Register/use mutable constraint state.
@@ -997,10 +1021,6 @@ export class Board {
     }
 
     setAsGiven(cellIndex: CellIndex, value: CellValue): boolean {
-        if (!this.constraintsFinalized) {
-            throw new Error('Constraints must be finalized before calling setAsGiven');
-        }
-
         const valueMask = valueBit(value);
         const { givenBit } = this;
         const cellMask = this.cells[cellIndex];

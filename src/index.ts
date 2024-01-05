@@ -319,13 +319,6 @@ class SudokuVariantSolver {
             }
         }
 
-        // Add constraints
-        if (!this.constraintBuilder.buildConstraints(boardData, board)) {
-            return null;
-        }
-
-        // At this point, all weak links should be added
-
         // Set the givens
         for (let i = 0; i < size; i++) {
             for (let j = 0; j < size; j++) {
@@ -374,6 +367,11 @@ class SudokuVariantSolver {
             }
         }
         board.nakedSingles = newNakedSingles;
+
+        // Add constraints
+        if (!this.constraintBuilder.buildConstraints(boardData, board)) {
+            return null;
+        }
 
         return board;
     }
