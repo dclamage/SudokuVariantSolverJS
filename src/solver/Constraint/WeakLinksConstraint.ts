@@ -1,6 +1,6 @@
 import { Board } from '../Board';
 import { CandidateIndex, CellIndex, valueBit } from '../SolveUtility';
-import { Constraint, ConstraintResult } from './Constraint';
+import { Constraint, ConstraintResult, InitResult } from './Constraint';
 
 export interface WeakLinksConstraintParams {
     weakLinks: [CandidateIndex, CandidateIndex][];
@@ -15,11 +15,7 @@ export class WeakLinksConstraint extends Constraint {
         this.weakLinks = params.weakLinks.slice();
     }
 
-    init(board: Board, isRepeat: boolean): ConstraintResult {
-        if (isRepeat) {
-            return ConstraintResult.UNCHANGED;
-        }
-
+    init(board: Board, isRepeat: boolean): InitResult {
         let changed = false;
         for (const [candidate1, candidate2] of this.weakLinks) {
             if (candidate1 === candidate2) {
@@ -35,7 +31,7 @@ export class WeakLinksConstraint extends Constraint {
                 changed = changed || added;
             }
         }
-        return changed ? ConstraintResult.CHANGED : ConstraintResult.UNCHANGED;
+        return { result: changed ? ConstraintResult.CHANGED : ConstraintResult.UNCHANGED, deleteConstraints: [this] };
     }
 }
 
