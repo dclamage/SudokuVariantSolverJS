@@ -1,7 +1,7 @@
 import { Board } from '../Board';
 import ConstraintBuilder from '../ConstraintBuilder';
 import { CandidateIndex, cellIndexFromName, cellName, maxValue, minValue } from '../SolveUtility';
-import { Constraint, ConstraintResult } from './Constraint';
+import { Constraint, ConstraintResult, InitResult } from './Constraint';
 import { FPuzzlesLines } from './FPuzzlesInterfaces';
 import { OrConstraint } from './OrConstraint';
 import { generateLEWeakLinks } from './WeakLinksConstraint';
@@ -60,6 +60,10 @@ class BetweenLineConstraint extends Constraint {
             board.addWeakLink(weakLink[0], weakLink[1]);
         }
         return ConstraintResult.CHANGED;
+    }
+
+    finalize(board: Board): InitResult {
+        return { result: ConstraintResult.UNCHANGED, deleteConstraints: [this] };
     }
 }
 
