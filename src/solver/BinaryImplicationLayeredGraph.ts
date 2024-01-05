@@ -1,4 +1,4 @@
-import { sequenceFilterOutUpdateDefaultCompare, sequenceHasNonemptyIntersectionDefaultCompare } from './SolveUtility';
+import { removeDuplicates, sequenceFilterOutUpdateDefaultCompare, sequenceHasNonemptyIntersectionDefaultCompare } from './SolveUtility';
 
 // Table of contents
 
@@ -88,6 +88,7 @@ class BinaryImplicationGraph {
     sortGraph() {
         for (const arr of this.unsorted) {
             arr.sort((a, b) => a - b);
+            removeDuplicates(arr);
         }
         this.unsorted.length = 0;
         this.negnegunsorted.fill(0);
@@ -101,12 +102,14 @@ class BinaryImplicationGraph {
     // Returns true if something was added
     addImplication(lit1: Literal, lit2: Literal): boolean {
         const forward = this.implicationsArrFor(lit1, lit2);
-        if (forward.includes(lit2)) {
+        const var2 = toVariable(lit2);
+        if (forward.includes(var2)) {
             return false;
         }
+        const var1 = toVariable(lit1);
         const backward = this.implicationsArrFor(~lit2, ~lit1);
-        forward.push(toVariable(lit2));
-        backward.push(toVariable(lit1));
+        forward.push(var2);
+        backward.push(var1);
         const forwardUnsorted = this.unsortedArrFor(lit1, lit2);
         const backwardUnsorted = this.unsortedArrFor(~lit2, ~lit1);
         if (!forwardUnsorted[lit1]) {
@@ -126,18 +129,20 @@ class BinaryImplicationGraph {
     //  - We're transferring an implication to a parent, so the semantics of the graph have not actually changed at all.
     unsafeRemoveImplication(lit1: Literal, lit2: Literal): boolean {
         const forward = this.implicationsArrFor(lit1, lit2);
-        if (!forward.includes(lit2)) {
+        const var2 = toVariable(lit2);
+        if (!forward.includes(var2)) {
             return false;
         }
+        const var1 = toVariable(lit1);
         const backward = this.implicationsArrFor(~lit2, ~lit1);
         // Preserves sortedness, no need to add to unsortedArr
-        sequenceFilterOutUpdateDefaultCompare(forward, [lit2], []);
-        sequenceFilterOutUpdateDefaultCompare(backward, [~lit1], []);
+        sequenceFilterOutUpdateDefaultCompare(forward, [var2], []);
+        sequenceFilterOutUpdateDefaultCompare(backward, [var1], []);
         return true;
     }
 
     hasImplication(lit1: Literal, lit2: Literal): boolean {
-        return this.implicationsArrFor(lit1, lit2).includes(lit2);
+        return this.implicationsArrFor(lit1, lit2).includes(toVariable(lit2));
     }
 
     getPosConsequences(lit: Literal, consequentsOutput: Variable[]) {
@@ -178,6 +183,7 @@ export class BinaryImplicationLayeredGraph {
 
     graph: BinaryImplicationGraph;
     parentGraphs: BinaryImplicationGraph[];
+    parentLayer: BinaryImplicationLayeredGraph;
 
     // undefined is only for `subboardClone`, users must provide actual values for both arguments.
     constructor(numVariables: number | undefined) {
@@ -186,10 +192,12 @@ export class BinaryImplicationLayeredGraph {
             this.numVariables = undefined;
             this.graph = undefined;
             this.parentGraphs = undefined;
+            this.parentLayer = undefined;
         } else {
             this.numVariables = numVariables;
             this.graph = new BinaryImplicationGraph(numVariables);
             this.parentGraphs = [];
+            this.parentLayer = undefined;
         }
     }
 
@@ -202,7 +210,16 @@ export class BinaryImplicationLayeredGraph {
         clone.parentGraphs = this.parentGraphs.slice();
         clone.parentGraphs.push(this.graph);
 
+        clone.parentLayer = this;
+
         return clone;
+    }
+
+    sortGraph() {
+        this.graph.sortGraph();
+        for (const parentGraph of this.parentGraphs) {
+            parentGraph.sortGraph();
+        }
     }
 
     // Use bitwise invert (~x) to turn a variable into a negative literal.
@@ -218,7 +235,7 @@ export class BinaryImplicationLayeredGraph {
 
     transferImplicationToParent(lit1: Literal, lit2: Literal): boolean {
         if (this.graph.unsafeRemoveImplication(lit1, lit2)) {
-            this.parentGraphs[0].addImplication(lit1, lit2);
+            this.parentLayer.addImplication(lit1, lit2);
             return true;
         }
         return false;

@@ -970,7 +970,9 @@ export class Board {
         // Set the given bit and the value bit for the cell
         const origMask = this.cells[cellIndex] & this.allValues;
         this.cells[cellIndex] = valueMask | givenBit;
-        this.enforceNewMask(cellIndex, origMask);
+        if (!this.enforceNewMask(cellIndex, origMask)) {
+            return false;
+        }
         this.nonGivenCount--;
 
         // Apply any weak links

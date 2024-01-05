@@ -81,7 +81,9 @@ export function register(constraintBuilder: ConstraintBuilder) {
             // outer[0] > middle > outer[1]
             const subboard2 = board.subboardClone();
             subboard2.addConstraint(new BetweenLineConstraint(board, { ends: [outer[1], outer[0]], middle: middle }));
-            return [new OrConstraint('Between Line', `Between Line at ${line[0]}-${line[line.length - 1]}`, board, { subboards: [subboard1, subboard2] })];
+            return [
+                new OrConstraint('Between Line', `Between Line at ${line[0]}-${line[line.length - 1]}`, board, { subboards: [subboard1, subboard2] }),
+            ];
         })
     );
 }

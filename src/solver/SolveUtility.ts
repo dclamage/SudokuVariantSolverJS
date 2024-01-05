@@ -391,6 +391,7 @@ export function sequenceIntersectionUpdateDefaultCompare<T>(arr1Inout: T[], arr2
             ++j;
         }
     }
+    arr1Inout.length = iWrite;
 }
 
 // Assumes arr1 and arr2 are sorted according to the default compare
@@ -437,9 +438,10 @@ export function sequenceHasNonemptyIntersectionDefaultCompare<T>(arr1: T[], arr2
 // Moves elements from arr1 to filteredOut if they also occur in arr2
 export function sequenceFilterOutUpdateDefaultCompare<T>(arr1Inout: T[], arr2: T[], filteredOut: T[]) {
     let iWrite = 0;
+    let iRead = 0;
     let j = 0;
 
-    for (let iRead = 0; iRead < arr1Inout.length && j < arr2.length; ++iRead) {
+    for (; iRead < arr1Inout.length && j < arr2.length; ++iRead) {
         const arr1val = arr1Inout[iRead];
         while (arr2[j] < arr1val) {
             ++j;
@@ -452,6 +454,12 @@ export function sequenceFilterOutUpdateDefaultCompare<T>(arr1Inout: T[], arr2: T
             ++iWrite;
         }
     }
+    // Remaining elements are all not filtered out
+    for (; iRead < arr1Inout.length; ++iRead) {
+        arr1Inout[iWrite] = arr1Inout[iRead];
+        ++iWrite;
+    }
+    arr1Inout.length = iWrite;
 }
 
 // Assumes arr is sorted
@@ -466,5 +474,6 @@ export function removeDuplicates<T>(arr: T[]): T[] {
             arr[j] = arr[i];
         }
     }
-    return arr.slice(0, j + 1);
+    arr.length = j + 1;
+    return arr;
 }
