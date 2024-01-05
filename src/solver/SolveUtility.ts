@@ -115,6 +115,14 @@ export function valuesList(mask: CellMask): CellValue[] {
     return values;
 }
 
+export function taxiCabDistance(cellCoords1: CellCoords, cellCoords2: CellCoords): number {
+    return Math.abs(cellCoords1.row - cellCoords2.row) + Math.abs(cellCoords1.col - cellCoords2.col);
+}
+
+export function isAdjacent(cellCoords1: CellCoords, cellCoords2: CellCoords): boolean {
+    return taxiCabDistance(cellCoords1, cellCoords2) === 1;
+}
+
 export function binomialCoefficient(n: number, k: number): number {
     if (k < 0 || k > n) {
         return 0;
@@ -344,6 +352,116 @@ export function sequenceIntersection<T>(arr1: T[], arr2: T[], compare: (a: T, b:
     return out;
 }
 
+// Assumes arr1 and arr2 are sorted according to the default compare
+export function sequenceIntersectionDefaultCompare<T>(arr1: T[], arr2: T[]): T[] {
+    let i = 0;
+    let j = 0;
+    const out: T[] = [];
+
+    while (i < arr1.length && j < arr2.length) {
+        const arr1val = arr1[i];
+        const arr2val = arr2[j];
+        if (arr1val < arr2val) {
+            ++i;
+        } else if (arr1val > arr2val) {
+            ++j;
+        } else {
+            out.push(arr1val);
+            ++i;
+            ++j;
+        }
+    }
+
+    return out;
+}
+
+// Assumes arr1 and arr2 are sorted according to the default compare
+export function sequenceIntersectionUpdateDefaultCompare<T>(arr1Inout: T[], arr2: T[]) {
+    let iWrite = 0;
+    let j = 0;
+
+    for (let iRead = 0; iRead < arr1Inout.length && j < arr2.length; ++iRead) {
+        const arr1val = arr1Inout[iRead];
+        while (arr2[j] < arr1val) {
+            ++j;
+        }
+        if (arr2[j] === arr1val) {
+            arr1Inout[iWrite] = arr1val;
+            ++iWrite;
+            ++j;
+        }
+    }
+    arr1Inout.length = iWrite;
+}
+
+// Assumes arr1 and arr2 are sorted according to the default compare
+export function* sequenceIntersectionDefaultCompareGenerator<T>(arr1: T[], arr2: T[]): Generator<T> {
+    let i = 0;
+    let j = 0;
+
+    while (i < arr1.length && j < arr2.length) {
+        const arr1val = arr1[i];
+        const arr2val = arr2[j];
+        if (arr1val < arr2val) {
+            ++i;
+        } else if (arr1val > arr2val) {
+            ++j;
+        } else {
+            yield arr1val;
+            ++i;
+            ++j;
+        }
+    }
+}
+
+// Assumes arr1 and arr2 are sorted according to the default compare
+export function sequenceHasNonemptyIntersectionDefaultCompare<T>(arr1: T[], arr2: T[]): boolean {
+    let i = 0;
+    let j = 0;
+
+    while (i < arr1.length && j < arr2.length) {
+        const arr1val = arr1[i];
+        const arr2val = arr2[j];
+        if (arr1val < arr2val) {
+            ++i;
+        } else if (arr1val > arr2val) {
+            ++j;
+        } else {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+// Assumes arr1 and arr2 are sorted according to the default compare
+// Moves elements from arr1 to filteredOut if they also occur in arr2
+export function sequenceFilterOutUpdateDefaultCompare<T>(arr1Inout: T[], arr2: T[], filteredOut: T[]) {
+    let iWrite = 0;
+    let iRead = 0;
+    let j = 0;
+
+    for (; iRead < arr1Inout.length && j < arr2.length; ++iRead) {
+        const arr1val = arr1Inout[iRead];
+        while (arr2[j] < arr1val) {
+            ++j;
+        }
+        if (arr2[j] === arr1val) {
+            filteredOut.push(arr1val);
+            ++j;
+        } else {
+            arr1Inout[iWrite] = arr1val;
+            ++iWrite;
+        }
+    }
+    // Remaining elements are all not filtered out
+    for (; iRead < arr1Inout.length; ++iRead) {
+        arr1Inout[iWrite] = arr1Inout[iRead];
+        ++iWrite;
+    }
+    arr1Inout.length = iWrite;
+}
+
 // Assumes arr is sorted
 export function removeDuplicates<T>(arr: T[]): T[] {
     if (!arr.length) {
@@ -356,5 +474,6 @@ export function removeDuplicates<T>(arr: T[]): T[] {
             arr[j] = arr[i];
         }
     }
-    return arr.slice(0, j + 1);
+    arr.length = j + 1;
+    return arr;
 }
