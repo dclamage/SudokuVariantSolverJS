@@ -1159,6 +1159,7 @@ export class Board {
         const jobStack = [this.clone()];
         let numSolutions = 0;
         let lastReportTime = Date.now();
+        let numGuesses = 0;
         const wantReportProgress = reportProgress || isCancelled;
 
         while (jobStack.length > 0) {
@@ -1168,6 +1169,7 @@ export class Board {
 
                 // Check if the job was cancelled
                 if (isCancelled && isCancelled()) {
+                    console.log(`Num Guesses: ${numGuesses}`);
                     return { result: 'cancelled partial count', count: numSolutions };
                 }
 
@@ -1200,6 +1202,7 @@ export class Board {
 
                         numSolutions++;
                         if (maxSolutions > 0 && numSolutions === maxSolutions) {
+                            console.log(`Num Guesses: ${numGuesses}`);
                             return { result: 'count', count: numSolutions };
                         }
                     }
@@ -1210,6 +1213,7 @@ export class Board {
 
                     numSolutions++;
                     if (maxSolutions > 0 && numSolutions === maxSolutions) {
+                        console.log(`Num Guesses: ${numGuesses}`);
                         return { result: 'count', count: numSolutions };
                     }
                 }
@@ -1221,6 +1225,7 @@ export class Board {
                 // Puzzle is complete, return the solution
                 numSolutions++;
                 if (maxSolutions > 0 && numSolutions === maxSolutions) {
+                    console.log(`Num Guesses: ${numGuesses}`);
                     return { result: 'count', count: numSolutions };
                 }
                 continue;
@@ -1230,6 +1235,7 @@ export class Board {
             const chosenValue = minValue(cellMask);
 
             // Queue up two versions of the board, one where the cell is set to the chosen value, and one where it's not
+            numGuesses++;
 
             // Push the version where the cell is not set to the chosen value first, so that it's only used if the chosen value doesn't work
             const newCellBits = cellMask & ~valueBit(chosenValue);
@@ -1248,6 +1254,7 @@ export class Board {
             }
         }
 
+        console.log(`Num Guesses: ${numGuesses}`);
         return { result: 'count', count: numSolutions };
     }
 
