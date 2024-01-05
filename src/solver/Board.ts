@@ -353,16 +353,32 @@ export class Board {
         if (!this.initConstraints()) {
             return false;
         }
+        return this.finalizeConstraintsNoInit();
+    }
 
+    finalizeConstraintsNoInit() {
+        const constraintsToDelete: Constraint[] = [];
         for (const constraint of this.constraints) {
             const result = constraint.finalize(this);
-            if (result === ConstraintResult.INVALID) {
+            const constraintResult = typeof result === 'object' ? result.result : result;
+            const payload = typeof result === 'object' ? result : null;
+
+            if (constraintResult === ConstraintResult.INVALID) {
                 return false;
             }
-            if (result === ConstraintResult.CHANGED) {
+            if (constraintResult === ConstraintResult.CHANGED) {
                 throw new Error('finalize is not allowed to change the board');
             }
+            if (payload) {
+                if (payload.addConstraints) {
+                    throw new Error('finalize may not add constraints!');
+                }
+                if (payload.deleteConstraints) {
+                    constraintsToDelete.push(...payload.deleteConstraints);
+                }
+            }
         }
+        this.constraints = this.constraints.filter(constraint => !constraintsToDelete.includes(constraint));
 
         this.constraintsFinalized = true;
         return true;

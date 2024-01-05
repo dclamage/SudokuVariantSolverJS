@@ -95,19 +95,7 @@ export class OrConstraint extends Constraint {
     }
 
     finalize() {
-        this.subboards = this.subboards.filter(subboard => {
-            for (const constraint of subboard.constraints) {
-                const result = constraint.finalize(subboard);
-                if (result === ConstraintResult.INVALID) {
-                    return false;
-                }
-                if (result === ConstraintResult.CHANGED) {
-                    throw new Error('finalize is not allowed to change the board');
-                }
-            }
-            subboard.constraintsFinalized = true;
-            return true;
-        });
+        this.subboards = this.subboards.filter(subboard => subboard.finalizeConstraintsNoInit());
 
         // No more subboards left == puzzle is broken
         return this.subboards.length === 0 ? ConstraintResult.INVALID : ConstraintResult.UNCHANGED;
