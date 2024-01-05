@@ -1,7 +1,7 @@
 import { Board } from '../Board';
 import ConstraintBuilder from '../ConstraintBuilder';
 import { CellIndex, cellIndexFromName, hasValue, valueBit } from '../SolveUtility';
-import { Constraint, ConstraintResult } from './Constraint';
+import { Constraint, ConstraintResult, InitResult } from './Constraint';
 import { FPuzzlesBoard } from './FPuzzlesInterfaces';
 
 export type IsPairAllowedFn = (value1: number, value2: number) => boolean;
@@ -11,6 +11,7 @@ export interface GeneralCellPairConstraintParams {
     cellPairs: [CellIndex, CellIndex][];
 }
 
+// TODO: Remove and replace existing uses with weak links
 export class GeneralCellPairConstraint extends Constraint {
     cellPairs: [CellIndex, CellIndex][];
     cellPairKeys: number[];
@@ -152,6 +153,10 @@ export class GeneralCellPairConstraint extends Constraint {
         }
 
         return changed ? ConstraintResult.CHANGED : ConstraintResult.UNCHANGED;
+    }
+
+    finalize(board: Board): InitResult {
+        return { result: ConstraintResult.UNCHANGED, deleteConstraints: [this] };
     }
 }
 
