@@ -299,7 +299,7 @@ export class Board {
     initConstraints(isRepeat: boolean = false): boolean {
         if (this.constraints.length > 0) {
             let haveChange = false;
-            let initedConstraints: Map<Constraint, boolean> = new Map();
+            const initedConstraints: Map<Constraint, boolean> = new Map();
             do {
                 haveChange = false;
 
