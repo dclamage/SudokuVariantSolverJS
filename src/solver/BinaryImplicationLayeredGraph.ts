@@ -1,4 +1,4 @@
-import { removeDuplicates, sequenceFilterOutUpdateDefaultCompare, sequenceHasNonemptyIntersectionDefaultCompare } from './SolveUtility';
+import { appendInts, removeDuplicates, sequenceFilterOutUpdateDefaultCompare, sequenceHasNonemptyIntersectionDefaultCompare } from './SolveUtility';
 
 // Table of contents
 
@@ -178,6 +178,8 @@ export class BinaryImplicationLayeredGraph {
     // Static data
 
     numVariables: number;
+    // TODO: Improve memoization so it uses literal update timestamping
+    memo: Map<BinaryImplicationLayeredGraph, Map<string, Variable[]>>;
 
     // Mutable data (at least during preprocessing)
 
@@ -190,11 +192,14 @@ export class BinaryImplicationLayeredGraph {
         if (numVariables === undefined) {
             // For cloning, assign the members in the same order so the hidden class is the same, but set them all to undefined so we don't create garbage.
             this.numVariables = undefined;
+            this.memo = undefined;
             this.graph = undefined;
             this.parentGraphs = undefined;
             this.parentLayer = undefined;
         } else {
             this.numVariables = numVariables;
+            this.memo = new Map();
+            this.memo.set(this, new Map());
             this.graph = new BinaryImplicationGraph(numVariables);
             this.parentGraphs = [];
             this.parentLayer = undefined;
@@ -204,6 +209,8 @@ export class BinaryImplicationLayeredGraph {
     // Clones the graph and adds a new layer corresponding to the new subboard.
     subboardClone(): this {
         const clone = Object.assign(new BinaryImplicationLayeredGraph(undefined), this);
+
+        clone.memo.set(clone, new Map());
 
         clone.graph = new BinaryImplicationGraph(this.numVariables);
 
@@ -227,6 +234,10 @@ export class BinaryImplicationLayeredGraph {
     // Add methods return true if something was added
 
     addImplication(lit1: Literal, lit2: Literal): boolean {
+        // TODO: Improve memoization so it uses literal update timestamping
+        for (const bigMemoEntry of this.memo) {
+            bigMemoEntry[1].clear();
+        }
         if (this.hasParentImplication(lit1, lit2)) {
             return false;
         }
@@ -277,6 +288,66 @@ export class BinaryImplicationLayeredGraph {
         const negConsequents: Variable[] = [];
         this.graph.getNegConsequences(lit, negConsequents);
         return negConsequents;
+    }
+
+    getMemo(key: string): readonly Variable[] {
+        return this.memo.get(this).get(key);
+    }
+
+    storeMemo(key: string, value: Variable[]) {
+        this.memo.get(this).set(key, value);
+    }
+
+    getCommonPosConsequences(lits: Literal[]): readonly Variable[] {
+        lits.sort();
+        return this.getCommonPosConsequencesHelper(lits);
+    }
+
+    getCommonPosConsequencesHelper(lits: Literal[]): readonly Variable[] {
+        // Base casee
+        if (lits.length === 1) {
+            // TODO: Remove all the removeDuplicate once the BIG is properly deduplicated and sorted
+            return removeDuplicates(this.getPosConsequences(lits[0]).sort((a, b) => a - b));
+        }
+        const memoKey = appendInts(lits);
+        const memoResult = this.getMemo(memoKey);
+        if (memoResult !== undefined) {
+            return memoResult;
+        }
+        // Inductive case
+        const [firstLit, ...restLits] = lits;
+        const consequents = this.getPosConsequences(firstLit);
+        removeDuplicates(consequents.sort((a, b) => a - b));
+        const intersection: Variable[] = [];
+        sequenceFilterOutUpdateDefaultCompare(consequents, this.getCommonPosConsequencesHelper(restLits), intersection);
+        this.storeMemo(memoKey, removeDuplicates(intersection.sort((a, b) => a - b)));
+        return intersection;
+    }
+
+    getCommonNegConsequences(lits: Literal[]): readonly Variable[] {
+        lits.sort();
+        return this.getCommonNegConsequencesHelper(lits);
+    }
+
+    getCommonNegConsequencesHelper(lits: Literal[]): readonly Variable[] {
+        // Base casee
+        if (lits.length === 1) {
+            // TODO: Remove all the removeDuplicate once the BIG is properly deduplicated and sorted
+            return removeDuplicates(this.getNegConsequences(lits[0]).sort((a, b) => a - b));
+        }
+        const memoKey = appendInts(lits);
+        const memoResult = this.getMemo(memoKey);
+        if (memoResult !== undefined) {
+            return memoResult;
+        }
+        // Inductive case
+        const [firstLit, ...restLits] = lits;
+        const consequents = this.getNegConsequences(firstLit);
+        removeDuplicates(consequents.sort((a, b) => a - b));
+        const intersection: Variable[] = [];
+        sequenceFilterOutUpdateDefaultCompare(consequents, this.getCommonNegConsequencesHelper(restLits), intersection);
+        this.storeMemo(memoKey, removeDuplicates(intersection.sort((a, b) => a - b)));
+        return intersection;
     }
 
     filterOutPosConsequences(lit: Literal, posConsequentsInout: Variable[], filteredOut: Variable[]) {

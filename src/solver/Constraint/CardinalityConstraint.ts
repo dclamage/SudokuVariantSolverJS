@@ -260,6 +260,30 @@ export class CardinalityConstraint extends Constraint {
             return ConstraintResult.CHANGED;
         }
 
+        // In logical solves, enable clause forcing
+        if (logicalStepDescription !== null) {
+            const calcDeductionType = () => {
+                const allSameCell = new Set(constState.candidates.map(cand => board.candidateToIndexAndValue(cand)[0])).size === 1;
+                const allSameDigit = new Set(constState.candidates.map(cand => board.candidateToIndexAndValue(cand)[1])).size === 1;
+                return allSameCell ? 'Cell forcing' : allSameDigit ? 'Pointing' : 'Clause forcing';
+            };
+
+            const elims = board.calcElimsForCandidateIndices(constState.candidates);
+            if (elims.length > 0) {
+                if (!board.clearCandidates(elims)) {
+                    logicalStepDescription.push(
+                        `${calcDeductionType()} on ${board.describeCandidates(constState.candidates)} => ${board.describeElims(elims)}, contradiction`
+                    );
+                    return ConstraintResult.INVALID;
+                } else {
+                    logicalStepDescription.push(
+                        `${calcDeductionType()} on ${board.describeCandidates(constState.candidates)} => ${board.describeElims(elims)}`
+                    );
+                    return ConstraintResult.CHANGED;
+                }
+            }
+        }
+
         return ConstraintResult.UNCHANGED;
     }
 }

@@ -436,7 +436,7 @@ export function sequenceHasNonemptyIntersectionDefaultCompare<T>(arr1: T[], arr2
 
 // Assumes arr1 and arr2 are sorted according to the default compare
 // Moves elements from arr1 to filteredOut if they also occur in arr2
-export function sequenceFilterOutUpdateDefaultCompare<T>(arr1Inout: T[], arr2: T[], filteredOut: T[]) {
+export function sequenceFilterOutUpdateDefaultCompare<T>(arr1Inout: T[], arr2: readonly T[], filteredOut: T[]) {
     let iWrite = 0;
     let iRead = 0;
     let j = 0;

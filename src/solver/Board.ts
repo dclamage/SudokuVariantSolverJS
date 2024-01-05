@@ -851,7 +851,7 @@ export class Board {
 
             const rowsInGroup = [i + 1];
             for (let j = i + 1; j < this.size; j++) {
-                if (colsPerRow[j].every((value, index) => value === colsPerRow[i][index])) {
+                if (colsPerRow[j].length === colsPerRow[i].length && colsPerRow[j].every((value, index) => value === colsPerRow[i][index])) {
                     rowsInGroup.push(j + 1);
                     colsPerRow[j].length = 0;
                 }
@@ -917,29 +917,13 @@ export class Board {
     // Pass in an array of candidate indexes
     // Returns an array of candidate indexes which are eliminated by all of the input candidates
     calcElimsForCandidateIndices(candidateIndexes: CandidateIndex[]): CandidateIndex[] {
-        if (candidateIndexes.length === 0) {
-            return [];
-        }
-
-        // Seed the elims with the first candidate
-        let elims: CandidateIndex[] = this.binaryImplications.getNegConsequences(candidateIndexes[0]);
-
-        // Filter out already-eliminated candidates
-        elims = elims.filter(candidateIndex => {
-            const [cellIndex, value] = this.candidateToIndexAndValue(candidateIndex);
+        const allElims = this.binaryImplications.getCommonNegConsequences(candidateIndexes);
+        // Intersect with existing candidates
+        const filteredElims = allElims.filter(elim => {
+            const [cellIndex, value] = this.candidateToIndexAndValue(elim);
             return this.cells[cellIndex] & valueBit(value);
         });
-
-        let filteredOut: CandidateIndex[] = [];
-        for (let i = 1; i < candidateIndexes.length; i++) {
-            const candidateIndex = candidateIndexes[i];
-
-            // Intersect the weak links for this candidate and the previous candidates
-            filteredOut.length = 0;
-            this.binaryImplications.filterOutNegConsequences(candidateIndex, elims, filteredOut);
-            [elims, filteredOut] = [filteredOut, elims];
-        }
-        return elims;
+        return filteredElims;
     }
 
     applyNakedSingles() {
