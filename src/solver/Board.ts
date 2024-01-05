@@ -216,7 +216,7 @@ export class Board {
     }
 
     maskStrictlyHigher(v: CellValue) {
-        return this.allValues ^ (1 << (v - 1));
+        return this.allValues ^ this.maskLowerOrEqual(v);
     }
 
     maskLowerOrEqual(v: CellValue) {
@@ -224,7 +224,7 @@ export class Board {
     }
 
     maskHigherOrEqual(v: CellValue) {
-        return this.allValues ^ ((1 << v) - 1);
+        return this.allValues ^ this.maskStrictlyLower(v);
     }
 
     maskBetweenInclusive(v1: CellValue, v2: CellValue) {
