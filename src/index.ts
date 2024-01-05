@@ -2,7 +2,7 @@ import { Board, SolveOptions } from './solver/Board';
 import { registerAllConstraints } from './solver/Constraint/ConstraintLoader';
 import { FPuzzlesBoard } from './solver/Constraint/FPuzzlesInterfaces';
 import ConstraintBuilder from './solver/ConstraintBuilder';
-import { CellMask, CellValue, minValue, valueBit, valuesList, valuesMask } from './solver/SolveUtility';
+import { CellIndex, CellMask, CellValue, minValue, valueBit, valuesList, valuesMask } from './solver/SolveUtility';
 
 export type ExpandedCandidates = ({ given: true; value: number } | number[])[];
 
