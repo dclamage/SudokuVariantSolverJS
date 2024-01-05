@@ -270,6 +270,50 @@ class SudokuVariantSolver {
         const size = boardData.size;
         const board = new Board(size);
 
+        // Set the givens
+        const givenSingles: [CellIndex, CellValue][] = [];
+
+        for (let i = 0; i < size; i++) {
+            for (let j = 0; j < size; j++) {
+                const srcCell = boardData.grid[i][j];
+                const haveGivenPencilmarks = srcCell.givenPencilMarks?.length > 0;
+                const haveCenterPencilmarks = srcCell.centerPencilMarks?.length > 0;
+                const cellIndex = board.cellIndex(i, j);
+                if (keepPencilMarks) {
+                    if (srcCell.value) {
+                        if (!board.enforceValue(cellIndex, srcCell.value)) {
+                            return null;
+                        }
+                        givenSingles.push([cellIndex, srcCell.value]);
+                    } else if (haveGivenPencilmarks && haveCenterPencilmarks) {
+                        const pencilMarks = srcCell.givenPencilMarks.filter((value: CellValue) => srcCell.centerPencilMarks.includes(value));
+                        if (!board.applyGivenPencilMarks(cellIndex, pencilMarks)) {
+                            return null;
+                        }
+                    } else if (haveGivenPencilmarks) {
+                        if (!board.applyGivenPencilMarks(cellIndex, srcCell.givenPencilMarks)) {
+                            return null;
+                        }
+                    } else if (haveCenterPencilmarks) {
+                        if (!board.applyGivenPencilMarks(cellIndex, srcCell.centerPencilMarks)) {
+                            return null;
+                        }
+                    }
+                } else {
+                    if (srcCell.given) {
+                        if (!board.enforceValue(cellIndex, srcCell.value)) {
+                            return null;
+                        }
+                        givenSingles.push([cellIndex, srcCell.value]);
+                    } else if (haveGivenPencilmarks) {
+                        if (!board.applyGivenPencilMarks(cellIndex, srcCell.givenPencilMarks)) {
+                            return null;
+                        }
+                    }
+                }
+            }
+        }
+
         // Apply default regions
         this.applyDefaultRegions(boardData);
 
@@ -319,59 +363,18 @@ class SudokuVariantSolver {
             }
         }
 
-        // Set the givens
-        for (let i = 0; i < size; i++) {
-            for (let j = 0; j < size; j++) {
-                const srcCell = boardData.grid[i][j];
-                const haveGivenPencilmarks = srcCell.givenPencilMarks?.length > 0;
-                const haveCenterPencilmarks = srcCell.centerPencilMarks?.length > 0;
-                const cellIndex = board.cellIndex(i, j);
-                if (keepPencilMarks) {
-                    if (srcCell.value) {
-                        if (!board.setAsGiven(cellIndex, srcCell.value)) {
-                            return null;
-                        }
-                    } else if (haveGivenPencilmarks && haveCenterPencilmarks) {
-                        const pencilMarks = srcCell.givenPencilMarks.filter((value: CellValue) => srcCell.centerPencilMarks.includes(value));
-                        if (!board.applyGivenPencilMarks(cellIndex, pencilMarks)) {
-                            return null;
-                        }
-                    } else if (haveGivenPencilmarks) {
-                        if (!board.applyGivenPencilMarks(cellIndex, srcCell.givenPencilMarks)) {
-                            return null;
-                        }
-                    } else if (haveCenterPencilmarks) {
-                        if (!board.applyGivenPencilMarks(cellIndex, srcCell.centerPencilMarks)) {
-                            return null;
-                        }
-                    }
-                } else {
-                    if (srcCell.given) {
-                        if (!board.setAsGiven(cellIndex, srcCell.value)) {
-                            return null;
-                        }
-                    } else if (haveGivenPencilmarks) {
-                        if (!board.applyGivenPencilMarks(cellIndex, srcCell.givenPencilMarks)) {
-                            return null;
-                        }
-                    }
-                }
-            }
-        }
-
-        // Clean up any naked singles which are alreay set as given
-        const newNakedSingles = [];
-        for (const cellIndex of board.nakedSingles) {
-            if (!board.isGiven(cellIndex)) {
-                newNakedSingles.push(cellIndex);
-            }
-        }
-        board.nakedSingles = newNakedSingles;
-
         // Add constraints
         if (!this.constraintBuilder.buildConstraints(boardData, board)) {
             return null;
         }
+
+        // setAsGiven the given singles to set givenBit / enforce constraints
+        for (const [given, value] of givenSingles) {
+            board.setAsGiven(given, value);
+        }
+
+        // Clean up any naked singles which are alreay set as given
+        board.nakedSingles = board.nakedSingles.filter(cellIndex => !board.isGiven(cellIndex));
 
         return board;
     }
