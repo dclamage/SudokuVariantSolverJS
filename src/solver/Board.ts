@@ -299,20 +299,50 @@ export class Board {
     initConstraints(isRepeat: boolean = false): boolean {
         if (this.constraints.length > 0) {
             let haveChange = false;
+            let initedConstraints: Map<Constraint, boolean> = new Map();
             do {
                 haveChange = false;
 
+                let constraintsToAdd: Constraint[] = null;
+                let constraintsToDelete: Constraint[] = null;
+
                 for (const constraint of this.constraints) {
-                    const result = constraint.init(this, isRepeat);
-                    if (result === ConstraintResult.INVALID) {
+                    const result = constraint.init(this, isRepeat || initedConstraints.get(constraint) === true);
+                    initedConstraints.set(constraint, true);
+
+                    const constraintResult = typeof result === 'object' ? result.result : result;
+                    const payload = typeof result === 'object' ? result : null;
+                    if (constraintResult === ConstraintResult.INVALID) {
                         return false;
                     }
 
-                    if (result === ConstraintResult.CHANGED) {
+                    if (constraintResult === ConstraintResult.CHANGED) {
                         haveChange = true;
                     }
+
+                    if (payload) {
+                        if (payload.addConstraints) {
+                            constraintsToAdd = payload.addConstraints;
+                        }
+                        if (payload.deleteConstraints) {
+                            constraintsToDelete = payload.deleteConstraints;
+                        }
+                    }
+
+                    if (constraintsToAdd || constraintsToDelete) {
+                        haveChange = true;
+                        break;
+                    }
                 }
-                isRepeat = true;
+
+                if (constraintsToDelete) {
+                    this.constraints = this.constraints.filter(constraint => !constraintsToDelete.includes(constraint));
+                }
+                if (constraintsToAdd) {
+                    for (const constraint of constraintsToAdd) {
+                        this.constraints.push(constraint);
+                    }
+                }
             } while (haveChange);
         }
 

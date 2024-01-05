@@ -8,6 +8,8 @@ export enum ConstraintResult {
     INVALID,
 }
 
+export type InitResult = ConstraintResult | { result: ConstraintResult; addConstraints?: Constraint[]; deleteConstraints?: Constraint[] };
+
 // Convenience class that constraint states can inherit from if they only need to be shallow-cloned
 export class ConstraintState {
     clone(): ConstraintState {
@@ -45,7 +47,7 @@ export class Constraint {
     //  - isRepeat is true if this is not the first time init has been called on this constraint
     // Never call board.setAsGiven from init as not all weak links have been added yet, so they may not be respected.
     //  - Instead, use board.keepCellMask(cell, valueBit(value)) so that it will be a naked single at the appropriate time.
-    init(board: Board, isRepeat: boolean): ConstraintResult {
+    init(board: Board, isRepeat: boolean): InitResult {
         return ConstraintResult.UNCHANGED;
     }
 
