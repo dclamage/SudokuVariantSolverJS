@@ -851,7 +851,7 @@ export class Board {
 
             const rowsInGroup = [i + 1];
             for (let j = i + 1; j < this.size; j++) {
-                if (colsPerRow[j].every((value, index) => value === colsPerRow[i][index])) {
+                if (colsPerRow[j].length === colsPerRow[i].length && colsPerRow[j].every((value, index) => value === colsPerRow[i][index])) {
                     rowsInGroup.push(j + 1);
                     colsPerRow[j].length = 0;
                 }
