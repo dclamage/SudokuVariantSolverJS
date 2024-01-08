@@ -241,6 +241,9 @@ export class ConstraintV2 extends Constraint {
 
     // Flatten an array of LogicalDeduction into a single LogicalDeduction, but with no explanation
     static flattenDeductions(deductions: LogicalDeduction[]): LogicalDeduction {
+        if (deductions.length === 0) {
+            return { explanation: '' };
+        }
         const invalid = deductions.some(deduction => deduction.invalid);
         const singles = deductions.reduce((acc, deduction) => (deduction.singles ? acc.concat(deduction.singles) : acc), []);
         const eliminations = deductions.reduce((acc, deduction) => (deduction.eliminations ? acc.concat(deduction.eliminations) : acc), []);
