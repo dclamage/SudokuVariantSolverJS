@@ -345,7 +345,7 @@ export class SumGroup {
         const memoKey = this.cellsString + '|PossibleSums' + appendCellValueKey(board, this.cells);
         const memo: PossibleSumsMemo = board.getMemo(memoKey);
         if (memo) {
-            return [...memo.sums];
+            return memo.sums.slice();
         }
 
         const unsetMask = this.unsetMask(board);

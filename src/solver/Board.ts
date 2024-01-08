@@ -139,10 +139,10 @@ export class Board {
         clone.size = this.size;
         clone.allValues = this.allValues;
         clone.givenBit = this.givenBit;
-        clone.cells = [...this.cells]; // Deep copy
+        clone.cells = this.cells.slice(); // Deep copy
         clone.invalidInit = this.invalidInit;
         clone.nonGivenCount = this.nonGivenCount;
-        clone.nakedSingles = [...this.nakedSingles]; // Deep copy
+        clone.nakedSingles = this.nakedSingles.slice(); // Deep copy
         clone.binaryImplications = this.binaryImplications;
         clone.regions = this.regions;
         clone.constraints = this.constraints.map(constraint => constraint.clone()); // Clone constraints that need backtracking state
@@ -165,12 +165,12 @@ export class Board {
         clone.size = this.size;
         clone.allValues = this.allValues;
         clone.givenBit = this.givenBit;
-        clone.cells = [...this.cells]; // Deep copy
+        clone.cells = this.cells.slice(); // Deep copy
         clone.invalidInit = this.invalidInit;
         clone.nonGivenCount = this.nonGivenCount;
-        clone.nakedSingles = [...this.nakedSingles]; // Deep copy
+        clone.nakedSingles = this.nakedSingles.slice(); // Deep copy
         clone.binaryImplications = this.binaryImplications.subboardClone(); // Deep copy
-        clone.regions = [...this.regions]; // Deep copy
+        clone.regions = this.regions.slice(); // Deep copy
         clone.constraints = []; // Don't inherit constraints
         clone.constraintStates = [];
         clone.constraintsFinalized = this.constraintsFinalized;
