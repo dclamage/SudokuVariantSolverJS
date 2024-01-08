@@ -34,6 +34,7 @@ export class ConstraintLogic extends LogicalStep {
         board.loopConstraints((constraint: Constraint): LoopResult => {
             if (isConstraintV2(constraint)) {
                 const deductions = constraint.logicalStep(board);
+                let hadInvisibleChange = false;
                 for (const deduction of deductions) {
                     const result = board.applyLogicalDeduction(deduction);
 
@@ -61,11 +62,12 @@ export class ConstraintLogic extends LogicalStep {
                             return LoopResult.ABORT_LOOP;
                         }
                         // There was a change but it wasn't visible on the board, look for another deduction
+                        hadInvisibleChange = true;
                         continue;
                     }
                 }
                 // None of the deductions in this constraints did anything visible, look for another constraint
-                return LoopResult.UNCHANGED;
+                return hadInvisibleChange ? LoopResult.SCHEDULE_LOOP : LoopResult.UNCHANGED;
             } else {
                 const proxyDesc: string[] = [];
                 const result: ConstraintResult = constraint.logicStep(board, proxyDesc);

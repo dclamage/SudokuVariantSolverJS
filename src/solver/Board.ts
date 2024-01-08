@@ -408,6 +408,16 @@ export class Board {
             }
             haveChange = true;
         }
+        if (deduction.addConstraints && deduction.addConstraints.length > 0) {
+            for (const constraint of deduction.addConstraints) {
+                this.addConstraint(constraint);
+            }
+            haveChange = true;
+        }
+        if (deduction.deleteConstraints && deduction.deleteConstraints.length > 0) {
+            this.constraints = this.constraints.filter(constraint => !deduction.deleteConstraints.includes(constraint));
+            haveChange = true;
+        }
         if (deduction.weakLinks && deduction.weakLinks.length > 0) {
             for (const link of deduction.weakLinks) {
                 this.addWeakLink(link[0], link[1]);
