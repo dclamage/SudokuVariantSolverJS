@@ -27,6 +27,7 @@ import { LogicalStep } from './LogicalStep/LogicalStep';
 import { BinaryImplicationLayeredGraph } from './BinaryImplicationLayeredGraph';
 import { TypedArrayPool, TypedArrayEntry } from './Memory/TypedArrayPool';
 import { Fish } from './LogicalStep/Fish';
+import { ConstraintV2, LogicalDeduction, isConstraintV2 } from './Constraint/ConstraintV2';
 
 export type RegionType = string;
 export type Region = {
@@ -90,6 +91,12 @@ export interface Cloneable {
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export type StateKey<T extends Cloneable> = number;
+
+export enum LoopResult {
+    UNCHANGED = 0,
+    SCHEDULE_LOOP = 1,
+    ABORT_LOOP = 2,
+}
 
 export class Board {
     size: number;
@@ -364,57 +371,142 @@ export class Board {
         this.constraints.push(constraint);
     }
 
-    initConstraints(isRepeat: boolean = false): boolean {
-        if (this.constraints.length > 0) {
-            let haveChange = false;
-            const initedConstraints: Map<Constraint, boolean> = new Map();
-            do {
-                haveChange = false;
-
-                let constraintsToAdd: Constraint[] = null;
-                let constraintsToDelete: Constraint[] = null;
-
-                for (const constraint of this.constraints) {
-                    const result = constraint.init(this, isRepeat || initedConstraints.get(constraint) === true);
-                    initedConstraints.set(constraint, true);
-
-                    const constraintResult = typeof result === 'object' ? result.result : result;
-                    const payload = typeof result === 'object' ? result : null;
-                    if (constraintResult === ConstraintResult.INVALID) {
-                        return false;
-                    }
-
-                    if (constraintResult === ConstraintResult.CHANGED) {
-                        haveChange = true;
-                    }
-
-                    if (payload) {
-                        if (payload.addConstraints) {
-                            constraintsToAdd = payload.addConstraints;
-                        }
-                        if (payload.deleteConstraints) {
-                            constraintsToDelete = payload.deleteConstraints;
-                        }
-                    }
-
-                    if (constraintsToAdd || constraintsToDelete) {
-                        haveChange = true;
-                        break;
-                    }
+    // Calls `func` on all constraints in a loop
+    // If a constraint is added and deleted in the same loop, `func` may or may not be called on it.
+    // If func returns `ConstraintResult.CHANGED`, then another loop is scheduled.
+    // If func returns `ConstraintResult.INVALID`, then the function aborts immediately.
+    loopConstraints(func: (constraint: Constraint) => LoopResult) {
+        let loopAgain = false;
+        do {
+            loopAgain = false;
+            for (const constraint of this.constraints.slice()) {
+                const result = func(constraint);
+                if (result === LoopResult.ABORT_LOOP) {
+                    return;
                 }
+                if (result === LoopResult.SCHEDULE_LOOP) {
+                    loopAgain = true;
+                }
+            }
+        } while (loopAgain);
+    }
 
-                if (constraintsToDelete) {
-                    this.constraints = this.constraints.filter(constraint => !constraintsToDelete.includes(constraint));
-                }
-                if (constraintsToAdd) {
-                    for (const constraint of constraintsToAdd) {
-                        this.constraints.push(constraint);
-                    }
-                }
-            } while (haveChange);
+    applyLogicalDeduction(deduction: LogicalDeduction): ConstraintResult {
+        let haveChange = false;
+        if (deduction.invalid) {
+            return ConstraintResult.INVALID;
         }
+        if (deduction.singles && deduction.singles.length > 0) {
+            if (!this.enforceCandidates(deduction.singles)) {
+                return ConstraintResult.INVALID;
+            }
+            haveChange = true;
+        }
+        if (deduction.eliminations && deduction.eliminations.length > 0) {
+            if (!this.clearCandidates(deduction.eliminations)) {
+                return ConstraintResult.INVALID;
+            }
+            haveChange = true;
+        }
+        if (deduction.weakLinks && deduction.weakLinks.length > 0) {
+            for (const link of deduction.weakLinks) {
+                this.addWeakLink(link[0], link[1]);
+            }
+            haveChange = true;
+        }
+        if (deduction.implications && deduction.implications.length > 0) {
+            for (const implication of deduction.implications) {
+                this.binaryImplications.addImplication(implication[0], implication[1]);
+            }
+            haveChange = true;
+        }
+        return haveChange ? ConstraintResult.CHANGED : ConstraintResult.UNCHANGED;
+    }
 
-        return !this.invalidInit;
+    initConstraints(isRepeat: boolean = false): boolean {
+        const initedConstraints: Map<Constraint, boolean> = new Map();
+        let initializationPassed = true;
+
+        this.loopConstraints((constraint: Constraint): LoopResult => {
+            let haveChange = false;
+            if (isConstraintV2(constraint) && initedConstraints.get(constraint) === true) {
+                // For inited V2 constraints, run obviousLogicalStep instead of re initing
+                // TODO: move obvious steps out of init
+                const deductions = ConstraintV2.flattenDeductions(constraint.obviousLogicalStep(this));
+                const result = this.applyLogicalDeduction(deductions);
+                if (result === ConstraintResult.INVALID) {
+                    initializationPassed = false;
+                    return LoopResult.ABORT_LOOP;
+                }
+                return result === ConstraintResult.CHANGED ? LoopResult.SCHEDULE_LOOP : LoopResult.UNCHANGED;
+            }
+
+            if (isConstraintV2(constraint) && initedConstraints.get(constraint) === true) {
+                // For uninited V2 constraints, force a re-loop so that the obviousLogicalStep code above gets scheduled
+                // TODO: remove this once obvious steps are moved out of init
+                haveChange = true;
+                const result = constraint.init(this);
+                const payload = typeof result === 'object' ? result : null;
+                const constraintResult = typeof result === 'object' ? result.result : result;
+
+                if (constraintResult === ConstraintResult.INVALID) {
+                    initializationPassed = false;
+                    return LoopResult.ABORT_LOOP;
+                }
+                if (constraintResult === ConstraintResult.CHANGED) {
+                    haveChange = true;
+                }
+
+                if (payload) {
+                    if (payload.weakLinks && payload.weakLinks.length > 0) {
+                        for (const link of payload.weakLinks) {
+                            this.addWeakLink(link[0], link[1]);
+                        }
+                        haveChange = true;
+                    }
+                    if (payload.implications && payload.implications.length > 0) {
+                        for (const implication of payload.implications) {
+                            this.binaryImplications.addImplication(implication[0], implication[1]);
+                        }
+                        haveChange = true;
+                    }
+                    if (payload.addConstraints && payload.addConstraints.length > 0) {
+                        this.constraints.push(...payload.addConstraints);
+                        haveChange = true;
+                    }
+                    if (payload.deleteConstraints && payload.deleteConstraints.length > 0) {
+                        this.constraints = this.constraints.filter(constraint => !payload.deleteConstraints.includes(constraint));
+                        haveChange = true;
+                    }
+                }
+                return haveChange ? LoopResult.SCHEDULE_LOOP : LoopResult.UNCHANGED;
+            } else {
+                // V1 constraint
+                const result = constraint.init(this, isRepeat || initedConstraints.get(constraint) === true);
+                initedConstraints.set(constraint, true);
+                const payload = typeof result === 'object' ? result : null;
+                const constraintResult = typeof result === 'object' ? result.result : result;
+                if (constraintResult === ConstraintResult.INVALID) {
+                    initializationPassed = false;
+                    return LoopResult.ABORT_LOOP;
+                }
+                if (constraintResult === ConstraintResult.CHANGED) {
+                    haveChange = true;
+                }
+                if (payload) {
+                    if (payload.addConstraints) {
+                        this.constraints.push(...payload.addConstraints);
+                    }
+                    if (payload.deleteConstraints) {
+                        this.constraints = this.constraints.filter(constraint => !payload.deleteConstraints.includes(constraint));
+                    }
+                }
+
+                return haveChange ? LoopResult.SCHEDULE_LOOP : LoopResult.UNCHANGED;
+            }
+        });
+
+        return initializationPassed;
     }
 
     finalizeConstraints() {
@@ -757,7 +849,7 @@ export class Board {
             // If we get here, then there are no more singles to find
             // Allow constraints to apply their logic
             for (const constraint of this.constraints) {
-                const result = constraint.logicStep(this, null);
+                const result = isConstraintV2(constraint) ? constraint.bruteForceStep(this) : constraint.logicStep(this, null);
                 if (result === ConstraintResult.INVALID) {
                     return LogicResult.INVALID;
                 }
@@ -972,6 +1064,18 @@ export class Board {
             return this.cells[cellIndex] & valueBit(value);
         });
         return filteredElims;
+    }
+
+    // Pass in an array of candidate indexes
+    // Returns an array of candidate indexes which are guaranteed to be true by all of the input candidates
+    calcSinglesForCandidateIndices(candidateIndexes: CandidateIndex[]): CandidateIndex[] {
+        const allSingles = this.binaryImplications.getCommonPosConsequences(candidateIndexes);
+        // Intersect with existing candidates
+        const filteredSingles = allSingles.filter(single => {
+            const [cellIndex, value] = this.candidateToIndexAndValue(single);
+            return (this.cells[cellIndex] & this.allValues) !== valueBit(value);
+        });
+        return filteredSingles;
     }
 
     applyNakedSingles() {
@@ -1582,3 +1686,5 @@ export class Board {
         return { result: 'logical solve', desc, changed };
     }
 }
+
+export type ReadonlyBoard = Board; // TODO: Change to proper subset of the Board interface once the API settles more
