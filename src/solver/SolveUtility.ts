@@ -1,11 +1,17 @@
 import { Board } from './Board';
 
-export type CandidateIndex = number;
+export type CandidateIndex = number; // non-negative
+export type CandidateLiteral = number; // bitwise negation of a CandidateIndex = that variable's negation
 export type CellIndex = number;
 export type CellMask = number;
 export type CellValue = number;
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export type StateKey<T> = number;
+
+// weakLink[0] -> ~weakLink[1]
+export type WeakLink = [CandidateIndex, CandidateIndex];
+// implication[0] -> implication[1]
+export type Implication = [CandidateLiteral, CandidateLiteral]; // ~candidateIndex represents negation of the variable
 
 export interface CellCoords {
     row: number;
