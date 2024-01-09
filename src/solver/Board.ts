@@ -26,6 +26,7 @@ import { LogicResult } from './Enums/LogicResult';
 import { LogicalStep } from './LogicalStep/LogicalStep';
 import { BinaryImplicationLayeredGraph } from './BinaryImplicationLayeredGraph';
 import { TypedArrayPool, TypedArrayEntry } from './Memory/TypedArrayPool';
+import { Fish } from './LogicalStep/Fish';
 
 export type RegionType = string;
 export type Region = {
@@ -134,6 +135,7 @@ export class Board {
                 new ConstraintLogic(this),
                 new CellForcing(this),
                 new NakedTupleAndPointing(this),
+                new Fish(this),
             ];
         }
     }
@@ -956,6 +958,10 @@ export class Board {
     // Pass in an array of candidate indexes
     // Returns an array of candidate indexes which are eliminated by all of the input candidates
     calcElimsForCandidateIndices(candidateIndexes: CandidateIndex[]): CandidateIndex[] {
+        if (candidateIndexes.length === 0) {
+            return [];
+        }
+
         const allElims = this.binaryImplications.getCommonNegConsequences(candidateIndexes);
         // Intersect with existing candidates
         const filteredElims = allElims.filter(elim => {
