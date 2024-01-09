@@ -43,10 +43,10 @@ class BinaryImplicationGraph {
     unsorted: Variable[][];
 
     constructor(numVariables: number) {
-        this.pospos = Array.from({ length: numVariables }, () => []);
-        this.posneg = Array.from({ length: numVariables }, () => []);
-        this.negpos = Array.from({ length: numVariables }, () => []);
-        this.negneg = Array.from({ length: numVariables }, () => []);
+        this.pospos = new Array(numVariables);
+        this.posneg = new Array(numVariables);
+        this.negpos = new Array(numVariables);
+        this.negneg = new Array(numVariables);
         this.implicationsIndex = [this.negneg, this.negpos, this.posneg, this.pospos];
         this.posposunsorted = new Uint8Array(numVariables);
         this.posnegunsorted = new Uint8Array(numVariables);
@@ -57,12 +57,6 @@ class BinaryImplicationGraph {
     }
 
     allocateVariables(numNewVariables: number) {
-        for (let i = 0; i < numNewVariables; ++i) {
-            this.pospos.push([]);
-            this.posneg.push([]);
-            this.negpos.push([]);
-            this.negneg.push([]);
-        }
         const newposposunsorted = new Uint8Array(this.posposunsorted.length + numNewVariables);
         newposposunsorted.set(this.posposunsorted);
         this.posposunsorted = newposposunsorted;
@@ -101,13 +95,19 @@ class BinaryImplicationGraph {
     // All variables represent their positive literals.
     // Returns true if something was added
     addImplication(lit1: Literal, lit2: Literal): boolean {
-        const forward = this.implicationsArrFor(lit1, lit2);
+        let forward = this.implicationsArrFor(lit1, lit2);
         const var2 = toVariable(lit2);
-        if (forward.includes(var2)) {
+        if (forward?.includes(var2)) {
             return false;
         }
+        if (forward === undefined) {
+            forward = this.implicationsIndex[+(lit1 >= 0) * 2 + +(lit2 >= 0)][toVariable(lit1)] = [];
+        }
+        let backward = this.implicationsArrFor(~lit2, ~lit1);
+        if (backward === undefined) {
+            backward = this.implicationsIndex[+(~lit2 >= 0) * 2 + +(~lit1 >= 0)][toVariable(lit2)] = [];
+        }
         const var1 = toVariable(lit1);
-        const backward = this.implicationsArrFor(~lit2, ~lit1);
         forward.push(var2);
         backward.push(var1);
         const forwardUnsorted = this.unsortedArrFor(lit1, lit2);
@@ -130,7 +130,7 @@ class BinaryImplicationGraph {
     unsafeRemoveImplication(lit1: Literal, lit2: Literal): boolean {
         const forward = this.implicationsArrFor(lit1, lit2);
         const var2 = toVariable(lit2);
-        if (!forward.includes(var2)) {
+        if (!forward?.includes(var2)) {
             return false;
         }
         const var1 = toVariable(lit1);
@@ -142,35 +142,49 @@ class BinaryImplicationGraph {
     }
 
     hasImplication(lit1: Literal, lit2: Literal): boolean {
-        return this.implicationsArrFor(lit1, lit2).includes(toVariable(lit2));
+        return this.implicationsArrFor(lit1, lit2)?.includes(toVariable(lit2));
     }
 
     getPosConsequences(lit: Literal, consequentsOutput: Variable[]) {
-        for (const consequent of this.implicationsArrFor(lit, 0)) {
-            consequentsOutput.push(consequent);
+        const consequents = this.implicationsArrFor(lit, 0);
+        if (consequents) {
+            for (const consequent of consequents) {
+                consequentsOutput.push(consequent);
+            }
         }
     }
 
     getNegConsequences(lit: Literal, consequentsOutput: Variable[]) {
-        for (const consequent of this.implicationsArrFor(lit, ~0)) {
-            consequentsOutput.push(consequent);
+        const consequents = this.implicationsArrFor(lit, ~0);
+        if (consequents) {
+            for (const consequent of consequents) {
+                consequentsOutput.push(consequent);
+            }
         }
     }
 
     filterOutPosConsequences(lit: Literal, consequentsInout: Variable[], filteredOut: Variable[]) {
-        sequenceFilterOutUpdateDefaultCompare(consequentsInout, this.implicationsArrFor(lit, 0), filteredOut);
+        const consequents = this.implicationsArrFor(lit, 0);
+        if (consequents) {
+            sequenceFilterOutUpdateDefaultCompare(consequentsInout, consequents, filteredOut);
+        }
     }
 
     filterOutNegConsequences(lit: Literal, consequentsInout: Variable[], filteredOut: Variable[]) {
-        sequenceFilterOutUpdateDefaultCompare(consequentsInout, this.implicationsArrFor(lit, ~0), filteredOut);
+        const consequents = this.implicationsArrFor(lit, ~0);
+        if (consequents) {
+            sequenceFilterOutUpdateDefaultCompare(consequentsInout, consequents, filteredOut);
+        }
     }
 
     hasAnyCommonPosConsequences(lit: Literal, consequents: Variable[]): boolean {
-        return sequenceHasNonemptyIntersectionDefaultCompare(consequents, this.implicationsArrFor(lit, 0));
+        const litConsequents = this.implicationsArrFor(lit, 0);
+        return litConsequents && sequenceHasNonemptyIntersectionDefaultCompare(consequents, litConsequents);
     }
 
     hasAnyCommonNegConsequences(lit: Literal, consequents: Variable[]): boolean {
-        return sequenceHasNonemptyIntersectionDefaultCompare(consequents, this.implicationsArrFor(lit, ~0));
+        const litConsequents = this.implicationsArrFor(lit, ~0);
+        return litConsequents && sequenceHasNonemptyIntersectionDefaultCompare(consequents, litConsequents);
     }
 }
 
@@ -309,7 +323,9 @@ export class BinaryImplicationLayeredGraph {
             // TODO: Remove all the removeDuplicate once the BIG is properly deduplicated and sorted
             return removeDuplicates(this.getPosConsequences(lits[0]).sort((a, b) => a - b));
         }
+        lits.push(1); // key for "pos consequences"
         const memoKey = appendInts(lits);
+        lits.pop();
         const memoResult = this.getMemo(memoKey);
         if (memoResult !== undefined) {
             return memoResult;
@@ -335,7 +351,9 @@ export class BinaryImplicationLayeredGraph {
             // TODO: Remove all the removeDuplicate once the BIG is properly deduplicated and sorted
             return removeDuplicates(this.getNegConsequences(lits[0]).sort((a, b) => a - b));
         }
+        lits.push(0); // key for "neg consequences"
         const memoKey = appendInts(lits);
+        lits.pop();
         const memoResult = this.getMemo(memoKey);
         if (memoResult !== undefined) {
             return memoResult;
