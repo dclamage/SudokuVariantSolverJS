@@ -27,7 +27,7 @@ import { LogicalStep } from './LogicalStep/LogicalStep';
 import { BinaryImplicationLayeredGraph } from './BinaryImplicationLayeredGraph';
 import { TypedArrayPool, TypedArrayEntry } from './Memory/TypedArrayPool';
 import { Fish } from './LogicalStep/Fish';
-import { ConstraintV2, LogicalDeduction, isConstraintV2 } from './Constraint/ConstraintV2';
+import { ConstraintV2, InitResult, LogicalDeduction, isConstraintV2 } from './Constraint/ConstraintV2';
 
 export type RegionType = string;
 export type Region = {
@@ -39,6 +39,7 @@ export type Region = {
 
 export type SolveOptions = {
     random?: boolean;
+    allowPreprocessing?: boolean;
     maxSolutions?: number;
     maxSolutionsPerCandidate?: number;
 };
@@ -823,7 +824,7 @@ export class Board {
         return groups;
     }
 
-    applyBruteForceLogic() {
+    applyBruteForceLogic(isDepth0: boolean) {
         let changed = false;
         while (true) {
             // Just in case, check if the board is completed
@@ -858,15 +859,92 @@ export class Board {
 
             // If we get here, then there are no more singles to find
             // Allow constraints to apply their logic
-            for (const constraint of this.constraints) {
-                const result = isConstraintV2(constraint) ? constraint.bruteForceStep(this) : constraint.logicStep(this, null);
-                if (result === ConstraintResult.INVALID) {
-                    return LogicResult.INVALID;
+            if (!isDepth0) {
+                for (const constraint of this.constraints) {
+                    const result = isConstraintV2(constraint) ? constraint.bruteForceStep(this) : constraint.logicStep(this, null);
+                    if (result === ConstraintResult.INVALID) {
+                        return LogicResult.INVALID;
+                    }
+                    if (result === ConstraintResult.CHANGED) {
+                        changedThisRound = true;
+                        changed = true;
+                        break;
+                    }
                 }
-                if (result === ConstraintResult.CHANGED) {
-                    changedThisRound = true;
-                    changed = true;
-                    break;
+            } else {
+                for (const constraint of this.constraints.slice()) {
+                    const result = isConstraintV2(constraint) ? constraint.preprocessingStep(this) : constraint.logicStep(this, null);
+                    const payload = typeof result === 'object' ? result : null;
+                    const constraintResult = typeof result === 'object' ? result.result : result;
+                    if (constraintResult === ConstraintResult.INVALID) {
+                        return LogicResult.INVALID;
+                    }
+                    if (constraintResult === ConstraintResult.CHANGED) {
+                        changedThisRound = true;
+                        changed = true;
+                    }
+                    if (payload) {
+                        if (payload.addConstraints && payload.addConstraints.length > 0) {
+                            // TODO: Once all constraints are on V2, we can deduplicate a lot of this code with initConstraints
+                            while (payload.addConstraints.length > 0) {
+                                const constraint2 = payload.addConstraints.pop();
+                                this.constraints.push(constraint2);
+                                const result2: InitResult = isConstraintV2(constraint2) ? constraint2.init(this) : constraint2.init(this, false);
+                                const payload2 = typeof result2 === 'object' ? result2 : null;
+                                const constraintResult2 = typeof result2 === 'object' ? result2.result : result2;
+                                if (constraintResult2 === ConstraintResult.INVALID) {
+                                    return LogicResult.INVALID;
+                                }
+                                if (payload2) {
+                                    if (payload2.addConstraints && payload2.addConstraints.length > 0) {
+                                        payload.addConstraints.push(...payload2.addConstraints);
+                                    }
+                                    if (payload2.deleteConstraints && payload2.deleteConstraints.length > 0) {
+                                        if (!payload.deleteConstraints) {
+                                            payload.deleteConstraints = [];
+                                        }
+                                        payload.deleteConstraints.push(...payload2.deleteConstraints);
+                                    }
+                                    if (payload2.weakLinks && payload2.weakLinks.length > 0) {
+                                        for (const [index1, index2] of payload2.weakLinks) {
+                                            this.addWeakLink(index1, index2);
+                                        }
+                                        changedThisRound = true;
+                                        changed = true;
+                                    }
+                                    if (payload2.implications && payload2.implications.length > 0) {
+                                        for (const [index1, index2] of payload2.implications) {
+                                            this.binaryImplications.addImplication(index1, index2);
+                                        }
+                                        changedThisRound = true;
+                                        changed = true;
+                                    }
+                                }
+                            }
+                            changedThisRound = true;
+                            changed = true;
+                        }
+                        if (payload.deleteConstraints && payload.deleteConstraints.length > 0) {
+                            this.constraints = this.constraints.filter(constraint => !payload.deleteConstraints.includes(constraint));
+                        }
+                        if (payload.weakLinks && payload.weakLinks.length > 0) {
+                            for (const [index1, index2] of payload.weakLinks) {
+                                this.addWeakLink(index1, index2);
+                            }
+                            changedThisRound = true;
+                            changed = true;
+                        }
+                        if (payload.implications && payload.implications.length > 0) {
+                            for (const [index1, index2] of payload.implications) {
+                                this.binaryImplications.addImplication(index1, index2);
+                            }
+                            changedThisRound = true;
+                            changed = true;
+                        }
+                    }
+                    if (changedThisRound) {
+                        break;
+                    }
                 }
             }
 
@@ -1262,7 +1340,7 @@ export class Board {
         options: SolveOptions | null | undefined,
         isCancelled: (() => boolean) | undefined
     ): Promise<SolveResultCancelled | SolveResultBoard | SolveResultNoSolution> {
-        const { random = false } = options || {};
+        const { random = false, allowPreprocessing = true } = options || {};
         const jobStack = [this.clone()];
         let lastCancelCheckTime = Date.now();
 
@@ -1282,7 +1360,7 @@ export class Board {
 
             const currentBoard = jobStack.pop();
 
-            const bruteForceResult = currentBoard.applyBruteForceLogic();
+            const bruteForceResult = currentBoard.applyBruteForceLogic(allowPreprocessing && jobStack.length === 0);
 
             if (bruteForceResult === LogicResult.INVALID) {
                 // Puzzle is invalid
@@ -1337,7 +1415,8 @@ export class Board {
         reportProgress: ((numSolutions: number) => void) | null | undefined,
         isCancelled: (() => boolean) | null | undefined,
         solutionsSeen: Set<string> | null | undefined = null,
-        solutionEvent: ((board: Board) => void) | null | undefined = null
+        solutionEvent: ((board: Board) => void) | null | undefined = null,
+        allowPreprocessing: boolean = true
     ): Promise<SolveResultCancelledPartialSolutionCount | SolveResultSolutionCount> {
         const jobStack = [this.clone()];
         let numSolutions = 0;
@@ -1364,7 +1443,7 @@ export class Board {
 
             const currentBoard = jobStack.pop();
 
-            const bruteForceResult = currentBoard.applyBruteForceLogic();
+            const bruteForceResult = currentBoard.applyBruteForceLogic(allowPreprocessing && jobStack.length === 0);
 
             if (bruteForceResult === LogicResult.INVALID) {
                 // Puzzle is invalid
@@ -1456,7 +1535,7 @@ export class Board {
         const wantSolutionCounts = maxSolutionsPerCandidate > 1;
 
         const board = this.clone();
-        const bruteForceResult = board.applyBruteForceLogic();
+        const bruteForceResult = board.applyBruteForceLogic(true);
         if (bruteForceResult === LogicResult.INVALID) {
             // Puzzle is invalid
             board.release();
@@ -1555,20 +1634,27 @@ export class Board {
                     }
 
                     // Find solutions for the new board
-                    const { result } = await newBoard.countSolutions(remainingSolutions, null, isCancelled, solutionsSeen, solutionBoard => {
-                        // Update all candidate counts for this solution
-                        for (let cellIndex = 0; cellIndex < totalCells; cellIndex++) {
-                            const cellMask = solutionBoard.cells[cellIndex] & allValues;
-                            const cellValue = minValue(cellMask);
-                            const cellCandidateIndex = solutionBoard.candidateIndex(cellIndex, cellValue);
-                            candidateCounts[cellCandidateIndex]++;
+                    const { result } = await newBoard.countSolutions(
+                        remainingSolutions,
+                        null,
+                        isCancelled,
+                        solutionsSeen,
+                        solutionBoard => {
+                            // Update all candidate counts for this solution
+                            for (let cellIndex = 0; cellIndex < totalCells; cellIndex++) {
+                                const cellMask = solutionBoard.cells[cellIndex] & allValues;
+                                const cellValue = minValue(cellMask);
+                                const cellCandidateIndex = solutionBoard.candidateIndex(cellIndex, cellValue);
+                                candidateCounts[cellCandidateIndex]++;
 
-                            if (candidateCounts[cellCandidateIndex] >= maxSolutionsPerCandidate) {
-                                // We've found enough solutions for this candidate, so mark it as attempted
-                                attemptedCandidates[cellIndex] |= cellMask;
+                                if (candidateCounts[cellCandidateIndex] >= maxSolutionsPerCandidate) {
+                                    // We've found enough solutions for this candidate, so mark it as attempted
+                                    attemptedCandidates[cellIndex] |= cellMask;
+                                }
                             }
-                        }
-                    });
+                        },
+                        false
+                    );
 
                     if (result === 'cancelled partial count') {
                         newBoard.release();
@@ -1582,7 +1668,7 @@ export class Board {
                     }
                 } else {
                     // Find any solution
-                    const solutionResult = await newBoard.findSolution({}, isCancelled);
+                    const solutionResult = await newBoard.findSolution({ allowPreprocessing: false }, isCancelled);
                     newBoard.release();
 
                     if (solutionResult.result === 'no solution') {
@@ -1603,7 +1689,7 @@ export class Board {
 
             if (removedCandidates) {
                 // We removed at least one candidate, so we need to re-apply logic
-                const bruteForceResult = board.applyBruteForceLogic();
+                const bruteForceResult = board.applyBruteForceLogic(true);
                 if (bruteForceResult === LogicResult.INVALID) {
                     // Puzzle is invalid
                     board.release();
