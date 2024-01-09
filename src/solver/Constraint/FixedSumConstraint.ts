@@ -1,45 +1,44 @@
 import { Board } from '../Board';
 import { CellIndex, CellValue, hasValue, valueBit } from '../SolveUtility';
 import { SumCellsHelper } from '../SumCellsHelper';
-import { Constraint, ConstraintResult } from './Constraint';
+import { ConstraintV2, ConstraintResult, LogicalDeduction, PreprocessingResult } from './ConstraintV2';
 
 export interface FixedSumConstraintParams {
     cells: CellIndex[];
     sum: number;
 }
 
-export class FixedSumConstraint extends Constraint {
+export class FixedSumConstraint extends ConstraintV2 {
     cells: CellIndex[];
     cellsSet: Set<CellIndex>;
     sum: number;
     sumHelper: SumCellsHelper;
 
     constructor(constraintName: string, specificName: string, board: Board, params: FixedSumConstraintParams) {
-        super(board, constraintName, specificName);
+        super(constraintName, specificName);
 
         this.sum = params.sum;
         this.cells = params.cells.toSorted((a: number, b: number) => a - b);
         this.cellsSet = new Set(this.cells);
+        this.sumHelper = undefined;
     }
 
-    init(board: Board, isRepeat: boolean) {
+    init(board: Board) {
         // Size 1 is just a given
         if (this.cells.length === 1) {
-            if (isRepeat) {
-                return ConstraintResult.UNCHANGED;
-            }
             if (this.sum > board.size) {
                 return ConstraintResult.INVALID;
             }
 
             const cell = this.cells[0];
-            return board.keepCellMask(cell, valueBit(this.sum));
+            return {
+                result: board.keepCellMask(cell, valueBit(this.sum)),
+                deleteConstraints: [this],
+            };
         }
 
         // Size 2 act like sum dots via weak links
         if (this.cells.length === 2) {
-            delete this.sumHelper;
-
             const [cell1, cell2] = this.cells;
             const valueUsed1 = Array.from({ length: board.size + 1 }, () => false);
             const valueUsed2 = Array.from({ length: board.size + 1 }, () => false);
@@ -61,31 +60,17 @@ export class FixedSumConstraint extends Constraint {
                     }
 
                     if (value1 + value2 !== this.sum) {
-                        if (!isRepeat) {
-                            board.addWeakLink(cell1Candidate, cell2Candidate);
-                        }
+                        board.addWeakLink(cell1Candidate, cell2Candidate);
                     } else {
                         valueUsed1[value1] = true;
                         valueUsed2[value2] = true;
                     }
                 }
             }
-
-            // Only keep candidates used by the sum
-            const valueUsedMask1 = valueUsed1.reduce((mask, used, value) => (used ? mask | valueBit(value) : mask), 0);
-            const valueUsedMask2 = valueUsed2.reduce((mask, used, value) => (used ? mask | valueBit(value) : mask), 0);
-            const result1 = board.keepCellMask(cell1, valueUsedMask1);
-            const result2 = board.keepCellMask(cell2, valueUsedMask2);
-
-            if (result1 === ConstraintResult.INVALID || result2 === ConstraintResult.INVALID) {
-                return ConstraintResult.INVALID;
-            }
-
-            if (result1 === ConstraintResult.CHANGED || result2 === ConstraintResult.CHANGED) {
-                return ConstraintResult.CHANGED;
-            }
-
-            return ConstraintResult.UNCHANGED;
+            return {
+                result: ConstraintResult.CHANGED,
+                deleteConstraints: [this],
+            };
         }
 
         // Create the sum helper which does most of the work
@@ -104,11 +89,42 @@ export class FixedSumConstraint extends Constraint {
         return true;
     }
 
-    logicStep(board: Board, logicalStepDescription: string[]) {
-        if (this.sumHelper) {
-            return this.sumHelper.logicStep(board, [this.sum], logicalStepDescription);
+    logicalStep(board: Board): LogicalDeduction[] {
+        // Re-create the sum helper in case new regions have been added
+        this.sumHelper = new SumCellsHelper(board, this.cells);
+        // no need to `init`, that mutates the board and is actually to try and find some pre solve "obvious deductions"
+        // we should add those separately.
+        const result = this.sumHelper.getRestrictSumsEliminations(board, [this.sum]);
+
+        if (result.result === ConstraintResult.UNCHANGED) {
+            return [];
         }
-        return ConstraintResult.UNCHANGED;
+        if (result.result === ConstraintResult.INVALID) {
+            return [
+                {
+                    invalid: true,
+                    explanation: result.explanation,
+                },
+            ];
+        }
+
+        return [
+            {
+                explanation: '',
+                eliminations: result.eliminations,
+            },
+        ];
+    }
+
+    preprocessingStep(board: Board): PreprocessingResult {
+        // Re-create the sum helper in case new regions have been added
+        this.sumHelper = new SumCellsHelper(board, this.cells);
+        return this.sumHelper.logicStep(board, [this.sum], null);
+    }
+
+    bruteForceStep(board: Board): ConstraintResult {
+        // No need to recreate sum helper as regions cannot be added mid-solve
+        return this.sumHelper.logicStep(board, [this.sum], null);
     }
 
     // Returns if all the cells in the cage are givens

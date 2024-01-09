@@ -71,6 +71,8 @@ export class SumCellsHelper {
         return changed ? ConstraintResult.CHANGED : ConstraintResult.UNCHANGED;
     }
 
+    // TODO: Add "obvious" version of this function that restricts based on min/max only,
+    //       and does not look at the candidates or weak links on the board.
     getRestrictSumsEliminations(
         board: Board,
         possibleSums: number[]
