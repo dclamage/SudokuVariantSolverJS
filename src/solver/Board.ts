@@ -874,6 +874,23 @@ export class Board {
                 continue;
             }
 
+            if (isDepth0) {
+                // Temporary hack: At depth 0, run cell forcing
+                // We need this as more and more constraints are becoming weaklinks based which is super weak without the support encoding.
+                // TODO: When we have LUT based cell forcing, see if this is fast enough to run at all levels of the solve
+                result = new CellForcing(this).step(this, null);
+                if (result === LogicResult.INVALID || result === LogicResult.COMPLETE) {
+                    return result;
+                }
+
+                if (result === LogicResult.CHANGED) {
+                    changedThisRound = true;
+                    changed = true;
+                    // Keep looking for singles / cell forcing until there are none
+                    continue;
+                }
+            }
+
             // If we get here, then there are no more singles to find
             // Allow constraints to apply their logic
             if (!isDepth0) {
