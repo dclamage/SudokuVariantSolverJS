@@ -185,6 +185,9 @@ export class ConstraintV2 extends Constraint {
 
         let changed = ConstraintResult.UNCHANGED;
         const deductions = ConstraintV2.flattenDeductions(this.obviousLogicalStep(board).concat(this.logicalStep(board)));
+        if (deductions.invalid) {
+            return ConstraintResult.INVALID;
+        }
         if (deductions.singles && deductions.singles.length > 0) {
             if (!board.enforceCandidates(deductions.singles)) {
                 return ConstraintResult.INVALID;
@@ -199,7 +202,7 @@ export class ConstraintV2 extends Constraint {
         }
 
         return {
-            result: deductions.invalid ? ConstraintResult.INVALID : changed,
+            result: changed,
             addConstraints: deductions.addConstraints,
             deleteConstraints: deductions.deleteConstraints,
             weakLinks: deductions.weakLinks,
