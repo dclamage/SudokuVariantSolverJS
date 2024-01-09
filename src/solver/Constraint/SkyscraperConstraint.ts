@@ -16,7 +16,7 @@ import {
     valueBit,
     valuesList,
 } from '../SolveUtility';
-import { Constraint, ConstraintResult, InitResult } from './Constraint';
+import { ConstraintV2, ConstraintResult, InitResult, LogicalDeduction } from './ConstraintV2';
 import { FPuzzlesCell } from './FPuzzlesInterfaces';
 
 interface SkyscraperConstraintParams {
@@ -28,7 +28,7 @@ interface LogicStepMemo {
     keepMasks: CellMask[] | null;
 }
 
-export class SkyscraperConstraint extends Constraint {
+export class SkyscraperConstraint extends ConstraintV2 {
     clue: number;
     cellStart: CellIndex;
     cells: CellIndex[];
@@ -39,7 +39,7 @@ export class SkyscraperConstraint extends Constraint {
         const firstCellIndex = board.cellIndex(params.directionalCoords.row, params.directionalCoords.col);
         const directionOffset = board.cellIndex(params.directionalCoords.dRow, params.directionalCoords.dCol);
         const specificName = `Skyscraper ${params.clue} at ${cellName(firstCellIndex, board.size)}`;
-        super(board, 'Skyscraper', specificName);
+        super('Skyscraper', specificName);
 
         this.clue = params.clue;
         this.cellStart = firstCellIndex;
@@ -53,7 +53,7 @@ export class SkyscraperConstraint extends Constraint {
         this.memoPrefix = `Skyscraper|${this.clue}|${this.cellStart}`;
     }
 
-    init(board: Board, isRepeat: boolean): InitResult {
+    init(board: Board): InitResult {
         // A clue of 1 means the max value must be in the first cell
         if (this.clue === 1) {
             const keepMask = valueBit(board.size);
@@ -120,9 +120,7 @@ export class SkyscraperConstraint extends Constraint {
         return (haveUnset && numSeen <= this.clue) || (!haveUnset && numSeen === this.clue);
     }
 
-    logicStep(board: Board, logicalStepDescription: string[]): ConstraintResult {
-        let changed = false;
-
+    logicalStep(board: Board): LogicalDeduction[] {
         let memoKey = this.memoPrefix;
         const unsetCellIndexes = [];
         const curVals = [];
@@ -142,7 +140,7 @@ export class SkyscraperConstraint extends Constraint {
             }
         }
         if (unsetCellIndexes.length === 0) {
-            return ConstraintResult.UNCHANGED;
+            return [];
         }
 
         let keepMasks: CellMask[];
@@ -150,10 +148,12 @@ export class SkyscraperConstraint extends Constraint {
         if (memo) {
             keepMasks = memo.keepMasks;
             if (keepMasks === null) {
-                if (logicalStepDescription) {
-                    logicalStepDescription.push(`Clue value ${this.clue} is impossible.`);
-                }
-                return ConstraintResult.INVALID;
+                return [
+                    {
+                        explanation: `Clue value ${this.clue} is impossible.`,
+                        invalid: true,
+                    },
+                ];
             }
         } else {
             const unsetVals: number[] = valuesList(unsetMask);
@@ -192,17 +192,19 @@ export class SkyscraperConstraint extends Constraint {
             }
 
             if (!haveValidPerm) {
-                if (logicalStepDescription) {
-                    logicalStepDescription.push(`Clue value ${this.clue} is impossible.`);
-                }
                 board.storeMemo(memoKey, { keepMasks: null });
-                return ConstraintResult.INVALID;
+                return [
+                    {
+                        explanation: `Clue value ${this.clue} is impossible.`,
+                        invalid: true,
+                    },
+                ];
             } else {
                 board.storeMemo(memoKey, { keepMasks });
             }
         }
 
-        let elims: CandidateIndex[] | null = null;
+        let elims: CandidateIndex[] = [];
         for (let cellIndex = 0; cellIndex < this.cells.length; ++cellIndex) {
             const cell = this.cells[cellIndex];
             const cellMask = board.cells[cell];
@@ -215,30 +217,23 @@ export class SkyscraperConstraint extends Constraint {
                 continue;
             }
 
-            const result = board.keepCellMask(cell, keepMasks[cellIndex]);
-            if (result === ConstraintResult.INVALID) {
-                return ConstraintResult.INVALID;
-            }
-            if (result === ConstraintResult.CHANGED) {
-                if (logicalStepDescription) {
-                    if (elims === null) {
-                        elims = [];
-                    }
-                    for (let v = 1; v <= board.size; ++v) {
-                        if (hasValue(elimMask, v)) {
-                            elims.push(board.candidateIndex(cell, v));
-                        }
-                    }
+            for (let v = 1; v <= board.size; ++v) {
+                if (hasValue(elimMask, v)) {
+                    elims.push(board.candidateIndex(cell, v));
                 }
-                changed = true;
             }
         }
 
-        if (logicalStepDescription && elims !== null) {
-            logicalStepDescription.push(`Re-evaluated clue ${this.clue} => ${board.describeElims(elims)}.`);
+        if (elims.length > 0) {
+            return [
+                {
+                    explanation: '',
+                    eliminations: elims,
+                },
+            ];
         }
 
-        return changed ? ConstraintResult.CHANGED : ConstraintResult.UNCHANGED;
+        return [];
     }
 
     static seenCount(values: CellValue[]): number {
