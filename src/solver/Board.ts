@@ -463,10 +463,11 @@ export class Board {
                 return result === ConstraintResult.CHANGED ? LoopResult.SCHEDULE_LOOP : LoopResult.UNCHANGED;
             }
 
-            if (isConstraintV2(constraint) && initedConstraints.get(constraint) === true) {
+            if (isConstraintV2(constraint) && initedConstraints.get(constraint) !== true) {
                 // For uninited V2 constraints, force a re-loop so that the obviousLogicalStep code above gets scheduled
                 // TODO: remove this once obvious steps are moved out of init
                 haveChange = true;
+                initedConstraints.set(constraint, true);
                 const result = constraint.init(this);
                 const payload = typeof result === 'object' ? result : null;
                 const constraintResult = typeof result === 'object' ? result.result : result;
@@ -502,30 +503,30 @@ export class Board {
                     }
                 }
                 return haveChange ? LoopResult.SCHEDULE_LOOP : LoopResult.UNCHANGED;
-            } else {
-                // V1 constraint
-                const result = constraint.init(this, isRepeat || initedConstraints.get(constraint) === true);
-                initedConstraints.set(constraint, true);
-                const payload = typeof result === 'object' ? result : null;
-                const constraintResult = typeof result === 'object' ? result.result : result;
-                if (constraintResult === ConstraintResult.INVALID) {
-                    initializationPassed = false;
-                    return LoopResult.ABORT_LOOP;
-                }
-                if (constraintResult === ConstraintResult.CHANGED) {
-                    haveChange = true;
-                }
-                if (payload) {
-                    if (payload.addConstraints) {
-                        this.constraints.push(...payload.addConstraints);
-                    }
-                    if (payload.deleteConstraints) {
-                        this.constraints = this.constraints.filter(constraint => !payload.deleteConstraints.includes(constraint));
-                    }
-                }
-
-                return haveChange ? LoopResult.SCHEDULE_LOOP : LoopResult.UNCHANGED;
             }
+
+            // V1 constraint
+            const result = constraint.init(this, isRepeat || initedConstraints.get(constraint) === true);
+            initedConstraints.set(constraint, true);
+            const payload = typeof result === 'object' ? result : null;
+            const constraintResult = typeof result === 'object' ? result.result : result;
+            if (constraintResult === ConstraintResult.INVALID) {
+                initializationPassed = false;
+                return LoopResult.ABORT_LOOP;
+            }
+            if (constraintResult === ConstraintResult.CHANGED) {
+                haveChange = true;
+            }
+            if (payload) {
+                if (payload.addConstraints) {
+                    this.constraints.push(...payload.addConstraints);
+                }
+                if (payload.deleteConstraints) {
+                    this.constraints = this.constraints.filter(constraint => !payload.deleteConstraints.includes(constraint));
+                }
+            }
+
+            return haveChange ? LoopResult.SCHEDULE_LOOP : LoopResult.UNCHANGED;
         });
 
         return initializationPassed;
