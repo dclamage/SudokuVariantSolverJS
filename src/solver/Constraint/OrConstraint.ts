@@ -1,7 +1,7 @@
 import { Board, ReadonlyBoard } from '../Board';
 import { valueBit, minValue, CellIndex, CellValue, CandidateIndex, WeakLink } from '../SolveUtility';
 import { Constraint } from './Constraint';
-import { ConstraintV2, ConstraintResult, InitResult, LogicalDeduction } from './ConstraintV2';
+import { ConstraintV2, ConstraintResult, InitResult, LogicalDeduction, isConstraintV2 } from './ConstraintV2';
 
 interface OrConstraintParams {
     subboards: Board[];
@@ -127,10 +127,7 @@ export class OrConstraint extends ConstraintV2 {
     logicalStep(board: ReadonlyBoard): LogicalDeduction[] {
         this.subboards = this.subboards.filter(subboard => {
             subboard.binaryImplications.sortGraph();
-            // Transfer deductions downward
-            for (let cellIndex = 0; cellIndex < this.numCells; ++cellIndex) {
-                subboard.keepCellMask(cellIndex, board.cells[cellIndex]);
-            }
+            // No need to transfer deductions downward since that's already handled in `enforce/enforceCandidateElim`
 
             // Step all subconstraints repeatedly until no more further deductions are possible
             let changed = false;
@@ -138,17 +135,32 @@ export class OrConstraint extends ConstraintV2 {
                 changed = false;
 
                 for (const constraint of subboard.constraints) {
-                    // TODO: Handle v2 constraints in or constraints
-                    // Don't bother with logical deductions made in subboards, they get a bit too noisy to show.
-                    const result = constraint.logicStep(subboard, null);
-                    if (result === ConstraintResult.INVALID) {
-                        // Subboard is broken, filter it out
-                        this.subboardsChanged = true;
-                        subboard.release();
-                        return false;
-                    } else if (result === ConstraintResult.CHANGED) {
-                        this.subboardsChanged = true;
-                        changed = true;
+                    if (isConstraintV2(constraint)) {
+                        const deductions = ConstraintV2.flattenDeductions(
+                            constraint.obviousLogicalStep(subboard).concat(constraint.logicalStep(subboard))
+                        );
+                        const result = subboard.applyLogicalDeduction(deductions);
+                        if (result === ConstraintResult.INVALID) {
+                            // Subboard is broken, filter it out
+                            this.subboardsChanged = true;
+                            subboard.release();
+                            return false;
+                        } else if (result === ConstraintResult.CHANGED) {
+                            this.subboardsChanged = true;
+                            changed = true;
+                        }
+                    } else {
+                        // Don't bother with logical deductions made in subboards, they get a bit too noisy to show.
+                        const result = constraint.logicStep(subboard, null);
+                        if (result === ConstraintResult.INVALID) {
+                            // Subboard is broken, filter it out
+                            this.subboardsChanged = true;
+                            subboard.release();
+                            return false;
+                        } else if (result === ConstraintResult.CHANGED) {
+                            this.subboardsChanged = true;
+                            changed = true;
+                        }
                     }
                 }
             } while (changed);
@@ -204,12 +216,14 @@ export class OrConstraint extends ConstraintV2 {
                 this.subboards[subboardIndex].binaryImplications.filterOutTopLayerNegConsequences(candidate, newLinks, scratch);
                 [newLinks, scratch] = [scratch, newLinks];
             }
-            for (const link of newLinks) {
-                if (board.isWeakLink(candidate, link)) {
-                    for (const subboard of this.subboards) {
-                        subboard.binaryImplications.graph.unsafeRemoveImplication(candidate, link);
-                    }
+            scratch.length = 0;
+            board.binaryImplications.filterOutNegConsequences(candidate, newLinks, scratch);
+            for (const link of scratch) {
+                for (const subboard of this.subboards) {
+                    subboard.binaryImplications.graph.unsafeRemoveImplication(candidate, ~link);
                 }
+            }
+            for (const link of newLinks) {
                 weakLinks.push([candidate, link]);
             }
         }
@@ -244,16 +258,29 @@ export class OrConstraint extends ConstraintV2 {
                 changed = false;
 
                 for (const constraint of subboard.constraints) {
-                    // Don't bother with logical deductions made in subboards, they get a bit too noisy to show.
-                    const result = constraint.logicStep(subboard, null);
-                    if (result === ConstraintResult.INVALID) {
-                        // Subboard is broken, filter it out
-                        this.subboardsChanged = true;
-                        subboard.release();
-                        return false;
-                    } else if (result === ConstraintResult.CHANGED) {
-                        this.subboardsChanged = true;
-                        changed = true;
+                    if (isConstraintV2(constraint)) {
+                        const result = constraint.bruteForceStep(subboard);
+                        if (result === ConstraintResult.INVALID) {
+                            // Subboard is broken, filter it out
+                            this.subboardsChanged = true;
+                            subboard.release();
+                            return false;
+                        } else if (result === ConstraintResult.CHANGED) {
+                            this.subboardsChanged = true;
+                            changed = true;
+                        }
+                    } else {
+                        // Don't bother with logical deductions made in subboards, they get a bit too noisy to show.
+                        const result = constraint.logicStep(subboard, null);
+                        if (result === ConstraintResult.INVALID) {
+                            // Subboard is broken, filter it out
+                            this.subboardsChanged = true;
+                            subboard.release();
+                            return false;
+                        } else if (result === ConstraintResult.CHANGED) {
+                            this.subboardsChanged = true;
+                            changed = true;
+                        }
                     }
                 }
             } while (changed);
