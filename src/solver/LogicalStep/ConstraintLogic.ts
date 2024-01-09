@@ -44,17 +44,23 @@ export class ConstraintLogic extends LogicalStep {
                     }
 
                     if (result === ConstraintResult.CHANGED) {
-                        const explanationBase = deduction.explanation ? `[${constraint.toSpecificString()}]: ${deduction.explanation}` : '';
+                        if (deduction.explanation === undefined) {
+                            // It was a DeletionOnly deduction
+                            continue;
+                        }
+                        const explanationBase = `[${constraint.toSpecificString()}]: ${deduction.explanation}${
+                            deduction.explanation.length > 0 ? ' => ' : ' '
+                        }`;
                         const singlesDescribed = deduction.singles && deduction.singles.length > 0 ? board.describeCandidates(deduction.singles) : '';
                         const elimsDescribed =
                             deduction.eliminations && deduction.eliminations.length > 0 ? board.describeElims(deduction.eliminations) : '';
                         const deductionsDescribed =
                             singlesDescribed.length > 0 && elimsDescribed.length > 0
-                                ? `${explanationBase} => ${singlesDescribed};${elimsDescribed}`
+                                ? `${explanationBase}${singlesDescribed};${elimsDescribed}`
                                 : singlesDescribed.length > 0
-                                  ? `${explanationBase} => ${singlesDescribed}`
+                                  ? `${explanationBase}${singlesDescribed}`
                                   : elimsDescribed.length > 0
-                                    ? `${explanationBase} => ${elimsDescribed}`
+                                    ? `${explanationBase}${elimsDescribed}`
                                     : '';
                         if (deductionsDescribed.length > 0) {
                             desc.push(deductionsDescribed);
