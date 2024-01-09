@@ -288,6 +288,17 @@ export class Board {
     }
 
     addWeakLink(index1: CandidateIndex, index2: CandidateIndex): boolean {
+        if (index1 === index2) {
+            // Special case: If a weak link points at itself, we should eliminate it instead
+            const [cellIndex, value] = this.candidateToIndexAndValue(index1);
+            const valueMask = valueBit(value);
+            const result = this.clearCellMask(cellIndex, valueMask);
+            if (result === ConstraintResult.INVALID) {
+                this.invalidInit = true;
+            }
+            return result === ConstraintResult.CHANGED;
+        }
+
         const [cellIndex1, value1] = this.candidateToIndexAndValue(index1);
         const [cellIndex2, value2] = this.candidateToIndexAndValue(index2);
 
