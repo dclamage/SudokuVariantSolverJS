@@ -24,8 +24,8 @@ class RenbanConstraint extends Constraint {
             const weakLinks: [CandidateIndex, CandidateIndex][] = [];
             for (let i = 0; i < this.cells.length - 1; ++i) {
                 for (let j = i + 1; j < this.cells.length; ++j) {
-                    weakLinks.push(...generateLEWeakLinks(board.size, this.cells[i], this.cells[j], this.cells.length));
-                    weakLinks.push(...generateLEWeakLinks(board.size, this.cells[j], this.cells[i], this.cells.length));
+                    weakLinks.push(...generateLEWeakLinks(board.size, this.cells[i], this.cells[j], this.cells.length - 1));
+                    weakLinks.push(...generateLEWeakLinks(board.size, this.cells[j], this.cells[i], this.cells.length - 1));
                     // Cells can't be equal either
                     weakLinks.push(...generateNEqWeakLinks(board.size, this.cells[i], this.cells[j]));
                 }
