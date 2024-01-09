@@ -1,12 +1,12 @@
 import { Board } from '../Board';
-import { Constraint, ConstraintResult } from './Constraint';
+import { ConstraintV2, ConstraintResult } from './ConstraintV2';
 
-export class InvalidConstraint extends Constraint {
+export class InvalidConstraint extends ConstraintV2 {
     constructor(board: Board, constraintName: string, specificName: string) {
-        super(board, constraintName, specificName);
+        super(constraintName, specificName);
     }
 
-    init(board: Board, isRepeat: boolean) {
+    init(board: Board) {
         return ConstraintResult.INVALID;
     }
 }
