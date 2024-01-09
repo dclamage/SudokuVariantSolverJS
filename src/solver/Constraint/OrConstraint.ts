@@ -10,6 +10,7 @@ export class OrConstraint extends Constraint {
     numCells: number;
     numCandidates: number;
     subboards: Board[];
+    subboardsChanged: boolean;
 
     constructor(constraintName: string, specificName: string, board: Board, params: OrConstraintParams) {
         if (constraintName === undefined || specificName === undefined || board === undefined || params === undefined) {
@@ -17,12 +18,14 @@ export class OrConstraint extends Constraint {
             this.numCells = undefined;
             this.numCandidates = undefined;
             this.subboards = undefined;
+            this.subboardsChanged = undefined;
         } else {
             const { subboards } = params;
             super(board, constraintName, specificName);
             this.numCells = board.size * board.size;
             this.numCandidates = board.size * board.size * board.size;
             this.subboards = subboards;
+            this.subboardsChanged = true;
         }
     }
 
@@ -128,6 +131,7 @@ export class OrConstraint extends Constraint {
     }
 
     enforce(board: Board, cellIndex: CellIndex, value: CellValue) {
+        this.subboardsChanged = true;
         let invalidSubboards: Board[] | null = null;
         for (const subboard of this.subboards) {
             if (!subboard.setAsGiven(cellIndex, value)) {
@@ -146,6 +150,7 @@ export class OrConstraint extends Constraint {
     }
 
     enforceCandidateElim(board: Board, cellIndex: CellIndex, value: CellValue) {
+        this.subboardsChanged = true;
         let invalidSubboards: Board[] | null = null;
         for (const subboard of this.subboards) {
             if (!subboard.clearValue(cellIndex, value)) {
@@ -165,11 +170,6 @@ export class OrConstraint extends Constraint {
 
     logicStep(board: Board, logicalStepDescription: string[]) {
         this.subboards = this.subboards.filter(subboard => {
-            // Transfer deductions downward
-            for (let cellIndex = 0; cellIndex < this.numCells; ++cellIndex) {
-                subboard.keepCellMask(cellIndex, board.cells[cellIndex]);
-            }
-
             // Step all subconstraints repeatedly until no more further deductions are possible
             let changed = false;
             do {
@@ -180,9 +180,11 @@ export class OrConstraint extends Constraint {
                     const result = constraint.logicStep(subboard, null);
                     if (result === ConstraintResult.INVALID) {
                         // Subboard is broken, filter it out
+                        this.subboardsChanged = true;
                         subboard.release();
                         return false;
                     } else if (result === ConstraintResult.CHANGED) {
+                        this.subboardsChanged = true;
                         changed = true;
                     }
                 }
@@ -197,11 +199,19 @@ export class OrConstraint extends Constraint {
             return ConstraintResult.INVALID;
         }
 
+        if (!this.subboardsChanged) {
+            return ConstraintResult.UNCHANGED;
+        }
+        this.subboardsChanged = false;
+
         // Transfer deductions shared by all subboards upward
         let changed = ConstraintResult.UNCHANGED;
         const elims = [];
         for (let cellIndex = 0; cellIndex < this.numCells; ++cellIndex) {
-            const cellMask = this.subboards.reduce((mask, subboard) => mask | subboard.cells[cellIndex], 0);
+            let cellMask = 0;
+            for (const subboard of this.subboards) {
+                cellMask |= subboard.cells[cellIndex];
+            }
             let removedMask = board.cells[cellIndex] & ~cellMask;
             while (removedMask !== 0) {
                 const value = minValue(removedMask);
