@@ -38,7 +38,11 @@ export class OrConstraint extends Constraint {
 
             // Init constraints
             // If init fails, filter out the subboard immediately
-            return subboard.initConstraints(isRepeat);
+            const keepSubboard = subboard.initConstraints(isRepeat);
+            if (!keepSubboard) {
+                subboard.release();
+            }
+            return keepSubboard;
         });
 
         // No more subboards left == puzzle is broken
@@ -95,7 +99,13 @@ export class OrConstraint extends Constraint {
     }
 
     finalize() {
-        this.subboards = this.subboards.filter(subboard => subboard.finalizeConstraintsNoInit());
+        this.subboards = this.subboards.filter(subboard => {
+            if (!subboard.finalizeConstraintsNoInit()) {
+                subboard.release();
+                return false;
+            }
+            return true;
+        });
 
         // No more subboards left == puzzle is broken
         return this.subboards.length === 0 ? ConstraintResult.INVALID : ConstraintResult.UNCHANGED;
@@ -111,6 +121,12 @@ export class OrConstraint extends Constraint {
         return clone;
     }
 
+    release() {
+        for (const subboard of this.subboards) {
+            subboard.release();
+        }
+    }
+
     enforce(board: Board, cellIndex: CellIndex, value: CellValue) {
         let invalidSubboards: Board[] | null = null;
         for (const subboard of this.subboards) {
@@ -119,6 +135,7 @@ export class OrConstraint extends Constraint {
                     invalidSubboards = [];
                 }
                 invalidSubboards.push(subboard);
+                subboard.release();
             }
         }
         if (invalidSubboards !== null) {
@@ -136,6 +153,7 @@ export class OrConstraint extends Constraint {
                     invalidSubboards = [];
                 }
                 invalidSubboards.push(subboard);
+                subboard.release();
             }
         }
         if (invalidSubboards !== null) {
@@ -162,6 +180,7 @@ export class OrConstraint extends Constraint {
                     const result = constraint.logicStep(subboard, null);
                     if (result === ConstraintResult.INVALID) {
                         // Subboard is broken, filter it out
+                        subboard.release();
                         return false;
                     } else if (result === ConstraintResult.CHANGED) {
                         changed = true;

@@ -94,6 +94,9 @@ export class Constraint {
         return this;
     }
 
+    // Release any resources held by the constraint
+    release() {}
+
     // Utility functions
     getOffset(board: Board, cellIndex1: number, cellIndex2: number): CellCoords {
         const { row: row1, col: col1 } = board.cellCoords(cellIndex1);

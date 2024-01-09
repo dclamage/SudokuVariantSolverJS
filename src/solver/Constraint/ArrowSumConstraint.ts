@@ -94,12 +94,14 @@ export class ArrowSumConstraint extends Constraint {
 
             // Set this sum as a given
             if (!boardClone.setAsGiven(circleCell, circleValue)) {
+                boardClone.release();
                 continue;
             }
 
             // Run the logical step on the clone as if it was this sum
             const logicStepResult = this.arrowCellsSum.logicStep(boardClone, [circleValue], null);
             if (logicStepResult === ConstraintResult.INVALID) {
+                boardClone.release();
                 continue;
             }
 
@@ -110,6 +112,7 @@ export class ArrowSumConstraint extends Constraint {
             }
 
             if (logicStepResult !== ConstraintResult.CHANGED) {
+                boardClone.release();
                 continue;
             }
 
@@ -128,6 +131,7 @@ export class ArrowSumConstraint extends Constraint {
                     board.addWeakLink(arrowCandidate, circleCandidate);
                 }
             }
+            boardClone.release();
         }
 
         // Update the arrow cells

@@ -25,6 +25,7 @@ import { Constraint, ConstraintResult } from './Constraint/Constraint';
 import { LogicResult } from './Enums/LogicResult';
 import { LogicalStep } from './LogicalStep/LogicalStep';
 import { BinaryImplicationLayeredGraph } from './BinaryImplicationLayeredGraph';
+import { TypedArrayPool, TypedArrayEntry } from './Memory/TypedArrayPool';
 
 export type RegionType = string;
 export type Region = {
@@ -93,7 +94,10 @@ export class Board {
     size: number;
     allValues: CellMask;
     givenBit: CellMask;
-    cells: CellMask[];
+    cellsPool: TypedArrayPool<Uint16Array | Uint32Array>;
+    cellsPoolEntry: TypedArrayEntry<Uint16Array | Uint32Array> | null;
+    cells: Uint16Array | Uint32Array | null;
+    cells64: BigUint64Array | null;
     invalidInit: boolean;
     nonGivenCount: number;
     nakedSingles: CellIndex[];
@@ -111,7 +115,9 @@ export class Board {
             this.size = size;
             this.allValues = allValues(size);
             this.givenBit = 1 << size;
-            this.cells = new Array(size * size).fill(this.allValues);
+            this.cellsPool = new TypedArrayPool(size * size, size < 16 ? 2 : 4);
+            this.allocateCells();
+            this.cells.fill(this.allValues);
             this.invalidInit = false;
             this.nonGivenCount = size * size;
             this.nakedSingles = [];
@@ -139,7 +145,12 @@ export class Board {
         clone.size = this.size;
         clone.allValues = this.allValues;
         clone.givenBit = this.givenBit;
-        clone.cells = this.cells.slice(); // Deep copy
+        clone.cellsPool = this.cellsPool;
+
+        // Deep copy cells
+        clone.allocateCells();
+        clone.cells64.set(this.cells64);
+
         clone.invalidInit = this.invalidInit;
         clone.nonGivenCount = this.nonGivenCount;
         clone.nakedSingles = this.nakedSingles.slice(); // Deep copy
@@ -165,7 +176,12 @@ export class Board {
         clone.size = this.size;
         clone.allValues = this.allValues;
         clone.givenBit = this.givenBit;
-        clone.cells = this.cells.slice(); // Deep copy
+        clone.cellsPool = this.cellsPool;
+
+        // Deep copy cells
+        clone.allocateCells();
+        clone.cells64.set(this.cells64);
+
         clone.invalidInit = this.invalidInit;
         clone.nonGivenCount = this.nonGivenCount;
         clone.nakedSingles = this.nakedSingles.slice(); // Deep copy
@@ -177,6 +193,29 @@ export class Board {
         clone.memos = new Map(); // Don't inherit memos
         clone.logicalSteps = this.logicalSteps;
         return clone;
+    }
+
+    private allocateCells() {
+        this.cellsPoolEntry = this.cellsPool.get();
+        this.cells = this.cellsPoolEntry.array;
+        this.cells64 = this.cellsPoolEntry.array64;
+    }
+
+    release() {
+        if (this.cellsPoolEntry === null) {
+            throw new Error('Board has already been released');
+        }
+
+        // Release constraints
+        for (const constraint of this.constraints) {
+            constraint.release();
+        }
+
+        // Release cells
+        this.cellsPool.release(this.cellsPoolEntry!);
+        this.cellsPoolEntry = null!;
+        this.cells = null!;
+        this.cells64 = null!;
     }
 
     solutionString() {
@@ -1090,6 +1129,12 @@ export class Board {
         return minCandidateIndex;
     }
 
+    private static releaseJobStack(jobStack: Board[]) {
+        for (const board of jobStack) {
+            board.release();
+        }
+    }
+
     async findSolution(
         options: SolveOptions | null | undefined,
         isCancelled: (() => boolean) | undefined
@@ -1118,17 +1163,22 @@ export class Board {
 
             if (bruteForceResult === LogicResult.INVALID) {
                 // Puzzle is invalid
+                currentBoard.release();
                 continue;
             }
 
             if (bruteForceResult === LogicResult.COMPLETE) {
                 // Puzzle is complete, return the solution
+                Board.releaseJobStack(jobStack);
+                // The caller is responsible for releasing the board
                 return { result: 'board', board: currentBoard };
             }
 
             const unassignedIndex = currentBoard.findUnassignedLocation();
             if (unassignedIndex === null) {
                 // Puzzle is complete, return the solution
+                Board.releaseJobStack(jobStack);
+                // The caller is responsible for releasing the board
                 return { result: 'board', board: currentBoard };
             }
 
@@ -1150,6 +1200,8 @@ export class Board {
             {
                 if (currentBoard.setAsGiven(unassignedIndex, chosenValue)) {
                     jobStack.push(currentBoard);
+                } else {
+                    currentBoard.release();
                 }
             }
         }
@@ -1167,7 +1219,6 @@ export class Board {
         const jobStack = [this.clone()];
         let numSolutions = 0;
         let lastReportTime = Date.now();
-        let numGuesses = 0;
         const wantReportProgress = reportProgress || isCancelled;
 
         while (jobStack.length > 0) {
@@ -1177,7 +1228,7 @@ export class Board {
 
                 // Check if the job was cancelled
                 if (isCancelled && isCancelled()) {
-                    console.log(`Num Guesses: ${numGuesses}`);
+                    Board.releaseJobStack(jobStack);
                     return { result: 'cancelled partial count', count: numSolutions };
                 }
 
@@ -1194,6 +1245,7 @@ export class Board {
 
             if (bruteForceResult === LogicResult.INVALID) {
                 // Puzzle is invalid
+                currentBoard.release();
                 continue;
             }
 
@@ -1210,7 +1262,8 @@ export class Board {
 
                         numSolutions++;
                         if (maxSolutions > 0 && numSolutions === maxSolutions) {
-                            console.log(`Num Guesses: ${numGuesses}`);
+                            Board.releaseJobStack(jobStack);
+                            currentBoard.release();
                             return { result: 'count', count: numSolutions };
                         }
                     }
@@ -1221,10 +1274,12 @@ export class Board {
 
                     numSolutions++;
                     if (maxSolutions > 0 && numSolutions === maxSolutions) {
-                        console.log(`Num Guesses: ${numGuesses}`);
+                        Board.releaseJobStack(jobStack);
+                        currentBoard.release();
                         return { result: 'count', count: numSolutions };
                     }
                 }
+                currentBoard.release();
                 continue;
             }
 
@@ -1233,9 +1288,11 @@ export class Board {
                 // Puzzle is complete, return the solution
                 numSolutions++;
                 if (maxSolutions > 0 && numSolutions === maxSolutions) {
-                    console.log(`Num Guesses: ${numGuesses}`);
+                    Board.releaseJobStack(jobStack);
+                    currentBoard.release();
                     return { result: 'count', count: numSolutions };
                 }
+                currentBoard.release();
                 continue;
             }
 
@@ -1243,7 +1300,6 @@ export class Board {
             const chosenValue = minValue(cellMask);
 
             // Queue up two versions of the board, one where the cell is set to the chosen value, and one where it's not
-            numGuesses++;
 
             // Push the version where the cell is not set to the chosen value first, so that it's only used if the chosen value doesn't work
             const newCellBits = cellMask & ~valueBit(chosenValue);
@@ -1258,11 +1314,12 @@ export class Board {
             {
                 if (currentBoard.setAsGiven(unassignedIndex, chosenValue)) {
                     jobStack.push(currentBoard);
+                } else {
+                    currentBoard.release();
                 }
             }
         }
 
-        console.log(`Num Guesses: ${numGuesses}`);
         return { result: 'count', count: numSolutions };
     }
 
@@ -1279,23 +1336,27 @@ export class Board {
         const bruteForceResult = board.applyBruteForceLogic();
         if (bruteForceResult === LogicResult.INVALID) {
             // Puzzle is invalid
+            board.release();
             return { result: 'no solution' };
         }
 
         if (bruteForceResult === LogicResult.COMPLETE) {
             // Puzzle is unique just from basic logic
+            const candidates = Array.from(board.cells).map(mask => mask & allValues);
+            board.release();
+
             if (wantSolutionCounts) {
                 return {
                     result: 'true candidates with per-candidate solution count',
-                    candidates: board.cells.map(mask => mask & allValues),
+                    candidates: candidates,
                     counts: Array.from({ length: totalCandidates }, () => 1),
                 };
-            } else {
-                return {
-                    result: 'true candidates',
-                    candidates: board.cells.map(mask => mask & allValues),
-                };
             }
+
+            return {
+                result: 'true candidates',
+                candidates: candidates,
+            };
         }
 
         const attemptedCandidates = Array.from({ length: size * size }, () => 0);
@@ -1309,18 +1370,21 @@ export class Board {
             const cellIndex = board.findUnassignedLocation(attemptedCandidates);
             if (cellIndex === null) {
                 // All candidates have been attempted
+                const candidates = Array.from(board.cells).map(mask => mask & allValues);
+                board.release();
+
                 if (wantSolutionCounts) {
                     return {
                         result: 'true candidates with per-candidate solution count',
-                        candidates: board.cells.map(mask => mask & allValues),
+                        candidates: candidates,
                         counts: candidateCounts,
                     };
-                } else {
-                    return {
-                        result: 'true candidates',
-                        candidates: board.cells.map(mask => mask & allValues),
-                    };
                 }
+
+                return {
+                    result: 'true candidates',
+                    candidates: candidates,
+                };
             }
 
             const cellMask = board.cells[cellIndex];
@@ -1352,6 +1416,8 @@ export class Board {
                     // Puzzle is invalid with this candidate
                     board.clearCellMask(cellIndex, chosenValueMask);
                     removedCandidates = true;
+
+                    newBoard.release();
                     continue;
                 }
 
@@ -1361,6 +1427,7 @@ export class Board {
                     const remainingSolutions = maxSolutionsPerCandidate - candidateCounts[candidateIndex];
                     if (remainingSolutions <= 0) {
                         // We've already found enough solutions for this candidate
+                        newBoard.release();
                         continue;
                     }
 
@@ -1381,6 +1448,7 @@ export class Board {
                     });
 
                     if (result === 'cancelled partial count') {
+                        newBoard.release();
                         return { result: 'cancelled' };
                     }
 
@@ -1392,6 +1460,8 @@ export class Board {
                 } else {
                     // Find any solution
                     const solutionResult = await newBoard.findSolution({}, isCancelled);
+                    newBoard.release();
+
                     if (solutionResult.result === 'no solution') {
                         // This candidate is impossible
                         board.clearCellMask(cellIndex, chosenValueMask);
@@ -1403,6 +1473,7 @@ export class Board {
                         for (let cellIndex = 0; cellIndex < totalCells; cellIndex++) {
                             attemptedCandidates[cellIndex] |= solutionResult.board.cells[cellIndex] & allValues;
                         }
+                        solutionResult.board.release();
                     }
                 }
             }
@@ -1412,23 +1483,27 @@ export class Board {
                 const bruteForceResult = board.applyBruteForceLogic();
                 if (bruteForceResult === LogicResult.INVALID) {
                     // Puzzle is invalid
+                    board.release();
                     return { result: 'no solution' };
                 }
 
                 if (bruteForceResult === LogicResult.COMPLETE) {
+                    const candidates = Array.from(board.cells).map(mask => mask & allValues);
+                    board.release();
+
                     // Puzzle is now unique just from basic logic
                     if (wantSolutionCounts) {
                         return {
                             result: 'true candidates with per-candidate solution count',
-                            candidates: board.cells.map(mask => mask & allValues),
+                            candidates: candidates,
                             counts: Array.from({ length: totalCandidates }, () => 1),
                         };
-                    } else {
-                        return {
-                            result: 'true candidates',
-                            candidates: board.cells.map(mask => mask & allValues),
-                        };
                     }
+
+                    return {
+                        result: 'true candidates',
+                        candidates: candidates,
+                    };
                 }
             }
         }

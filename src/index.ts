@@ -194,7 +194,7 @@ class SudokuVariantSolver {
         }
 
         if (this.candidatesDiffer(board, data)) {
-            const expandedCandidates = this.expandCandidates(board.cells, board.givenBit);
+            const expandedCandidates = this.expandCandidates(Array.from(board.cells), board.givenBit);
             this.messageCallback({ result: 'step', desc: 'Initial Candidates', candidates: expandedCandidates, invalid: false, changed: true });
             return;
         }
@@ -215,7 +215,7 @@ class SudokuVariantSolver {
             return;
         }
 
-        const expandedCandidates = this.expandCandidates(board.cells, board.givenBit);
+        const expandedCandidates = this.expandCandidates(Array.from(board.cells), board.givenBit);
         this.messageCallback({
             result: 'step',
             desc: stepResult.desc,
@@ -249,7 +249,7 @@ class SudokuVariantSolver {
             desc.push('No logical steps found.');
         }
 
-        const expandedCandidates = this.expandCandidates(board.cells, board.givenBit);
+        const expandedCandidates = this.expandCandidates(Array.from(board.cells), board.givenBit);
         this.messageCallback({
             result: 'logicalsolve',
             desc,
