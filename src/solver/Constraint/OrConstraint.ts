@@ -126,6 +126,7 @@ export class OrConstraint extends ConstraintV2 {
 
     logicalStep(board: ReadonlyBoard): LogicalDeduction[] {
         this.subboards = this.subboards.filter(subboard => {
+            subboard.binaryImplications.sortGraph();
             // Transfer deductions downward
             for (let cellIndex = 0; cellIndex < this.numCells; ++cellIndex) {
                 subboard.keepCellMask(cellIndex, board.cells[cellIndex]);

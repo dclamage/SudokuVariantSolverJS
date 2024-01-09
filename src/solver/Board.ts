@@ -367,6 +367,7 @@ export class Board {
                 }
             }
         }
+        this.binaryImplications.sortGraph();
 
         return true;
     }
@@ -434,6 +435,7 @@ export class Board {
             for (const link of deduction.weakLinks) {
                 this.addWeakLink(link[0], link[1]);
             }
+            this.binaryImplications.sortGraph();
             haveChange = true;
         }
         if (deduction.implications && deduction.implications.length > 0) {
@@ -485,6 +487,7 @@ export class Board {
                         for (const link of payload.weakLinks) {
                             this.addWeakLink(link[0], link[1]);
                         }
+                        this.binaryImplications.sortGraph();
                         haveChange = true;
                     }
                     if (payload.implications && payload.implications.length > 0) {
@@ -614,6 +617,7 @@ export class Board {
             const candidateIndex2 = this.candidateIndex(cellIndex2, value);
             this.addWeakLink(candidateIndex1, candidateIndex2);
         }
+        this.binaryImplications.sortGraph();
     }
 
     addCloneWeakLinks(cellIndex1: CellIndex, cellIndex2: CellIndex) {
@@ -632,6 +636,7 @@ export class Board {
                 this.addWeakLink(candidateIndex1, candidateIndex2);
             }
         }
+        this.binaryImplications.sortGraph();
     }
 
     getMemo<T>(key: string): T {
@@ -921,6 +926,7 @@ export class Board {
                                         for (const [index1, index2] of payload2.weakLinks) {
                                             this.addWeakLink(index1, index2);
                                         }
+                                        this.binaryImplications.sortGraph();
                                         changedThisRound = true;
                                         changed = true;
                                     }
@@ -943,6 +949,7 @@ export class Board {
                             for (const [index1, index2] of payload.weakLinks) {
                                 this.addWeakLink(index1, index2);
                             }
+                            this.binaryImplications.sortGraph();
                             changedThisRound = true;
                             changed = true;
                         }
