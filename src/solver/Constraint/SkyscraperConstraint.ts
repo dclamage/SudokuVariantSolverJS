@@ -8,7 +8,7 @@ import {
     DirectionalCoords,
     cellName,
     hasValue,
-    maskStrictlyLower,
+    maskLowerOrEqual,
     minValue,
     parseEdgeClueCoords,
     permutations,
@@ -82,7 +82,7 @@ export class SkyscraperConstraint extends Constraint {
                 const cell = this.cells[cellIndex];
                 const maxValue = board.size - this.clue + 1 + cellIndex;
                 if (maxValue < board.size) {
-                    const keepMask = maskStrictlyLower(maxValue);
+                    const keepMask = maskLowerOrEqual(maxValue);
                     const result = board.keepCellMask(cell, keepMask);
                     if (result === ConstraintResult.INVALID) {
                         return ConstraintResult.INVALID;
