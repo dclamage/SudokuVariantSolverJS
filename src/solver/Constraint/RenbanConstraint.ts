@@ -109,6 +109,31 @@ class RenbanConstraint extends ConstraintV2 {
 
         return deductions;
     }
+
+    bruteForceStep(board: ReadonlyBoard): ConstraintResult {
+        const allCellsMask = this.cells.reduce((acc, cell) => acc | board.cells[cell], 0) & board.allValues;
+
+        let squish = allCellsMask;
+        for (let i = 0; i < this.cells.length - 1; ++i) {
+            squish &= squish << 1;
+        }
+        let expand = squish;
+        for (let i = 0; i < this.cells.length - 1; ++i) {
+            expand |= expand >> 1;
+        }
+
+        let changed = ConstraintResult.UNCHANGED;
+        for (const cell of this.cells) {
+            const result = board.keepCellMask(cell, expand);
+            if (result === ConstraintResult.INVALID) {
+                return ConstraintResult.INVALID;
+            }
+            if (result === ConstraintResult.CHANGED) {
+                changed = ConstraintResult.CHANGED;
+            }
+        }
+        return changed;
+    }
 }
 
 // TODO: Convert Renban lines to scripted, not all logic can be found using just weak links,
