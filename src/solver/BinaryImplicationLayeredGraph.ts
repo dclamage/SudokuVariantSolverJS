@@ -43,10 +43,10 @@ class BinaryImplicationGraph {
     unsorted: Variable[][];
 
     constructor(numVariables: number) {
-        this.pospos = Array.from({ length: numVariables }, () => []);
-        this.posneg = Array.from({ length: numVariables }, () => []);
-        this.negpos = Array.from({ length: numVariables }, () => []);
-        this.negneg = Array.from({ length: numVariables }, () => []);
+        this.pospos = new Array(numVariables);
+        this.posneg = new Array(numVariables);
+        this.negpos = new Array(numVariables);
+        this.negneg = new Array(numVariables);
         this.implicationsIndex = [this.negneg, this.negpos, this.posneg, this.pospos];
         this.posposunsorted = new Uint8Array(numVariables);
         this.posnegunsorted = new Uint8Array(numVariables);
@@ -57,12 +57,6 @@ class BinaryImplicationGraph {
     }
 
     allocateVariables(numNewVariables: number) {
-        for (let i = 0; i < numNewVariables; ++i) {
-            this.pospos.push([]);
-            this.posneg.push([]);
-            this.negpos.push([]);
-            this.negneg.push([]);
-        }
         const newposposunsorted = new Uint8Array(this.posposunsorted.length + numNewVariables);
         newposposunsorted.set(this.posposunsorted);
         this.posposunsorted = newposposunsorted;
@@ -101,13 +95,19 @@ class BinaryImplicationGraph {
     // All variables represent their positive literals.
     // Returns true if something was added
     addImplication(lit1: Literal, lit2: Literal): boolean {
-        const forward = this.implicationsArrFor(lit1, lit2);
+        let forward = this.implicationsArrFor(lit1, lit2);
         const var2 = toVariable(lit2);
-        if (forward.includes(var2)) {
+        if ((forward ?? []).includes(var2)) {
             return false;
         }
+        if (forward === undefined) {
+            forward = this.implicationsIndex[+(lit1 >= 0) * 2 + +(lit2 >= 0)][toVariable(lit1)] = [];
+        }
+        let backward = this.implicationsArrFor(~lit2, ~lit1);
+        if (backward === undefined) {
+            backward = this.implicationsIndex[+(~lit2 >= 0) * 2 + +(~lit1 >= 0)][toVariable(lit2)] = [];
+        }
         const var1 = toVariable(lit1);
-        const backward = this.implicationsArrFor(~lit2, ~lit1);
         forward.push(var2);
         backward.push(var1);
         const forwardUnsorted = this.unsortedArrFor(lit1, lit2);
@@ -128,13 +128,13 @@ class BinaryImplicationGraph {
     //  - No preprocessing has been done yet, so removing this implication doesn't invalidate any transitive implications.
     //  - We're transferring an implication to a parent, so the semantics of the graph have not actually changed at all.
     unsafeRemoveImplication(lit1: Literal, lit2: Literal): boolean {
-        const forward = this.implicationsArrFor(lit1, lit2);
+        const forward = this.implicationsArrFor(lit1, lit2) ?? [];
         const var2 = toVariable(lit2);
         if (!forward.includes(var2)) {
             return false;
         }
         const var1 = toVariable(lit1);
-        const backward = this.implicationsArrFor(~lit2, ~lit1);
+        const backward = this.implicationsArrFor(~lit2, ~lit1) ?? [];
         // Preserves sortedness, no need to add to unsortedArr
         sequenceFilterOutUpdateDefaultCompare(forward, [var2], []);
         sequenceFilterOutUpdateDefaultCompare(backward, [var1], []);
@@ -142,35 +142,35 @@ class BinaryImplicationGraph {
     }
 
     hasImplication(lit1: Literal, lit2: Literal): boolean {
-        return this.implicationsArrFor(lit1, lit2).includes(toVariable(lit2));
+        return (this.implicationsArrFor(lit1, lit2) ?? []).includes(toVariable(lit2));
     }
 
     getPosConsequences(lit: Literal, consequentsOutput: Variable[]) {
-        for (const consequent of this.implicationsArrFor(lit, 0)) {
+        for (const consequent of this.implicationsArrFor(lit, 0) ?? []) {
             consequentsOutput.push(consequent);
         }
     }
 
     getNegConsequences(lit: Literal, consequentsOutput: Variable[]) {
-        for (const consequent of this.implicationsArrFor(lit, ~0)) {
+        for (const consequent of this.implicationsArrFor(lit, ~0) ?? []) {
             consequentsOutput.push(consequent);
         }
     }
 
     filterOutPosConsequences(lit: Literal, consequentsInout: Variable[], filteredOut: Variable[]) {
-        sequenceFilterOutUpdateDefaultCompare(consequentsInout, this.implicationsArrFor(lit, 0), filteredOut);
+        sequenceFilterOutUpdateDefaultCompare(consequentsInout, this.implicationsArrFor(lit, 0) ?? [], filteredOut);
     }
 
     filterOutNegConsequences(lit: Literal, consequentsInout: Variable[], filteredOut: Variable[]) {
-        sequenceFilterOutUpdateDefaultCompare(consequentsInout, this.implicationsArrFor(lit, ~0), filteredOut);
+        sequenceFilterOutUpdateDefaultCompare(consequentsInout, this.implicationsArrFor(lit, ~0) ?? [], filteredOut);
     }
 
     hasAnyCommonPosConsequences(lit: Literal, consequents: Variable[]): boolean {
-        return sequenceHasNonemptyIntersectionDefaultCompare(consequents, this.implicationsArrFor(lit, 0));
+        return sequenceHasNonemptyIntersectionDefaultCompare(consequents, this.implicationsArrFor(lit, 0) ?? []);
     }
 
     hasAnyCommonNegConsequences(lit: Literal, consequents: Variable[]): boolean {
-        return sequenceHasNonemptyIntersectionDefaultCompare(consequents, this.implicationsArrFor(lit, ~0));
+        return sequenceHasNonemptyIntersectionDefaultCompare(consequents, this.implicationsArrFor(lit, ~0) ?? []);
     }
 }
 
