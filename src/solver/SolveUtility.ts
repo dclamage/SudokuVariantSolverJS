@@ -121,6 +121,14 @@ export function valuesList(mask: CellMask): CellValue[] {
     return values;
 }
 
+export function minMaxInclusiveRange(min: number, max: number): number[] {
+    const out: number[] = [];
+    for (let i = min; i <= max; ++i) {
+        out.push(i);
+    }
+    return out;
+}
+
 export function taxiCabDistance(cellCoords1: CellCoords, cellCoords2: CellCoords): number {
     return Math.abs(cellCoords1.row - cellCoords2.row) + Math.abs(cellCoords1.col - cellCoords2.col);
 }
