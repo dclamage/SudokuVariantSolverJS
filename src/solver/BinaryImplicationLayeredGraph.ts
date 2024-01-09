@@ -142,7 +142,7 @@ class BinaryImplicationGraph {
     }
 
     hasImplication(lit1: Literal, lit2: Literal): boolean {
-        return (this.implicationsArrFor(lit1, lit2) ?? []).includes(toVariable(lit2));
+        return this.implicationsArrFor(lit1, lit2)?.includes(toVariable(lit2));
     }
 
     getPosConsequences(lit: Literal, consequentsOutput: Variable[]) {
