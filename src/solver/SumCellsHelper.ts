@@ -1,6 +1,6 @@
 import { Board } from './Board';
 import { ConstraintResult } from './Constraint/Constraint';
-import { CellIndex, CellMask, cellsKey, minValue, valueBit } from './SolveUtility';
+import { CandidateIndex, CellIndex, CellMask, cellsKey, minMaxInclusiveRange, minValue, removeDuplicates, valueBit } from './SolveUtility';
 import { SumGroup } from './SumGroup';
 
 type GroupMinMax = { group: SumGroup; groupMin: number; groupMax: number };
@@ -69,6 +69,115 @@ export class SumCellsHelper {
             }
         }
         return changed ? ConstraintResult.CHANGED : ConstraintResult.UNCHANGED;
+    }
+
+    getRestrictSumsEliminations(
+        board: Board,
+        possibleSums: number[]
+    ):
+        | { result: ConstraintResult.UNCHANGED }
+        | { result: ConstraintResult.CHANGED; eliminations?: CandidateIndex[] }
+        | { result: ConstraintResult.INVALID; explanation: string } {
+        if (possibleSums.length === 0) {
+            return { result: ConstraintResult.INVALID, explanation: `No possible sums` };
+        }
+        // One SumGroup -- just call it directly
+        if (this.groups.length === 1) {
+            return this.groups[0].getRestrictSumsEliminations(board, possibleSums);
+        }
+
+        const sums = removeDuplicates(possibleSums.toSorted((a, b) => a - b));
+
+        let completedSum = 0;
+        let numIncompleteGroups = 0;
+        let minSum = 0;
+        let maxSum = 0;
+        const groupMinMax: GroupMinMax[] = [];
+        for (const group of this.groups) {
+            const [curMin, curMax] = group.minMaxSum(board);
+            if (curMin === 0 || curMax === 0) {
+                return { result: ConstraintResult.INVALID, explanation: `${board.compactName(group.cells)} has no valid candidate combination.` };
+            }
+
+            minSum += curMin;
+            maxSum += curMax;
+
+            if (curMin !== curMax) {
+                numIncompleteGroups++;
+            } else {
+                completedSum += curMin;
+            }
+
+            groupMinMax.push({ group: group, groupMin: curMin, groupMax: curMax });
+        }
+
+        const possibleSumMin = sums[0];
+        const possibleSumMax = sums[sums.length - 1];
+        if (minSum > possibleSumMax || maxSum < possibleSumMin) {
+            return { result: ConstraintResult.INVALID, explanation: `Sum is no longer possible (Between ${minSum} and ${maxSum}).` };
+        }
+
+        if (numIncompleteGroups === 0) {
+            // All groups are complete
+            return { result: ConstraintResult.UNCHANGED };
+        }
+
+        if (numIncompleteGroups === 1) {
+            // One group left means it must exactly sum to whatever sum is remaining
+            const { group, groupMin, groupMax } = groupMinMax.find(g => g.groupMin !== g.groupMax);
+            const numCells = group.cells.length;
+
+            // If the logical step description is desired, then track what the cells were before applying the sum range.
+            const oldMasks: CellMask[] = new Array(numCells).fill(0);
+            for (let i = 0; i < numCells; i++) {
+                const cell = group.cells[i];
+                oldMasks[i] = board.cells[cell];
+            }
+
+            // Restrict the sum to desired values
+            const validSums = sums.map(sum => sum - completedSum).filter(sum => sum >= groupMin && sum <= groupMax);
+            return group.getRestrictSumsEliminations(board, validSums);
+        }
+
+        // Each group can increase from its min by the minDof
+        // and decrease from its max by the maxDof
+        const minDof = possibleSumMax - minSum;
+        const maxDof = maxSum - possibleSumMin;
+
+        const eliminations: CellMask[] = [];
+        for (const { group, groupMin, groupMax } of groupMinMax) {
+            if (groupMin === groupMax) {
+                continue;
+            }
+
+            const newGroupMin = Math.max(groupMin, groupMax - maxDof);
+            const newGroupMax = Math.min(groupMax, groupMin + minDof);
+            if (newGroupMin > groupMin || newGroupMax < groupMax) {
+                const numCells = group.cells.length;
+                const oldMasks: CellMask[] = new Array(numCells).fill(0);
+                for (let i = 0; i < numCells; i++) {
+                    const cell = group.cells[i];
+                    oldMasks[i] = board.cells[cell];
+                }
+
+                const result = group.getRestrictSumsEliminations(board, minMaxInclusiveRange(newGroupMin, newGroupMax));
+                if (result.result === ConstraintResult.INVALID) {
+                    return result;
+                }
+
+                if (result.result === ConstraintResult.CHANGED) {
+                    for (const elim of result.eliminations) {
+                        eliminations.push(elim);
+                    }
+                }
+            }
+        }
+
+        if (eliminations.length > 0) {
+            return { result: ConstraintResult.CHANGED, eliminations };
+        }
+
+        return { result: ConstraintResult.UNCHANGED };
     }
 
     logicStep(board: Board, possibleSums: number[], logicalStepDescription: string[]) {
