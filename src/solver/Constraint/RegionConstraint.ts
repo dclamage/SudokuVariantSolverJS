@@ -1,23 +1,23 @@
 import { Board } from '../Board';
 import ConstraintBuilder from '../ConstraintBuilder';
 import { CellIndex, cellIndexFromName, cellName } from '../SolveUtility';
-import { Constraint, ConstraintResult, InitResult } from './Constraint';
+import { ConstraintV2, ConstraintResult, InitResult } from './ConstraintV2';
 import { FPuzzlesCells } from './FPuzzlesInterfaces';
 
 export interface RegionConstraintParams {
     cells: CellIndex[];
 }
 
-export class RegionConstraint extends Constraint {
+export class RegionConstraint extends ConstraintV2 {
     cells: CellIndex[];
 
     constructor(board: Board, params: RegionConstraintParams, name: string, specificName: string) {
-        super(board, name, specificName);
+        super(name, specificName);
 
         this.cells = params.cells.slice();
     }
 
-    init(board: Board, isRepeat: boolean): InitResult {
+    init(board: Board): InitResult {
         return {
             result: board.addRegion(this.specificName, this.cells, this.constraintName) ? ConstraintResult.CHANGED : ConstraintResult.UNCHANGED,
             deleteConstraints: [this],
