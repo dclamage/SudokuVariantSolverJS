@@ -135,7 +135,7 @@ export class Board {
                 new ConstraintLogic(this),
                 new CellForcing(this),
                 new NakedTupleAndPointing(this),
-                new Fish(this),
+                new Fish(this, Array.from({ length: size / 2 - 1 }, (_, i) => i + 2)),
             ];
         }
     }

@@ -4,8 +4,11 @@ import { Board } from '../Board';
 import { LogicalStep } from './LogicalStep';
 
 export class Fish extends LogicalStep {
-    constructor(board: Board) {
+	private _enabledFish: number[];
+
+    constructor(board: Board, enabledFish: number[]) {
         super(board, 'Fish');
+		this._enabledFish = enabledFish;
     }
 
     step(board: Board, desc: string[]) {
@@ -30,6 +33,10 @@ export class Fish extends LogicalStep {
             // Look for standard fishes
             const unsetRowOrCols = [];
             for (let tupleSize = 2; tupleSize <= size / 2; tupleSize++) {
+				if (!this._enabledFish.includes(tupleSize)) {
+					continue;
+                }
+				
                 for (let rowOrCol = 0; rowOrCol < 2; rowOrCol++) {
                     const indexByValue = rowcolIndexByValue[rowOrCol].array;
                     for (let valueIndex = 0; valueIndex < size; valueIndex++) {
