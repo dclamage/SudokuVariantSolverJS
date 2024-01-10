@@ -1,6 +1,6 @@
 import { Board, ReadonlyBoard } from '../Board';
 import { valueBit, minValue, CellIndex, CellValue, CandidateIndex, WeakLink } from '../SolveUtility';
-import { ConstraintV2, ConstraintResult, InitResult, LogicalDeduction, isConstraintV2 } from './ConstraintV2';
+import { ConstraintV2, ConstraintResult, InitResult, LogicalDeduction } from './ConstraintV2';
 
 interface OrConstraintParams {
     subboards: Board[];
@@ -41,7 +41,7 @@ export class OrConstraint extends ConstraintV2 {
 
             // Init constraints
             // If init fails, filter out the subboard immediately
-            const keepSubboard = subboard.initConstraints();
+            const keepSubboard = subboard.finalizeConstraints();
             if (!keepSubboard) {
                 subboard.release();
             }
@@ -52,19 +52,6 @@ export class OrConstraint extends ConstraintV2 {
         if (this.subboards.length === 0) {
             return ConstraintResult.INVALID;
         }
-    }
-
-    finalize() {
-        this.subboards = this.subboards.filter(subboard => {
-            if (!subboard.finalizeConstraintsNoInit()) {
-                subboard.release();
-                return false;
-            }
-            return true;
-        });
-
-        // No more subboards left == puzzle is broken
-        return this.subboards.length === 0 ? ConstraintResult.INVALID : ConstraintResult.UNCHANGED;
     }
 
     clone() {
@@ -134,22 +121,18 @@ export class OrConstraint extends ConstraintV2 {
                 changed = false;
 
                 for (const constraint of subboard.constraints) {
-                    if (isConstraintV2(constraint)) {
-                        const deductions = ConstraintV2.flattenDeductions(
-                            constraint.obviousLogicalStep(subboard).concat(constraint.logicalStep(subboard))
-                        );
-                        const result = subboard.applyLogicalDeduction(deductions);
-                        if (result === ConstraintResult.INVALID) {
-                            // Subboard is broken, filter it out
-                            this.subboardsChanged = true;
-                            subboard.release();
-                            return false;
-                        } else if (result === ConstraintResult.CHANGED) {
-                            this.subboardsChanged = true;
-                            changed = true;
-                        }
-                    } else {
-                        throw new Error('Unreachable V1 code');
+                    const deductions = ConstraintV2.flattenDeductions(
+                        constraint.obviousLogicalStep(subboard).concat(constraint.logicalStep(subboard))
+                    );
+                    const result = subboard.applyLogicalDeduction(deductions);
+                    if (result === ConstraintResult.INVALID) {
+                        // Subboard is broken, filter it out
+                        this.subboardsChanged = true;
+                        subboard.release();
+                        return false;
+                    } else if (result === ConstraintResult.CHANGED) {
+                        this.subboardsChanged = true;
+                        changed = true;
                     }
                 }
             } while (changed);
@@ -161,11 +144,14 @@ export class OrConstraint extends ConstraintV2 {
         if (this.subboards.length === 0) {
             return [
                 {
-                    explanation: 'All cases broken, this Or seemsconstraint cannot be satisfied',
+                    explanation: 'All cases broken, this Or constraint cannot be satisfied',
                     invalid: true,
                 },
             ];
         }
+
+        // Can't unset subboardsChanged here since the user may not necessarily apply the deductions we suggest
+        // That's fine though, this isn't perf sensitive
 
         const deductions = [];
 
@@ -189,9 +175,6 @@ export class OrConstraint extends ConstraintV2 {
                 eliminations,
             });
         }
-
-        // Can't unset subboardsChanged here since the user may not necessarily apply the deductions we suggest
-        // That's fine though, this isn't perf sensitive
 
         let scratch: CandidateIndex[] = [];
         const weakLinks: WeakLink[] = [];
@@ -247,19 +230,15 @@ export class OrConstraint extends ConstraintV2 {
                 changed = false;
 
                 for (const constraint of subboard.constraints) {
-                    if (isConstraintV2(constraint)) {
-                        const result = constraint.bruteForceStep(subboard);
-                        if (result === ConstraintResult.INVALID) {
-                            // Subboard is broken, filter it out
-                            this.subboardsChanged = true;
-                            subboard.release();
-                            return false;
-                        } else if (result === ConstraintResult.CHANGED) {
-                            this.subboardsChanged = true;
-                            changed = true;
-                        }
-                    } else {
-                        throw new Error('Unreachable V1 code');
+                    const result = constraint.bruteForceStep(subboard);
+                    if (result === ConstraintResult.INVALID) {
+                        // Subboard is broken, filter it out
+                        this.subboardsChanged = true;
+                        subboard.release();
+                        return false;
+                    } else if (result === ConstraintResult.CHANGED) {
+                        this.subboardsChanged = true;
+                        changed = true;
                     }
                 }
             } while (changed);

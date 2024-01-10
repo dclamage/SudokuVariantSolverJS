@@ -81,7 +81,7 @@ export class SumCellsHelper {
         | { result: ConstraintResult.CHANGED; eliminations?: CandidateIndex[] }
         | { result: ConstraintResult.INVALID; explanation: string } {
         if (possibleSums.length === 0) {
-            return { result: ConstraintResult.INVALID, explanation: `No possible sums` };
+            return { result: ConstraintResult.INVALID, explanation: 'No possible sums' };
         }
         // One SumGroup -- just call it directly
         if (this.groups.length === 1) {

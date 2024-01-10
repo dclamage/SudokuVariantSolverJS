@@ -26,7 +26,7 @@ import { LogicalStep } from './LogicalStep/LogicalStep';
 import { BinaryImplicationLayeredGraph } from './BinaryImplicationLayeredGraph';
 import { TypedArrayPool, TypedArrayEntry } from './Memory/TypedArrayPool';
 import { Fish } from './LogicalStep/Fish';
-import { ConstraintV2, ConstraintResult, InitResult, LogicalDeduction, isConstraintV2 } from './Constraint/ConstraintV2';
+import { ConstraintV2, ConstraintResult, LogicalDeduction } from './Constraint/ConstraintV2';
 
 export type RegionType = string;
 export type Region = {
@@ -446,83 +446,53 @@ export class Board {
         return haveChange ? ConstraintResult.CHANGED : ConstraintResult.UNCHANGED;
     }
 
-    initConstraints(isRepeat: boolean = false): boolean {
-        const initedConstraints: Map<ConstraintV2, boolean> = new Map();
-        let initializationPassed = true;
+    // Recursively inits this constraint and any constraints it creates
+    // If a single constraint fails initialization, returns false
+    // Modifies `this.constraints`, so remember to .slice() before iterating if looping over constraints when calling this function.
+    initSingleConstraint(initialConstraint: ConstraintV2): boolean {
+        const uninitedConstraints: ConstraintV2[] = [initialConstraint];
+        while (uninitedConstraints.length > 0) {
+            const constraint = uninitedConstraints.pop();
+            const result = constraint.init(this);
+            const payload = typeof result === 'object' ? result : null;
+            const constraintResult = typeof result === 'object' ? result.result : result;
 
-        this.loopConstraints((constraint: ConstraintV2): LoopResult => {
-            let haveChange = false;
-            if (isConstraintV2(constraint) && initedConstraints.get(constraint) === true) {
-                // For inited V2 constraints, run obviousLogicalStep instead of re initing
-                // TODO: move obvious steps out of init
-                const deductions = ConstraintV2.flattenDeductions(constraint.obviousLogicalStep(this));
-                const result = this.applyLogicalDeduction(deductions);
-                if (result === ConstraintResult.INVALID) {
-                    initializationPassed = false;
-                    return LoopResult.ABORT_LOOP;
-                }
-                return result === ConstraintResult.CHANGED ? LoopResult.SCHEDULE_LOOP : LoopResult.UNCHANGED;
+            if (constraintResult === ConstraintResult.INVALID) {
+                return false;
             }
 
-            if (isConstraintV2(constraint) && initedConstraints.get(constraint) !== true) {
-                // For uninited V2 constraints, force a re-loop so that the obviousLogicalStep code above gets scheduled
-                // TODO: remove this once obvious steps are moved out of init
-                haveChange = true;
-                initedConstraints.set(constraint, true);
-                const result = constraint.init(this);
-                const payload = typeof result === 'object' ? result : null;
-                const constraintResult = typeof result === 'object' ? result.result : result;
-
-                if (constraintResult === ConstraintResult.INVALID) {
-                    initializationPassed = false;
-                    return LoopResult.ABORT_LOOP;
+            if (payload) {
+                if (payload.weakLinks && payload.weakLinks.length > 0) {
+                    for (const link of payload.weakLinks) {
+                        this.addWeakLink(link[0], link[1]);
+                    }
+                    this.binaryImplications.sortGraph();
                 }
-                if (constraintResult === ConstraintResult.CHANGED) {
-                    haveChange = true;
-                }
-
-                if (payload) {
-                    if (payload.weakLinks && payload.weakLinks.length > 0) {
-                        for (const link of payload.weakLinks) {
-                            this.addWeakLink(link[0], link[1]);
-                        }
-                        this.binaryImplications.sortGraph();
-                        haveChange = true;
-                    }
-                    if (payload.implications && payload.implications.length > 0) {
-                        for (const implication of payload.implications) {
-                            this.binaryImplications.addImplication(implication[0], implication[1]);
-                        }
-                        haveChange = true;
-                    }
-                    if (payload.addConstraints && payload.addConstraints.length > 0) {
-                        this.constraints.push(...payload.addConstraints);
-                        haveChange = true;
-                    }
-                    if (payload.deleteConstraints && payload.deleteConstraints.length > 0) {
-                        this.constraints = this.constraints.filter(constraint => !payload.deleteConstraints.includes(constraint));
-                        haveChange = true;
+                if (payload.implications && payload.implications.length > 0) {
+                    for (const implication of payload.implications) {
+                        this.binaryImplications.addImplication(implication[0], implication[1]);
                     }
                 }
-                return haveChange ? LoopResult.SCHEDULE_LOOP : LoopResult.UNCHANGED;
+                if (payload.addConstraints && payload.addConstraints.length > 0) {
+                    this.constraints.push(...payload.addConstraints);
+                    uninitedConstraints.push(...payload.addConstraints);
+                }
+                if (payload.deleteConstraints && payload.deleteConstraints.length > 0) {
+                    this.constraints = this.constraints.filter(constraint => !payload.deleteConstraints.includes(constraint));
+                }
             }
-
-            throw new Error('Unreachable V1 code');
-        });
-
-        return initializationPassed;
+        }
+        return true;
     }
 
     finalizeConstraints() {
-        if (!this.initConstraints()) {
-            return false;
+        for (const constraint of this.constraints.slice()) {
+            if (!this.initSingleConstraint(constraint)) {
+                return false;
+            }
         }
-        return this.finalizeConstraintsNoInit();
-    }
-
-    finalizeConstraintsNoInit() {
         this.constraintsFinalized = true;
-        return !this.invalidInit;
+        return true;
     }
 
     // Register/use mutable constraint state.
@@ -850,11 +820,7 @@ export class Board {
             // Allow constraints to apply their logic
             if (!isDepth0) {
                 for (const constraint of this.constraints) {
-                    const result = isConstraintV2(constraint)
-                        ? constraint.bruteForceStep(this)
-                        : (() => {
-                              throw new Error('Unreachable V1 code');
-                          })();
+                    const result = constraint.bruteForceStep(this);
                     if (result === ConstraintResult.INVALID) {
                         return LogicResult.INVALID;
                     }
@@ -866,11 +832,7 @@ export class Board {
                 }
             } else {
                 for (const constraint of this.constraints.slice()) {
-                    const result = isConstraintV2(constraint)
-                        ? constraint.preprocessingStep(this)
-                        : (() => {
-                              throw new Error('Unreachable V1 code');
-                          })();
+                    const result = constraint.preprocessingStep(this);
                     const payload = typeof result === 'object' ? result : null;
                     const constraintResult = typeof result === 'object' ? result.result : result;
                     if (constraintResult === ConstraintResult.INVALID) {
@@ -882,46 +844,9 @@ export class Board {
                     }
                     if (payload) {
                         if (payload.addConstraints && payload.addConstraints.length > 0) {
-                            // TODO: Once all constraints are on V2, we can deduplicate a lot of this code with initConstraints
-                            while (payload.addConstraints.length > 0) {
-                                const constraint2 = payload.addConstraints.pop();
-                                this.constraints.push(constraint2);
-                                const result2: InitResult = isConstraintV2(constraint2)
-                                    ? constraint2.init(this)
-                                    : (() => {
-                                          throw new Error('Unreachable V1 code');
-                                      })();
-                                const payload2 = typeof result2 === 'object' ? result2 : null;
-                                const constraintResult2 = typeof result2 === 'object' ? result2.result : result2;
-                                if (constraintResult2 === ConstraintResult.INVALID) {
-                                    return LogicResult.INVALID;
-                                }
-                                if (payload2) {
-                                    if (payload2.addConstraints && payload2.addConstraints.length > 0) {
-                                        payload.addConstraints.push(...payload2.addConstraints);
-                                    }
-                                    if (payload2.deleteConstraints && payload2.deleteConstraints.length > 0) {
-                                        if (!payload.deleteConstraints) {
-                                            payload.deleteConstraints = [];
-                                        }
-                                        payload.deleteConstraints.push(...payload2.deleteConstraints);
-                                    }
-                                    if (payload2.weakLinks && payload2.weakLinks.length > 0) {
-                                        for (const [index1, index2] of payload2.weakLinks) {
-                                            this.addWeakLink(index1, index2);
-                                        }
-                                        this.binaryImplications.sortGraph();
-                                        changedThisRound = true;
-                                        changed = true;
-                                    }
-                                    if (payload2.implications && payload2.implications.length > 0) {
-                                        for (const [index1, index2] of payload2.implications) {
-                                            this.binaryImplications.addImplication(index1, index2);
-                                        }
-                                        changedThisRound = true;
-                                        changed = true;
-                                    }
-                                }
+                            for (const constraint of payload.addConstraints) {
+                                this.constraints.push(constraint);
+                                this.initSingleConstraint(constraint);
                             }
                             changedThisRound = true;
                             changed = true;

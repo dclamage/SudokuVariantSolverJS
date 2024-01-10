@@ -45,10 +45,6 @@ export type LogicalDeduction =
           eliminations?: CandidateIndex[];
       } & ConstraintModification);
 
-export function isConstraintV2(constraint: unknown): constraint is ConstraintV2 {
-    return (constraint as { isConstraintV2?: true }).isConstraintV2 === true;
-}
-
 // Convenience class that constraint states can inherit from if they only need to be shallow-cloned
 export class ConstraintState {
     clone(): ConstraintState {

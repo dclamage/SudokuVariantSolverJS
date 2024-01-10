@@ -190,6 +190,7 @@ export class SumGroup {
         if (result.constraintResult === ConstraintResult.UNCHANGED) {
             return { result: ConstraintResult.UNCHANGED };
         }
+
         if (result.constraintResult === ConstraintResult.INVALID) {
             return {
                 result: ConstraintResult.INVALID,
@@ -198,6 +199,7 @@ export class SumGroup {
                 )}.`,
             };
         }
+
         const eliminations = [];
         for (let i = 0; i < this.cells.length; ++i) {
             const cell = this.cells[i];
@@ -212,6 +214,7 @@ export class SumGroup {
                 }
             }
         }
+
         return { result: ConstraintResult.CHANGED, eliminations };
     }
 
