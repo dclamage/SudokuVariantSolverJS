@@ -1,11 +1,11 @@
 import { Board } from '../Board';
 import { CandidateIndex, CellIndex, CellValue } from '../SolveUtility';
 import { SumCellsHelper } from '../SumCellsHelper';
-import { ConstraintV2, ConstraintResult, LogicalDeduction, PreprocessingResult } from './ConstraintV2';
+import { Constraint, ConstraintResult, LogicalDeduction, PreprocessingResult } from './Constraint';
 import { FixedSumConstraint } from './FixedSumConstraint';
 
 // EqualSumConstraint: There must be a common-sum S such that for every i, S = sum([...cells[i], offsets[i]]).
-export class EqualSumConstraint extends ConstraintV2 {
+export class EqualSumConstraint extends Constraint {
     // Only contains the sum groups with nonempty cell sets
     cells: CellIndex[][];
     offsets: number[];

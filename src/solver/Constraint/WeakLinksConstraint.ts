@@ -1,12 +1,12 @@
 import { Board } from '../Board';
 import { CandidateIndex, CellIndex } from '../SolveUtility';
-import { ConstraintV2, ConstraintResult, InitResult } from './ConstraintV2';
+import { Constraint, ConstraintResult, InitResult } from './Constraint';
 
 export interface WeakLinksConstraintParams {
     weakLinks: [CandidateIndex, CandidateIndex][];
 }
 
-export class WeakLinksConstraint extends ConstraintV2 {
+export class WeakLinksConstraint extends Constraint {
     weakLinks: [CandidateIndex, CandidateIndex][];
 
     constructor(board: Board, params: WeakLinksConstraintParams, name: string, specificName: string) {

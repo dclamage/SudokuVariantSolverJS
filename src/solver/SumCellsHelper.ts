@@ -1,5 +1,5 @@
 import { Board } from './Board';
-import { ConstraintResult } from './Constraint/ConstraintV2';
+import { ConstraintResult } from './Constraint/Constraint';
 import { CandidateIndex, CellIndex, CellMask, cellsKey, minMaxInclusiveRange, minValue, removeDuplicates, valueBit } from './SolveUtility';
 import { SumGroup } from './SumGroup';
 

@@ -2,11 +2,11 @@ import { Board, ReadonlyBoard } from '../Board';
 import ConstraintBuilder from '../ConstraintBuilder';
 import { CandidateIndex, CellIndex, CellMask, cellIndexFromName, maxValue, minValue } from '../SolveUtility';
 import { CardinalityConstraint } from './CardinalityConstraint';
-import { ConstraintV2, ConstraintResult, InitResult, LogicalDeduction } from './ConstraintV2';
+import { Constraint, ConstraintResult, InitResult, LogicalDeduction } from './Constraint';
 import { FPuzzlesLines } from './FPuzzlesInterfaces';
 import { WeakLinksConstraint, generateLEWeakLinks, generateNEqWeakLinks } from './WeakLinksConstraint';
 
-class RenbanConstraint extends ConstraintV2 {
+class RenbanConstraint extends Constraint {
     cells: CellIndex[];
     alreadyAddedCardinalityConstraints: Uint8Array;
 

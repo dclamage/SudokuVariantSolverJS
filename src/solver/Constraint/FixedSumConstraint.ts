@@ -1,14 +1,14 @@
 import { Board } from '../Board';
 import { CellIndex, CellValue, hasValue, valueBit } from '../SolveUtility';
 import { SumCellsHelper } from '../SumCellsHelper';
-import { ConstraintV2, ConstraintResult, LogicalDeduction, PreprocessingResult } from './ConstraintV2';
+import { Constraint, ConstraintResult, LogicalDeduction, PreprocessingResult } from './Constraint';
 
 export interface FixedSumConstraintParams {
     cells: CellIndex[];
     sum: number;
 }
 
-export class FixedSumConstraint extends ConstraintV2 {
+export class FixedSumConstraint extends Constraint {
     cells: CellIndex[];
     cellsSet: Set<CellIndex>;
     sum: number;

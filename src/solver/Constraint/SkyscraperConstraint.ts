@@ -16,7 +16,7 @@ import {
     valueBit,
     valuesList,
 } from '../SolveUtility';
-import { ConstraintV2, ConstraintResult, InitResult, LogicalDeduction } from './ConstraintV2';
+import { Constraint, ConstraintResult, InitResult, LogicalDeduction } from './Constraint';
 import { FPuzzlesCell } from './FPuzzlesInterfaces';
 
 interface SkyscraperConstraintParams {
@@ -28,7 +28,7 @@ interface LogicStepMemo {
     keepMasks: CellMask[] | null;
 }
 
-export class SkyscraperConstraint extends ConstraintV2 {
+export class SkyscraperConstraint extends Constraint {
     clue: number;
     cellStart: CellIndex;
     cells: CellIndex[];

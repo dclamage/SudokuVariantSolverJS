@@ -1,7 +1,7 @@
 import { Board } from '../Board';
 import ConstraintBuilder from '../ConstraintBuilder';
 import { CandidateIndex, WeakLink, cellIndexFromName, cellName, maxValue, minValue } from '../SolveUtility';
-import { ConstraintV2, LogicalDeduction } from './ConstraintV2';
+import { Constraint, LogicalDeduction } from './Constraint';
 import { FPuzzlesLines } from './FPuzzlesInterfaces';
 import { OrConstraint } from './OrConstraint';
 import { generateLEWeakLinks } from './WeakLinksConstraint';
@@ -12,7 +12,7 @@ class BetweenLineParams {
     middle: CandidateIndex[];
 }
 
-class BetweenLineConstraint extends ConstraintV2 {
+class BetweenLineConstraint extends Constraint {
     ends: [CandidateIndex, CandidateIndex];
     middle: CandidateIndex[];
 
@@ -76,7 +76,7 @@ class BetweenLineConstraint extends ConstraintV2 {
 
 export function register(constraintBuilder: ConstraintBuilder) {
     constraintBuilder.registerConstraint('betweenline', (board: Board, params: FPuzzlesLines) =>
-        params.lines.flatMap((line: string[]): ConstraintV2[] => {
+        params.lines.flatMap((line: string[]): Constraint[] => {
             if (line.length <= 2) {
                 return [];
             }

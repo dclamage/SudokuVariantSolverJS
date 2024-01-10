@@ -2,7 +2,7 @@ import { Board } from '../Board';
 import ConstraintBuilder from '../ConstraintBuilder';
 import { cellIndexFromName, cellName, minValue, valueBit, valuesList, removeDuplicates, CellIndex } from '../SolveUtility';
 import { SumCellsHelper } from '../SumCellsHelper';
-import { ConstraintV2, ConstraintResult, LogicalDeduction } from './ConstraintV2';
+import { Constraint, ConstraintResult, LogicalDeduction } from './Constraint';
 import { EqualSumConstraint } from './EqualSumConstraint';
 import { FPuzzlesArrowEntry } from './FPuzzlesInterfaces';
 import { OrConstraint } from './OrConstraint';
@@ -12,7 +12,7 @@ export interface ArrowSumConstraintParams {
     arrowCells: CellIndex[];
 }
 
-export class ArrowSumConstraint extends ConstraintV2 {
+export class ArrowSumConstraint extends Constraint {
     circleCells: number[];
     arrowCells: number[];
     arrowCellsSum: SumCellsHelper;

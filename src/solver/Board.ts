@@ -26,12 +26,12 @@ import { LogicalStep } from './LogicalStep/LogicalStep';
 import { BinaryImplicationLayeredGraph } from './BinaryImplicationLayeredGraph';
 import { TypedArrayPool, TypedArrayEntry } from './Memory/TypedArrayPool';
 import { Fish } from './LogicalStep/Fish';
-import { ConstraintV2, ConstraintResult, LogicalDeduction } from './Constraint/ConstraintV2';
+import { Constraint, ConstraintResult, LogicalDeduction } from './Constraint/Constraint';
 
 export type RegionType = string;
 export type Region = {
     name: string;
-    fromConstraint: null | ConstraintV2;
+    fromConstraint: null | Constraint;
     type: RegionType;
     cells: CellIndex[];
 };
@@ -111,7 +111,7 @@ export class Board {
     nakedSingles: CellIndex[];
     binaryImplications: BinaryImplicationLayeredGraph;
     regions: Region[];
-    constraints: ConstraintV2[];
+    constraints: Constraint[];
     constraintsFinalized: boolean;
     constraintStates: Cloneable[];
     constraintStateIsCloned: (undefined | true)[];
@@ -338,7 +338,7 @@ export class Board {
         return true;
     }
 
-    addRegion(name: string, cells: CellIndex[], type: RegionType, fromConstraint: null | ConstraintV2 = null, addWeakLinks: boolean = true): boolean {
+    addRegion(name: string, cells: CellIndex[], type: RegionType, fromConstraint: null | Constraint = null, addWeakLinks: boolean = true): boolean {
         // Don't add regions which are too large
         if (cells.length > this.size) {
             return false;
@@ -379,7 +379,7 @@ export class Board {
         return this.regions.filter(region => region.cells.includes(cellIndex) && (type === null || region.type === type));
     }
 
-    addConstraint(constraint: ConstraintV2) {
+    addConstraint(constraint: Constraint) {
         this.constraints.push(constraint);
     }
 
@@ -387,7 +387,7 @@ export class Board {
     // If a constraint is added and deleted in the same loop, `func` may or may not be called on it.
     // If func returns `ConstraintResult.CHANGED`, then another loop is scheduled.
     // If func returns `ConstraintResult.INVALID`, then the function aborts immediately.
-    loopConstraints(func: (constraint: ConstraintV2) => LoopResult) {
+    loopConstraints(func: (constraint: Constraint) => LoopResult) {
         let loopAgain = false;
         do {
             loopAgain = false;
@@ -449,8 +449,8 @@ export class Board {
     // Recursively inits this constraint and any constraints it creates
     // If a single constraint fails initialization, returns false
     // Modifies `this.constraints`, so remember to .slice() before iterating if looping over constraints when calling this function.
-    initSingleConstraint(initialConstraint: ConstraintV2): boolean {
-        const uninitedConstraints: ConstraintV2[] = [initialConstraint];
+    initSingleConstraint(initialConstraint: Constraint): boolean {
+        const uninitedConstraints: Constraint[] = [initialConstraint];
         while (uninitedConstraints.length > 0) {
             const constraint = uninitedConstraints.pop();
             const result = constraint.init(this);

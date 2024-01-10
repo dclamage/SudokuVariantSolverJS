@@ -1,6 +1,6 @@
 import { Board, ReadonlyBoard } from '../Board';
 import { CandidateIndex, CellIndex, CellValue, StateKey, valueBit } from '../SolveUtility';
-import { ConstraintV2, ConstraintResult, InitResult, LogicalDeduction } from './ConstraintV2';
+import { Constraint, ConstraintResult, InitResult, LogicalDeduction } from './Constraint';
 
 class CardinalityConstraintState {
     numSatisfiedCandidates: number;
@@ -29,7 +29,7 @@ export interface CardinalityConstraintParams {
 //       3) The allowed counts form an interval, e.g. [1, n]
 // For now, we only implement the generic case where none of this is taken into account,
 // which will also become the fallback case when the special cases do not apply.
-export class CardinalityConstraint extends ConstraintV2 {
+export class CardinalityConstraint extends Constraint {
     allowedCounts: number[];
     initialCandidates: Uint8Array; // Dense array of 729 bytes is less memory than a sparse array of even just 4 elements, and faster too
     stateKey: StateKey<CardinalityConstraintState>;

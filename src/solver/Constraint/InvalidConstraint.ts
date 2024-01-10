@@ -1,7 +1,7 @@
 import { Board } from '../Board';
-import { ConstraintV2, ConstraintResult } from './ConstraintV2';
+import { Constraint, ConstraintResult } from './Constraint';
 
-export class InvalidConstraint extends ConstraintV2 {
+export class InvalidConstraint extends Constraint {
     constructor(board: Board, constraintName: string, specificName: string) {
         super(constraintName, specificName);
     }

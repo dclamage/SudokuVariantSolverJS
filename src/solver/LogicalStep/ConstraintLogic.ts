@@ -1,5 +1,5 @@
 import { Board, LoopResult } from '../Board';
-import { ConstraintResult, ConstraintV2 } from '../Constraint/ConstraintV2';
+import { ConstraintResult, Constraint } from '../Constraint/Constraint';
 import { LogicResult } from '../Enums/LogicResult';
 import { LogicalStep } from './LogicalStep';
 
@@ -10,8 +10,8 @@ export class ConstraintLogic extends LogicalStep {
 
     step(board: Board, desc: string[]): LogicResult {
         let invalid = false;
-        const applyObvious = (constraint: ConstraintV2): LoopResult => {
-            const deductions = ConstraintV2.flattenDeductions(constraint.obviousLogicalStep(board));
+        const applyObvious = (constraint: Constraint): LoopResult => {
+            const deductions = Constraint.flattenDeductions(constraint.obviousLogicalStep(board));
             const result = board.applyLogicalDeduction(deductions);
             if (result === ConstraintResult.INVALID) {
                 invalid = true;
@@ -27,7 +27,7 @@ export class ConstraintLogic extends LogicalStep {
         }
         let changed = false;
         // Now find one non-obvious deduction
-        board.loopConstraints((constraint: ConstraintV2): LoopResult => {
+        board.loopConstraints((constraint: Constraint): LoopResult => {
             const deductions = constraint.logicalStep(board);
             let hadInvisibleChange = false;
             for (const deduction of deductions) {

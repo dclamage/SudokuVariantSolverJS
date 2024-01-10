@@ -1,12 +1,12 @@
 import { Board, ReadonlyBoard } from '../Board';
 import { valueBit, minValue, CellIndex, CellValue, CandidateIndex, WeakLink } from '../SolveUtility';
-import { ConstraintV2, ConstraintResult, InitResult, LogicalDeduction } from './ConstraintV2';
+import { Constraint, ConstraintResult, InitResult, LogicalDeduction } from './Constraint';
 
 interface OrConstraintParams {
     subboards: Board[];
 }
 
-export class OrConstraint extends ConstraintV2 {
+export class OrConstraint extends Constraint {
     numCells: number;
     numCandidates: number;
     subboards: Board[];
@@ -121,9 +121,7 @@ export class OrConstraint extends ConstraintV2 {
                 changed = false;
 
                 for (const constraint of subboard.constraints) {
-                    const deductions = ConstraintV2.flattenDeductions(
-                        constraint.obviousLogicalStep(subboard).concat(constraint.logicalStep(subboard))
-                    );
+                    const deductions = Constraint.flattenDeductions(constraint.obviousLogicalStep(subboard).concat(constraint.logicalStep(subboard)));
                     const result = subboard.applyLogicalDeduction(deductions);
                     if (result === ConstraintResult.INVALID) {
                         // Subboard is broken, filter it out
@@ -277,5 +275,5 @@ export class OrConstraint extends ConstraintV2 {
 }
 
 export interface OrConstraintBuilderParams {
-    constraints: ConstraintV2[];
+    constraints: Constraint[];
 }

@@ -1,14 +1,14 @@
 import { Board } from '../Board';
 import ConstraintBuilder from '../ConstraintBuilder';
 import { CellIndex, cellIndexFromName, cellName } from '../SolveUtility';
-import { ConstraintV2, ConstraintResult, InitResult } from './ConstraintV2';
+import { Constraint, ConstraintResult, InitResult } from './Constraint';
 import { FPuzzlesCells } from './FPuzzlesInterfaces';
 
 export interface RegionConstraintParams {
     cells: CellIndex[];
 }
 
-export class RegionConstraint extends ConstraintV2 {
+export class RegionConstraint extends Constraint {
     cells: CellIndex[];
 
     constructor(board: Board, params: RegionConstraintParams, name: string, specificName: string) {
