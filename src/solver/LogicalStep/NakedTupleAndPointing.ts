@@ -11,7 +11,7 @@ export class NakedTupleAndPointing extends LogicalStep {
     step(board: Board, desc: string[]) {
         const { size, cells } = board;
         for (let tupleSize = 2; tupleSize < size; tupleSize++) {
-            for (const region of board.regions) {
+            for (const region of board.getRegions()) {
                 const regionCells: CellIndex[] = region.cells;
                 if (regionCells.length <= tupleSize) {
                     continue;
@@ -90,7 +90,7 @@ export class NakedTupleAndPointing extends LogicalStep {
             }
 
             // Look for "pointing" of the same tuple size
-            for (const region of board.regions) {
+            for (const region of board.getRegions()) {
                 const regionCells: CellIndex[] = region.cells;
 
                 // Can only point from regions that must contain all values

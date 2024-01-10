@@ -10,7 +10,7 @@ export class HiddenSingle extends LogicalStep {
 
     step(board: Board, desc: string[]) {
         const { size, givenBit, cells, allValues } = board;
-        for (const region of board.regions) {
+        for (const region of board.getRegions()) {
             const regionCells = region.cells;
             if (regionCells.length !== size) {
                 continue;

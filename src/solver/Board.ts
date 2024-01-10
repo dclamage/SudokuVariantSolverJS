@@ -111,6 +111,7 @@ export class Board {
     nakedSingles: CellIndex[];
     binaryImplications: BinaryImplicationLayeredGraph;
     regions: Region[];
+    regionStack: Region[][];
     constraints: Constraint[];
     constraintStates: Cloneable[];
     constraintStateIsCloned: (undefined | true)[];
@@ -130,6 +131,7 @@ export class Board {
             this.nakedSingles = [];
             this.binaryImplications = new BinaryImplicationLayeredGraph(size * size * size);
             this.regions = [];
+            this.regionStack = [this.regions];
             this.constraints = [];
             this.constraintStates = [];
             this.constraintStateIsCloned = [];
@@ -166,6 +168,7 @@ export class Board {
         clone.nakedSingles = this.nakedSingles.slice(); // Deep copy
         clone.binaryImplications = this.binaryImplications;
         clone.regions = this.regions;
+        clone.regionStack = this.regionStack;
         clone.constraints = this.constraints.map(constraint => constraint.clone()); // Clone constraints that need backtracking state
         clone.constraintStates = this.constraintStates.slice();
         clone.constraintStateIsCloned = [];
@@ -195,7 +198,8 @@ export class Board {
         clone.nonGivenCount = this.nonGivenCount;
         clone.nakedSingles = this.nakedSingles.slice(); // Deep copy
         clone.binaryImplications = this.binaryImplications.subboardClone(); // Deep copy
-        clone.regions = this.regions.slice(); // Deep copy
+        clone.regions = [];
+        clone.regionStack = [clone.regions, ...this.regionStack];
         clone.constraints = []; // Don't inherit constraints
         clone.constraintStates = [];
         clone.memos = new Map(); // Don't inherit memos
@@ -341,7 +345,9 @@ export class Board {
         }
 
         // Do not add duplicate regions
-        if (this.regions.some(region => fromConstraint === region.fromConstraint && sequenceEqual(region.cells, cells))) {
+        if (
+            this.regionStack.some(regions => regions.some(region => fromConstraint === region.fromConstraint && sequenceEqual(region.cells, cells)))
+        ) {
             return false;
         }
 
@@ -367,12 +373,18 @@ export class Board {
         return true;
     }
 
+    getRegions(): Region[] {
+        return this.regionStack.flat();
+    }
+
     getRegionsForType(type: RegionType): Region[] {
-        return this.regions.filter(region => region.type === type);
+        return this.regionStack.flatMap(regions => regions.filter(region => region.type === type));
     }
 
     getRegionsForCell(cellIndex: CellIndex, type: RegionType | null = null): Region[] {
-        return this.regions.filter(region => region.cells.includes(cellIndex) && (type === null || region.type === type));
+        return this.regionStack.flatMap(regions =>
+            regions.filter(region => region.cells.includes(cellIndex) && (type === null || region.type === type))
+        );
     }
 
     addConstraint(constraint: Constraint) {
@@ -1107,7 +1119,7 @@ export class Board {
     applyHiddenSingles() {
         const { size, givenBit, cells, allValues } = this;
         let changed = false;
-        for (const region of this.regions) {
+        for (const region of this.regionStack.flat()) {
             const regionCells = region.cells;
             if (regionCells.length !== size) {
                 continue;

@@ -35,9 +35,6 @@ export class OrConstraint extends Constraint {
             for (let cellIndex = 0; cellIndex < this.numCells; ++cellIndex) {
                 subboard.keepCellMask(cellIndex, board.cells[cellIndex]);
             }
-            for (const { name, fromConstraint, type, cells } of board.regions) {
-                subboard.addRegion(name, cells, type, fromConstraint, false);
-            }
 
             // Init constraints
             // If init fails, filter out the subboard immediately
