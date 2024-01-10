@@ -26,7 +26,7 @@ import { LogicalStep } from './LogicalStep/LogicalStep';
 import { BinaryImplicationLayeredGraph } from './BinaryImplicationLayeredGraph';
 import { TypedArrayPool, TypedArrayEntry } from './Memory/TypedArrayPool';
 import { Fish } from './LogicalStep/Fish';
-import { Constraint, ConstraintResult, LogicalDeduction } from './Constraint/Constraint';
+import { Constraint, ConstraintAndGroup, ConstraintOrGroup, ConstraintResult, ConstraintTree, LogicalDeduction } from './Constraint/Constraint';
 
 export type RegionType = string;
 export type Region = {
@@ -98,6 +98,32 @@ export enum LoopResult {
     ABORT_LOOP = 2,
 }
 
+export class SubboardGroup {
+    name: string;
+    branches: Board[];
+    constructor(name: string) {
+        this.name = name;
+        this.branches = [];
+    }
+    addBranch(parentBoard: Board, branch: ConstraintTree) {
+        if (branch instanceof ConstraintOrGroup) {
+            for (const subBranch of branch.branches) {
+                this.addBranch(parentBoard, subBranch);
+            }
+        } else if (branch instanceof ConstraintAndGroup) {
+            const subboard = parentBoard.subboardClone();
+            for (const constraint of branch.constraints) {
+                subboard.addConstraint(constraint);
+            }
+            this.branches.push(subboard);
+        } else {
+            const subboard = parentBoard.subboardClone();
+            subboard.addConstraint(branch);
+            this.branches.push(subboard);
+        }
+    }
+}
+
 export class Board {
     size: number;
     allValues: CellMask;
@@ -106,6 +132,7 @@ export class Board {
     cellsPoolEntry: TypedArrayEntry<Uint16Array | Uint32Array> | null;
     cells: Uint16Array | Uint32Array | null;
     cells64: BigUint64Array | null;
+    children: SubboardGroup[];
     invalidInit: boolean;
     nonGivenCount: number;
     nakedSingles: CellIndex[];
@@ -126,6 +153,7 @@ export class Board {
             this.cellsPool = new TypedArrayPool(size * size, size < 16 ? 2 : 4);
             this.allocateCells();
             this.cells.fill(this.allValues);
+            this.children = [];
             this.invalidInit = false;
             this.nonGivenCount = size * size;
             this.nakedSingles = [];
@@ -163,6 +191,7 @@ export class Board {
         clone.allocateCells();
         clone.cells64.set(this.cells64);
 
+        clone.children = this.children;
         clone.invalidInit = this.invalidInit;
         clone.nonGivenCount = this.nonGivenCount;
         clone.nakedSingles = this.nakedSingles.slice(); // Deep copy
@@ -194,6 +223,7 @@ export class Board {
         clone.allocateCells();
         clone.cells64.set(this.cells64);
 
+        clone.children = [];
         clone.invalidInit = this.invalidInit;
         clone.nonGivenCount = this.nonGivenCount;
         clone.nakedSingles = this.nakedSingles.slice(); // Deep copy
@@ -202,6 +232,7 @@ export class Board {
         clone.regionStack = [clone.regions, ...this.regionStack];
         clone.constraints = []; // Don't inherit constraints
         clone.constraintStates = [];
+        clone.constraintStateIsCloned = [];
         clone.memos = new Map(); // Don't inherit memos
         clone.logicalSteps = this.logicalSteps;
         return clone;
@@ -228,6 +259,13 @@ export class Board {
         this.cellsPoolEntry = null!;
         this.cells = null!;
         this.cells64 = null!;
+
+        // Release children
+        for (const group of this.children) {
+            for (const subboard of group.branches) {
+                subboard.release();
+            }
+        }
     }
 
     solutionString() {
@@ -387,8 +425,20 @@ export class Board {
         );
     }
 
-    addConstraint(constraint: Constraint) {
-        this.constraints.push(constraint);
+    addConstraint(constraint: ConstraintTree) {
+        if (constraint instanceof ConstraintAndGroup) {
+            for (const subConstraint of constraint.constraints) {
+                this.addConstraint(subConstraint);
+            }
+        } else if (constraint instanceof ConstraintOrGroup) {
+            const subboardGroup = new SubboardGroup(constraint.name);
+            for (const branch of constraint.branches) {
+                subboardGroup.addBranch(this, branch);
+            }
+            this.children.push(subboardGroup);
+        } else {
+            this.constraints.push(constraint);
+        }
     }
 
     // Calls `func` on all constraints in a loop
@@ -494,10 +544,14 @@ export class Board {
     }
 
     finalizeConstraints() {
+        // Initialize constraints on current board
         for (const constraint of this.constraints.slice()) {
             if (!this.initSingleConstraint(constraint)) {
                 return false;
             }
+        }
+        // Initialize constraints for subboards
+        for (const subboardGroup of this.children) {
         }
         return true;
     }

@@ -52,6 +52,23 @@ export class ConstraintState {
     }
 }
 
+// Used to bundle constraints together so they can be added to the board
+export type ConstraintTree = Constraint | ConstraintOrGroup | ConstraintAndGroup;
+export class ConstraintOrGroup {
+    name: string;
+    branches: ConstraintTree[];
+    constructor(name: string, branches: ConstraintTree[]) {
+        this.name = name;
+        this.branches = branches.slice();
+    }
+}
+export class ConstraintAndGroup {
+    constraints: ConstraintTree[];
+    constructor(constraints: ConstraintTree[]) {
+        this.constraints = constraints.slice();
+    }
+}
+
 export class Constraint {
     constraintName: string;
     specificName: string;
