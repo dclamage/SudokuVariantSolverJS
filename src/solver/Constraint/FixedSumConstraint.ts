@@ -67,6 +67,10 @@ export class FixedSumConstraint extends ConstraintV2 {
                     }
                 }
             }
+            if (!valueUsed1.some(v => v) || !valueUsed2.some(v => v) || board.invalidInit) {
+                // No possible values for one of the cells or something went wrong while adding weak links, invalid board
+                return ConstraintResult.INVALID;
+            }
             return {
                 result: ConstraintResult.CHANGED,
                 deleteConstraints: [this],
