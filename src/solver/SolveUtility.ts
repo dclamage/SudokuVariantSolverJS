@@ -477,3 +477,41 @@ export function removeDuplicates<T>(arr: T[]): T[] {
     arr.length = j + 1;
     return arr;
 }
+
+// Only generates pairs once, every pair will satisfy output[0] <= output[1].
+export function* orthogonalPairsGenerator(board: Board): Generator<[CellIndex, CellIndex]> {
+    const { size } = board;
+    for (let r1 = 0; r1 < size; r1++) {
+        for (let c1 = 0; c1 < size; c1++) {
+            const cell1 = board.cellIndex(r1, c1);
+            if (r1 + 1 < size) {
+                const cell2 = board.cellIndex(r1 + 1, c1);
+                yield [cell1, cell2];
+            }
+            if (c1 + 1 < size) {
+                const cell2 = board.cellIndex(r1, c1 + 1);
+                yield [cell1, cell2];
+            }
+        }
+    }
+}
+
+// This will get used when diagonally adjacent constraints are added.
+// Only generates pairs once, every pair will satisfy output[0] <= output[1].
+export function* diagonalPairsGenerator(board: Board): Generator<[CellIndex, CellIndex]> {
+    const { size } = board;
+    for (let r1 = 0; r1 < size; r1++) {
+        for (let c1 = 0; c1 < size; c1++) {
+            const cell1 = board.cellIndex(r1, c1);
+
+            if (r1 + 1 < size && c1 + 1 < size) {
+                const cell2 = board.cellIndex(r1 + 1, c1 + 1);
+                yield [cell1, cell2];
+            }
+            if (r1 + 1 < size && c1 - 1 >= 0) {
+                const cell2 = board.cellIndex(r1 + 1, c1 - 1);
+                yield [cell1, cell2];
+            }
+        }
+    }
+}
