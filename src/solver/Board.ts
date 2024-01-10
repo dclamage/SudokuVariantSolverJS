@@ -112,7 +112,6 @@ export class Board {
     binaryImplications: BinaryImplicationLayeredGraph;
     regions: Region[];
     constraints: Constraint[];
-    constraintsFinalized: boolean;
     constraintStates: Cloneable[];
     constraintStateIsCloned: (undefined | true)[];
     memos: Map<string, unknown>;
@@ -132,7 +131,6 @@ export class Board {
             this.binaryImplications = new BinaryImplicationLayeredGraph(size * size * size);
             this.regions = [];
             this.constraints = [];
-            this.constraintsFinalized = false;
             this.constraintStates = [];
             this.constraintStateIsCloned = [];
             this.memos = new Map();
@@ -169,7 +167,6 @@ export class Board {
         clone.binaryImplications = this.binaryImplications;
         clone.regions = this.regions;
         clone.constraints = this.constraints.map(constraint => constraint.clone()); // Clone constraints that need backtracking state
-        clone.constraintsFinalized = this.constraintsFinalized;
         clone.constraintStates = this.constraintStates.slice();
         clone.constraintStateIsCloned = [];
         // We can't mutate `this` state either as there may be a clone which references it
@@ -201,7 +198,6 @@ export class Board {
         clone.regions = this.regions.slice(); // Deep copy
         clone.constraints = []; // Don't inherit constraints
         clone.constraintStates = [];
-        clone.constraintsFinalized = this.constraintsFinalized;
         clone.memos = new Map(); // Don't inherit memos
         clone.logicalSteps = this.logicalSteps;
         return clone;
@@ -491,7 +487,6 @@ export class Board {
                 return false;
             }
         }
-        this.constraintsFinalized = true;
         return true;
     }
 
