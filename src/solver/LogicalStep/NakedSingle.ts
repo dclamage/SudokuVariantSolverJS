@@ -16,6 +16,7 @@ export class NakedSingle extends LogicalStep {
         const { size } = board;
 
         // Get the first naked single
+        board.nakedSingles.sort((a, b) => a - b);
         const cellIndex = board.nakedSingles[0];
         board.nakedSingles.shift();
 
