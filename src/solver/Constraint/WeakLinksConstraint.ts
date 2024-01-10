@@ -1,5 +1,5 @@
 import { Board } from '../Board';
-import { CandidateIndex, CellIndex, valueBit } from '../SolveUtility';
+import { CandidateIndex, CellIndex } from '../SolveUtility';
 import { Constraint, ConstraintResult, InitResult } from './Constraint';
 
 export interface WeakLinksConstraintParams {
@@ -10,28 +10,12 @@ export class WeakLinksConstraint extends Constraint {
     weakLinks: [CandidateIndex, CandidateIndex][];
 
     constructor(board: Board, params: WeakLinksConstraintParams, name: string, specificName: string) {
-        super(board, name, specificName);
-
+        super(name, specificName);
         this.weakLinks = params.weakLinks.slice();
     }
 
-    init(board: Board, isRepeat: boolean): InitResult {
-        let changed = false;
-        for (const [candidate1, candidate2] of this.weakLinks) {
-            if (candidate1 === candidate2) {
-                const [cellIndex, cellValue] = board.candidateToIndexAndValue(candidate1);
-                const valueMask = valueBit(cellValue);
-                const result = board.clearCellMask(cellIndex, valueMask);
-                if (result === ConstraintResult.INVALID) {
-                    return ConstraintResult.INVALID;
-                }
-                changed = changed || result === ConstraintResult.CHANGED;
-            } else {
-                const added = board.addWeakLink(candidate1, candidate2);
-                changed = changed || added;
-            }
-        }
-        return { result: changed ? ConstraintResult.CHANGED : ConstraintResult.UNCHANGED, deleteConstraints: [this] };
+    init(board: Board): InitResult {
+        return { result: ConstraintResult.CHANGED, weakLinks: this.weakLinks, deleteConstraints: [this] };
     }
 }
 

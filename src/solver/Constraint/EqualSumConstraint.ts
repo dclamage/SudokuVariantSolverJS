@@ -1,7 +1,8 @@
 import { Board } from '../Board';
-import { CellIndex, CellValue, minValue, valueBit } from '../SolveUtility';
+import { CandidateIndex, CellIndex, CellValue } from '../SolveUtility';
 import { SumCellsHelper } from '../SumCellsHelper';
-import { Constraint, ConstraintResult } from './Constraint';
+import { Constraint, ConstraintResult, LogicalDeduction, PreprocessingResult } from './Constraint';
+import { FixedSumConstraint } from './FixedSumConstraint';
 
 // EqualSumConstraint: There must be a common-sum S such that for every i, S = sum([...cells[i], offsets[i]]).
 export class EqualSumConstraint extends Constraint {
@@ -18,7 +19,7 @@ export class EqualSumConstraint extends Constraint {
     helpers: SumCellsHelper[];
 
     constructor(constraintName: string, specificName: string, board: Board, params: { cells: CellIndex[][]; offsets?: number[] }) {
-        super(board, constraintName, specificName);
+        super(constraintName, specificName);
 
         this.cells = [];
         this.offsets = [];
@@ -46,12 +47,26 @@ export class EqualSumConstraint extends Constraint {
         this.helpers = this.cells.map(cellSet => new SumCellsHelper(board, cellSet));
     }
 
-    init(board: Board, isRepeat: boolean) {
+    init(board: Board) {
         if (this.invalid) {
             return ConstraintResult.INVALID;
         }
 
-        return this.logicStep(board, null);
+        if (this.fixedSum !== null) {
+            // If we have a fixed sum, replace ourselves with individual FixedSumConstraints
+            const addConstraints = [];
+            for (let i = 0; i < this.cells.length; ++i) {
+                addConstraints.push(
+                    new FixedSumConstraint(this.toString(), this.toSpecificString(), board, {
+                        cells: this.cells[i],
+                        sum: this.fixedSum - this.offsets[i],
+                    })
+                );
+            }
+            return { result: ConstraintResult.UNCHANGED, addConstraints, deleteConstraints: [this] };
+        }
+
+        return ConstraintResult.UNCHANGED;
     }
 
     // eslint-disable-next-line no-unused-vars
@@ -68,30 +83,77 @@ export class EqualSumConstraint extends Constraint {
         return true;
     }
 
-    logicStep(board: Board, logicalStepDescription: string[]) {
+    logicalStep(board: Board): LogicalDeduction[] {
         // If we have a fixed sum, we can skip finding possible sums and instead use logicStep to find conflicts.
         const possibleSums = this.fixedSum === null ? this.possibleSums(board) : [this.fixedSum];
 
         if (possibleSums.length === 0) {
-            if (logicalStepDescription) {
-                logicalStepDescription.push('No possible sum works for all cell sets.');
+            return [
+                {
+                    explanation: 'No possible sum works for all cell sets',
+                    invalid: true,
+                },
+            ];
+        }
+
+        const eliminations: CandidateIndex[] = [];
+
+        for (let i = 0; i < this.cells.length; ++i) {
+            const sumHelper = this.helpers[i];
+            const offset = this.offsets[i];
+            const restrictResult = sumHelper.getRestrictSumsEliminations(
+                board,
+                possibleSums.map(sum => sum - offset)
+            );
+            if (restrictResult.result === ConstraintResult.INVALID) {
+                return [
+                    {
+                        invalid: true,
+                        explanation: restrictResult.explanation,
+                    },
+                ];
             }
+            if (restrictResult.result === ConstraintResult.CHANGED) {
+                for (const elim of restrictResult.eliminations) {
+                    eliminations.push(elim);
+                }
+            }
+        }
+
+        if (eliminations.length > 0) {
+            return [
+                {
+                    explanation: `Restricted to sum${possibleSums.length === 1 ? '' : 's'} ${possibleSums.join(',')}`,
+                    eliminations,
+                },
+            ];
+        }
+
+        return [];
+    }
+
+    preprocessingStep(board: Board): PreprocessingResult {
+        // For now we don't do any adding constraint stuff, so just call bruteForceStep
+        return this.bruteForceStep(board);
+    }
+
+    bruteForceStep(board: Board): ConstraintResult {
+        // If we have a fixed sum, we can skip finding possible sums and instead use logicStep to find conflicts.
+        const possibleSums = this.fixedSum === null ? this.possibleSums(board) : [this.fixedSum];
+
+        if (possibleSums.length === 0) {
             return ConstraintResult.INVALID;
         }
 
-        let origMasks = null;
-        if (logicalStepDescription) {
-            origMasks = this.flatCells.map(cell => board.cells[cell]);
-        }
-
         let changed = false;
+
         for (let i = 0; i < this.cells.length; ++i) {
             const sumHelper = this.helpers[i];
             const offset = this.offsets[i];
             const restrictResult = sumHelper.logicStep(
                 board,
                 possibleSums.map(sum => sum - offset),
-                logicalStepDescription
+                null
             );
             if (restrictResult === ConstraintResult.INVALID) {
                 return ConstraintResult.INVALID;
@@ -99,27 +161,6 @@ export class EqualSumConstraint extends Constraint {
             if (restrictResult === ConstraintResult.CHANGED) {
                 changed = true;
             }
-        }
-
-        if (changed && logicalStepDescription) {
-            const elims = [];
-            for (let i = 0; i < this.cells.length; i++) {
-                const cell = this.flatCells[i];
-                const origMask = origMasks[i];
-                const newMask = board.cells[cell];
-                let removedMask = origMask & ~newMask;
-                while (removedMask !== 0) {
-                    const value = minValue(removedMask);
-                    removedMask &= ~valueBit(value);
-
-                    const candidate = board.candidateIndex(cell, value);
-                    elims.push(candidate);
-                }
-            }
-
-            logicalStepDescription.push(
-                `Restricted to sum${possibleSums.length === 1 ? '' : 's'} ${possibleSums.join(',')} => ${board.describeElims(elims)}.`
-            );
         }
 
         return changed ? ConstraintResult.CHANGED : ConstraintResult.UNCHANGED;

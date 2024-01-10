@@ -21,12 +21,12 @@ import { HiddenSingle } from './LogicalStep/HiddenSingle';
 import { ConstraintLogic } from './LogicalStep/ConstraintLogic';
 import { CellForcing } from './LogicalStep/CellForcing';
 import { NakedTupleAndPointing } from './LogicalStep/NakedTupleAndPointing';
-import { Constraint, ConstraintResult } from './Constraint/Constraint';
 import { LogicResult } from './Enums/LogicResult';
 import { LogicalStep } from './LogicalStep/LogicalStep';
 import { BinaryImplicationLayeredGraph } from './BinaryImplicationLayeredGraph';
 import { TypedArrayPool, TypedArrayEntry } from './Memory/TypedArrayPool';
 import { Fish } from './LogicalStep/Fish';
+import { Constraint, ConstraintResult, LogicalDeduction } from './Constraint/Constraint';
 
 export type RegionType = string;
 export type Region = {
@@ -38,6 +38,7 @@ export type Region = {
 
 export type SolveOptions = {
     random?: boolean;
+    allowPreprocessing?: boolean;
     maxSolutions?: number;
     maxSolutionsPerCandidate?: number;
 };
@@ -90,6 +91,12 @@ export interface Cloneable {
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export type StateKey<T extends Cloneable> = number;
+
+export enum LoopResult {
+    UNCHANGED = 0,
+    SCHEDULE_LOOP = 1,
+    ABORT_LOOP = 2,
+}
 
 export class Board {
     size: number;
@@ -280,6 +287,17 @@ export class Board {
     }
 
     addWeakLink(index1: CandidateIndex, index2: CandidateIndex): boolean {
+        if (index1 === index2) {
+            // Special case: If a weak link points at itself, we should eliminate it instead
+            const [cellIndex, value] = this.candidateToIndexAndValue(index1);
+            const valueMask = valueBit(value);
+            const result = this.clearCellMask(cellIndex, valueMask);
+            if (result === ConstraintResult.INVALID) {
+                this.invalidInit = true;
+            }
+            return result === ConstraintResult.CHANGED;
+        }
+
         const [cellIndex1, value1] = this.candidateToIndexAndValue(index1);
         const [cellIndex2, value2] = this.candidateToIndexAndValue(index2);
 
@@ -348,6 +366,7 @@ export class Board {
                 }
             }
         }
+        this.binaryImplications.sortGraph();
 
         return true;
     }
@@ -364,92 +383,116 @@ export class Board {
         this.constraints.push(constraint);
     }
 
-    initConstraints(isRepeat: boolean = false): boolean {
-        if (this.constraints.length > 0) {
-            let haveChange = false;
-            const initedConstraints: Map<Constraint, boolean> = new Map();
-            do {
-                haveChange = false;
-
-                let constraintsToAdd: Constraint[] = null;
-                let constraintsToDelete: Constraint[] = null;
-
-                for (const constraint of this.constraints) {
-                    const result = constraint.init(this, isRepeat || initedConstraints.get(constraint) === true);
-                    initedConstraints.set(constraint, true);
-
-                    const constraintResult = typeof result === 'object' ? result.result : result;
-                    const payload = typeof result === 'object' ? result : null;
-                    if (constraintResult === ConstraintResult.INVALID) {
-                        return false;
-                    }
-
-                    if (constraintResult === ConstraintResult.CHANGED) {
-                        haveChange = true;
-                    }
-
-                    if (payload) {
-                        if (payload.addConstraints) {
-                            constraintsToAdd = payload.addConstraints;
-                        }
-                        if (payload.deleteConstraints) {
-                            constraintsToDelete = payload.deleteConstraints;
-                        }
-                    }
-
-                    if (constraintsToAdd || constraintsToDelete) {
-                        haveChange = true;
-                        break;
-                    }
+    // Calls `func` on all constraints in a loop
+    // If a constraint is added and deleted in the same loop, `func` may or may not be called on it.
+    // If func returns `ConstraintResult.CHANGED`, then another loop is scheduled.
+    // If func returns `ConstraintResult.INVALID`, then the function aborts immediately.
+    loopConstraints(func: (constraint: Constraint) => LoopResult) {
+        let loopAgain = false;
+        do {
+            loopAgain = false;
+            for (const constraint of this.constraints.slice()) {
+                const result = func(constraint);
+                if (result === LoopResult.ABORT_LOOP) {
+                    return;
                 }
-
-                if (constraintsToDelete) {
-                    this.constraints = this.constraints.filter(constraint => !constraintsToDelete.includes(constraint));
+                if (result === LoopResult.SCHEDULE_LOOP) {
+                    loopAgain = true;
                 }
-                if (constraintsToAdd) {
-                    for (const constraint of constraintsToAdd) {
-                        this.constraints.push(constraint);
-                    }
-                }
-            } while (haveChange);
-        }
-
-        return !this.invalidInit;
+            }
+        } while (loopAgain);
     }
 
-    finalizeConstraints() {
-        if (!this.initConstraints()) {
-            return false;
+    applyLogicalDeduction(deduction: LogicalDeduction): ConstraintResult {
+        let haveChange = false;
+        if (deduction.invalid) {
+            return ConstraintResult.INVALID;
         }
-        return this.finalizeConstraintsNoInit();
+        if (deduction.singles && deduction.singles.length > 0) {
+            if (!this.enforceCandidates(deduction.singles)) {
+                return ConstraintResult.INVALID;
+            }
+            haveChange = true;
+        }
+        if (deduction.eliminations && deduction.eliminations.length > 0) {
+            if (!this.clearCandidates(deduction.eliminations)) {
+                return ConstraintResult.INVALID;
+            }
+            haveChange = true;
+        }
+        if (deduction.addConstraints && deduction.addConstraints.length > 0) {
+            for (const constraint of deduction.addConstraints) {
+                this.addConstraint(constraint);
+            }
+            haveChange = true;
+        }
+        if (deduction.deleteConstraints && deduction.deleteConstraints.length > 0) {
+            this.constraints = this.constraints.filter(constraint => !deduction.deleteConstraints.includes(constraint));
+            haveChange = true;
+        }
+        if (deduction.weakLinks && deduction.weakLinks.length > 0) {
+            for (const link of deduction.weakLinks) {
+                this.addWeakLink(link[0], link[1]);
+            }
+            this.binaryImplications.sortGraph();
+            haveChange = true;
+        }
+        if (deduction.implications && deduction.implications.length > 0) {
+            for (const implication of deduction.implications) {
+                this.binaryImplications.addImplication(implication[0], implication[1]);
+            }
+            haveChange = true;
+        }
+        return haveChange ? ConstraintResult.CHANGED : ConstraintResult.UNCHANGED;
     }
 
-    finalizeConstraintsNoInit() {
-        const constraintsToDelete: Constraint[] = [];
-        for (const constraint of this.constraints) {
-            const result = constraint.finalize(this);
-            const constraintResult = typeof result === 'object' ? result.result : result;
+    // Recursively inits this constraint and any constraints it creates
+    // If a single constraint fails initialization, returns false
+    // Modifies `this.constraints`, so remember to .slice() before iterating if looping over constraints when calling this function.
+    initSingleConstraint(initialConstraint: Constraint): boolean {
+        const uninitedConstraints: Constraint[] = [initialConstraint];
+        while (uninitedConstraints.length > 0) {
+            const constraint = uninitedConstraints.pop();
+            const result = constraint.init(this);
             const payload = typeof result === 'object' ? result : null;
+            const constraintResult = typeof result === 'object' ? result.result : result;
 
             if (constraintResult === ConstraintResult.INVALID) {
                 return false;
             }
-            if (constraintResult === ConstraintResult.CHANGED) {
-                throw new Error('finalize is not allowed to change the board');
-            }
+
             if (payload) {
-                if (payload.addConstraints) {
-                    throw new Error('finalize may not add constraints!');
+                if (payload.weakLinks && payload.weakLinks.length > 0) {
+                    for (const link of payload.weakLinks) {
+                        this.addWeakLink(link[0], link[1]);
+                    }
+                    this.binaryImplications.sortGraph();
                 }
-                if (payload.deleteConstraints) {
-                    constraintsToDelete.push(...payload.deleteConstraints);
+                if (payload.implications && payload.implications.length > 0) {
+                    for (const implication of payload.implications) {
+                        this.binaryImplications.addImplication(implication[0], implication[1]);
+                    }
+                }
+                if (payload.addConstraints && payload.addConstraints.length > 0) {
+                    this.constraints.push(...payload.addConstraints);
+                    uninitedConstraints.push(...payload.addConstraints);
+                }
+                if (payload.deleteConstraints && payload.deleteConstraints.length > 0) {
+                    this.constraints = this.constraints.filter(constraint => !payload.deleteConstraints.includes(constraint));
                 }
             }
         }
-        this.constraints = this.constraints.filter(constraint => !constraintsToDelete.includes(constraint));
+        return true;
+    }
 
+    finalizeConstraints() {
+        for (const constraint of this.constraints.slice()) {
+            if (!this.initSingleConstraint(constraint)) {
+                return false;
+            }
+        }
         this.constraintsFinalized = true;
-        return !this.invalidInit;
+        return true;
     }
 
     // Register/use mutable constraint state.
@@ -499,6 +542,7 @@ export class Board {
             const candidateIndex2 = this.candidateIndex(cellIndex2, value);
             this.addWeakLink(candidateIndex1, candidateIndex2);
         }
+        this.binaryImplications.sortGraph();
     }
 
     addCloneWeakLinks(cellIndex1: CellIndex, cellIndex2: CellIndex) {
@@ -517,6 +561,7 @@ export class Board {
                 this.addWeakLink(candidateIndex1, candidateIndex2);
             }
         }
+        this.binaryImplications.sortGraph();
     }
 
     getMemo<T>(key: string): T {
@@ -721,7 +766,7 @@ export class Board {
         return groups;
     }
 
-    applyBruteForceLogic() {
+    applyBruteForceLogic(isDepth0: boolean) {
         let changed = false;
         while (true) {
             // Just in case, check if the board is completed
@@ -754,17 +799,80 @@ export class Board {
                 continue;
             }
 
-            // If we get here, then there are no more singles to find
-            // Allow constraints to apply their logic
-            for (const constraint of this.constraints) {
-                const result = constraint.logicStep(this, null);
-                if (result === ConstraintResult.INVALID) {
-                    return LogicResult.INVALID;
+            if (isDepth0) {
+                // Temporary hack: At depth 0, run cell forcing
+                // We need this as more and more constraints are becoming weaklinks based which is super weak without the support encoding.
+                // TODO: When we have LUT based cell forcing, see if this is fast enough to run at all levels of the solve
+                result = new CellForcing(this).step(this, null);
+                if (result === LogicResult.INVALID || result === LogicResult.COMPLETE) {
+                    return result;
                 }
-                if (result === ConstraintResult.CHANGED) {
+
+                if (result === LogicResult.CHANGED) {
                     changedThisRound = true;
                     changed = true;
-                    break;
+                    // Keep looking for singles / cell forcing until there are none
+                    continue;
+                }
+            }
+
+            // If we get here, then there are no more singles to find
+            // Allow constraints to apply their logic
+            if (!isDepth0) {
+                for (const constraint of this.constraints) {
+                    const result = constraint.bruteForceStep(this);
+                    if (result === ConstraintResult.INVALID) {
+                        return LogicResult.INVALID;
+                    }
+                    if (result === ConstraintResult.CHANGED) {
+                        changedThisRound = true;
+                        changed = true;
+                        break;
+                    }
+                }
+            } else {
+                for (const constraint of this.constraints.slice()) {
+                    const result = constraint.preprocessingStep(this);
+                    const payload = typeof result === 'object' ? result : null;
+                    const constraintResult = typeof result === 'object' ? result.result : result;
+                    if (constraintResult === ConstraintResult.INVALID) {
+                        return LogicResult.INVALID;
+                    }
+                    if (constraintResult === ConstraintResult.CHANGED) {
+                        changedThisRound = true;
+                        changed = true;
+                    }
+                    if (payload) {
+                        if (payload.addConstraints && payload.addConstraints.length > 0) {
+                            for (const constraint of payload.addConstraints) {
+                                this.constraints.push(constraint);
+                                this.initSingleConstraint(constraint);
+                            }
+                            changedThisRound = true;
+                            changed = true;
+                        }
+                        if (payload.deleteConstraints && payload.deleteConstraints.length > 0) {
+                            this.constraints = this.constraints.filter(constraint => !payload.deleteConstraints.includes(constraint));
+                        }
+                        if (payload.weakLinks && payload.weakLinks.length > 0) {
+                            for (const [index1, index2] of payload.weakLinks) {
+                                this.addWeakLink(index1, index2);
+                            }
+                            this.binaryImplications.sortGraph();
+                            changedThisRound = true;
+                            changed = true;
+                        }
+                        if (payload.implications && payload.implications.length > 0) {
+                            for (const [index1, index2] of payload.implications) {
+                                this.binaryImplications.addImplication(index1, index2);
+                            }
+                            changedThisRound = true;
+                            changed = true;
+                        }
+                    }
+                    if (changedThisRound) {
+                        break;
+                    }
                 }
             }
 
@@ -974,6 +1082,18 @@ export class Board {
         return filteredElims;
     }
 
+    // Pass in an array of candidate indexes
+    // Returns an array of candidate indexes which are guaranteed to be true by all of the input candidates
+    calcSinglesForCandidateIndices(candidateIndexes: CandidateIndex[]): CandidateIndex[] {
+        const allSingles = this.binaryImplications.getCommonPosConsequences(candidateIndexes);
+        // Intersect with existing candidates
+        const filteredSingles = allSingles.filter(single => {
+            const [cellIndex, value] = this.candidateToIndexAndValue(single);
+            return (this.cells[cellIndex] & this.allValues) !== valueBit(value);
+        });
+        return filteredSingles;
+    }
+
     applyNakedSingles() {
         let changed = false;
         while (this.nakedSingles.length > 0) {
@@ -1148,7 +1268,7 @@ export class Board {
         options: SolveOptions | null | undefined,
         isCancelled: (() => boolean) | undefined
     ): Promise<SolveResultCancelled | SolveResultBoard | SolveResultNoSolution> {
-        const { random = false } = options || {};
+        const { random = false, allowPreprocessing = true } = options || {};
         const jobStack = [this.clone()];
         let lastCancelCheckTime = Date.now();
 
@@ -1168,7 +1288,7 @@ export class Board {
 
             const currentBoard = jobStack.pop();
 
-            const bruteForceResult = currentBoard.applyBruteForceLogic();
+            const bruteForceResult = currentBoard.applyBruteForceLogic(allowPreprocessing && jobStack.length === 0);
 
             if (bruteForceResult === LogicResult.INVALID) {
                 // Puzzle is invalid
@@ -1223,10 +1343,12 @@ export class Board {
         reportProgress: ((numSolutions: number) => void) | null | undefined,
         isCancelled: (() => boolean) | null | undefined,
         solutionsSeen: Set<string> | null | undefined = null,
-        solutionEvent: ((board: Board) => void) | null | undefined = null
+        solutionEvent: ((board: Board) => void) | null | undefined = null,
+        allowPreprocessing: boolean = true
     ): Promise<SolveResultCancelledPartialSolutionCount | SolveResultSolutionCount> {
         const jobStack = [this.clone()];
         let numSolutions = 0;
+        let numGuesses = 0;
         let lastReportTime = Date.now();
         const wantReportProgress = reportProgress || isCancelled;
 
@@ -1238,6 +1360,7 @@ export class Board {
                 // Check if the job was cancelled
                 if (isCancelled && isCancelled()) {
                     Board.releaseJobStack(jobStack);
+                    console.log('Guesses:', numGuesses);
                     return { result: 'cancelled partial count', count: numSolutions };
                 }
 
@@ -1250,7 +1373,7 @@ export class Board {
 
             const currentBoard = jobStack.pop();
 
-            const bruteForceResult = currentBoard.applyBruteForceLogic();
+            const bruteForceResult = currentBoard.applyBruteForceLogic(allowPreprocessing && jobStack.length === 0);
 
             if (bruteForceResult === LogicResult.INVALID) {
                 // Puzzle is invalid
@@ -1285,6 +1408,7 @@ export class Board {
                     if (maxSolutions > 0 && numSolutions === maxSolutions) {
                         Board.releaseJobStack(jobStack);
                         currentBoard.release();
+                        console.log('Guesses:', numGuesses);
                         return { result: 'count', count: numSolutions };
                     }
                 }
@@ -1299,6 +1423,7 @@ export class Board {
                 if (maxSolutions > 0 && numSolutions === maxSolutions) {
                     Board.releaseJobStack(jobStack);
                     currentBoard.release();
+                    console.log('Guesses:', numGuesses);
                     return { result: 'count', count: numSolutions };
                 }
                 currentBoard.release();
@@ -1309,6 +1434,7 @@ export class Board {
             const chosenValue = minValue(cellMask);
 
             // Queue up two versions of the board, one where the cell is set to the chosen value, and one where it's not
+            numGuesses++;
 
             // Push the version where the cell is not set to the chosen value first, so that it's only used if the chosen value doesn't work
             const newCellBits = cellMask & ~valueBit(chosenValue);
@@ -1329,6 +1455,7 @@ export class Board {
             }
         }
 
+        console.log('Guesses:', numGuesses);
         return { result: 'count', count: numSolutions };
     }
 
@@ -1342,7 +1469,7 @@ export class Board {
         const wantSolutionCounts = maxSolutionsPerCandidate > 1;
 
         const board = this.clone();
-        const bruteForceResult = board.applyBruteForceLogic();
+        const bruteForceResult = board.applyBruteForceLogic(true);
         if (bruteForceResult === LogicResult.INVALID) {
             // Puzzle is invalid
             board.release();
@@ -1441,20 +1568,27 @@ export class Board {
                     }
 
                     // Find solutions for the new board
-                    const { result } = await newBoard.countSolutions(remainingSolutions, null, isCancelled, solutionsSeen, solutionBoard => {
-                        // Update all candidate counts for this solution
-                        for (let cellIndex = 0; cellIndex < totalCells; cellIndex++) {
-                            const cellMask = solutionBoard.cells[cellIndex] & allValues;
-                            const cellValue = minValue(cellMask);
-                            const cellCandidateIndex = solutionBoard.candidateIndex(cellIndex, cellValue);
-                            candidateCounts[cellCandidateIndex]++;
+                    const { result } = await newBoard.countSolutions(
+                        remainingSolutions,
+                        null,
+                        isCancelled,
+                        solutionsSeen,
+                        solutionBoard => {
+                            // Update all candidate counts for this solution
+                            for (let cellIndex = 0; cellIndex < totalCells; cellIndex++) {
+                                const cellMask = solutionBoard.cells[cellIndex] & allValues;
+                                const cellValue = minValue(cellMask);
+                                const cellCandidateIndex = solutionBoard.candidateIndex(cellIndex, cellValue);
+                                candidateCounts[cellCandidateIndex]++;
 
-                            if (candidateCounts[cellCandidateIndex] >= maxSolutionsPerCandidate) {
-                                // We've found enough solutions for this candidate, so mark it as attempted
-                                attemptedCandidates[cellIndex] |= cellMask;
+                                if (candidateCounts[cellCandidateIndex] >= maxSolutionsPerCandidate) {
+                                    // We've found enough solutions for this candidate, so mark it as attempted
+                                    attemptedCandidates[cellIndex] |= cellMask;
+                                }
                             }
-                        }
-                    });
+                        },
+                        false
+                    );
 
                     if (result === 'cancelled partial count') {
                         newBoard.release();
@@ -1468,7 +1602,7 @@ export class Board {
                     }
                 } else {
                     // Find any solution
-                    const solutionResult = await newBoard.findSolution({}, isCancelled);
+                    const solutionResult = await newBoard.findSolution({ allowPreprocessing: false }, isCancelled);
                     newBoard.release();
 
                     if (solutionResult.result === 'no solution') {
@@ -1489,7 +1623,7 @@ export class Board {
 
             if (removedCandidates) {
                 // We removed at least one candidate, so we need to re-apply logic
-                const bruteForceResult = board.applyBruteForceLogic();
+                const bruteForceResult = board.applyBruteForceLogic(true);
                 if (bruteForceResult === LogicResult.INVALID) {
                     // Puzzle is invalid
                     board.release();
@@ -1582,3 +1716,5 @@ export class Board {
         return { result: 'logical solve', desc, changed };
     }
 }
+
+export type ReadonlyBoard = Board; // TODO: Change to proper subset of the Board interface once the API settles more

@@ -6,7 +6,7 @@ import { FPuzzlesLittleKillerSumEntry } from './FPuzzlesInterfaces';
 import { FixedSumConstraint, FixedSumConstraintParams } from './FixedSumConstraint';
 
 export function register(constraintBuilder: ConstraintBuilder) {
-    constraintBuilder.registerConstraint('littlekillersum', (board: Board, params: FPuzzlesLittleKillerSumEntry): Constraint | Array<Constraint> => {
+    constraintBuilder.registerConstraint('littlekillersum', (board: Board, params: FPuzzlesLittleKillerSumEntry): Constraint | Constraint[] => {
         if (!params.value) {
             return [];
         }

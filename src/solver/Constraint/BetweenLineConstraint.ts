@@ -1,7 +1,7 @@
 import { Board } from '../Board';
 import ConstraintBuilder from '../ConstraintBuilder';
-import { CandidateIndex, cellIndexFromName, cellName, maxValue, minValue } from '../SolveUtility';
-import { Constraint, ConstraintResult, InitResult } from './Constraint';
+import { CandidateIndex, WeakLink, cellIndexFromName, cellName, maxValue, minValue } from '../SolveUtility';
+import { Constraint, LogicalDeduction } from './Constraint';
 import { FPuzzlesLines } from './FPuzzlesInterfaces';
 import { OrConstraint } from './OrConstraint';
 import { generateLEWeakLinks } from './WeakLinksConstraint';
@@ -18,54 +18,59 @@ class BetweenLineConstraint extends Constraint {
 
     constructor(board: Board, params: BetweenLineParams) {
         const specificName = `Between Line at ${cellName(params.ends[0], board.size)} - ${cellName(params.ends[1], board.size)}`;
-        super(board, 'Between Line', specificName);
+        super('Between Line', specificName);
 
         this.ends = params.ends;
         this.middle = params.middle.slice();
     }
 
-    init(board: Board, isRepeat: boolean): ConstraintResult {
+    obviousLogicalStep(board: Board): LogicalDeduction[] {
         const endMask0 = board.cells[this.ends[0]] & board.allValues;
         const endMask1 = board.cells[this.ends[1]] & board.allValues;
         const minUniqueMiddleValues = Math.max(...board.splitIntoGroups(this.middle).map(group => group.length));
         if (minValue(endMask0) + minUniqueMiddleValues >= maxValue(endMask1)) {
             // Invalid if the ends are in the wrong order or are too close
-            return ConstraintResult.INVALID;
+            return [
+                {
+                    explanation: 'Ends are in the wrong order or too close together',
+                    invalid: true,
+                },
+            ];
         }
 
-        let changed = ConstraintResult.UNCHANGED;
+        const eliminations: CandidateIndex[] = [];
         for (const middleCell of this.middle) {
-            const res = board.keepCellMask(middleCell, board.maskBetweenInclusive(minValue(endMask0) + 1, maxValue(endMask1) - 1));
-            if (res === ConstraintResult.INVALID) {
-                return ConstraintResult.INVALID;
-            } else if (res === ConstraintResult.CHANGED) {
-                changed = ConstraintResult.CHANGED;
+            for (let value = 1; value <= minValue(endMask0); ++value) {
+                eliminations.push(board.candidateIndex(middleCell, value));
+            }
+            for (let value = maxValue(endMask1); value <= board.size; ++value) {
+                eliminations.push(board.candidateIndex(middleCell, value));
             }
         }
 
-        if (isRepeat) {
-            return changed;
-        }
-
+        const weakLinks: WeakLink[] = [];
         // ends[0] < middle < ends[1]
         for (const middleCell of this.middle) {
             for (const weakLink of generateLEWeakLinks(board.size, this.ends[0], middleCell, -1)) {
-                board.addWeakLink(weakLink[0], weakLink[1]);
+                weakLinks.push(weakLink);
             }
             for (const weakLink of generateLEWeakLinks(board.size, middleCell, this.ends[1], -1)) {
-                board.addWeakLink(weakLink[0], weakLink[1]);
+                weakLinks.push(weakLink);
             }
         }
 
         // ends[0] + minUniqueMiddleValues < ends[1]
         for (const weakLink of generateLEWeakLinks(board.size, this.ends[0], this.ends[1], -1 - minUniqueMiddleValues)) {
-            board.addWeakLink(weakLink[0], weakLink[1]);
+            weakLinks.push(weakLink);
         }
-        return ConstraintResult.CHANGED;
-    }
-
-    finalize(board: Board): InitResult {
-        return { result: ConstraintResult.UNCHANGED, deleteConstraints: [this] };
+        return [
+            {
+                explanation: 'Adding weak links',
+                eliminations,
+                weakLinks,
+                deleteConstraints: [this],
+            },
+        ];
     }
 }
 

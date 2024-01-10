@@ -1,6 +1,6 @@
-import { Board } from '../Board';
+import { Board, ReadonlyBoard } from '../Board';
 import { CandidateIndex, CellIndex, CellValue, StateKey, valueBit } from '../SolveUtility';
-import { Constraint, ConstraintResult, InitResult } from './Constraint';
+import { Constraint, ConstraintResult, InitResult, LogicalDeduction } from './Constraint';
 
 class CardinalityConstraintState {
     numSatisfiedCandidates: number;
@@ -35,7 +35,7 @@ export class CardinalityConstraint extends Constraint {
     stateKey: StateKey<CardinalityConstraintState>;
 
     constructor(constraintName: string, specificName: string, board: Board, params: CardinalityConstraintParams) {
-        super(board, constraintName, specificName);
+        super(constraintName, specificName);
 
         // Check that candidates contains no duplicates
         for (let i = 0; i < params.candidates.length - 1; ++i) {
@@ -46,7 +46,7 @@ export class CardinalityConstraint extends Constraint {
             }
         }
 
-        this.allowedCounts = params.allowedCounts.toSorted().filter((count: number) => count <= params.candidates.length);
+        this.allowedCounts = params.allowedCounts.filter((count: number) => count <= params.candidates.length).sort();
         this.stateKey = board.registerState(new CardinalityConstraintState(params.candidates));
         this.initialCandidates = new Uint8Array(board.size * board.size * board.size);
         for (const candidate of params.candidates) {
@@ -54,7 +54,7 @@ export class CardinalityConstraint extends Constraint {
         }
     }
 
-    init(board: Board, isRepeat: boolean): InitResult {
+    init(board: Board): InitResult {
         if (this.allowedCounts.length === 0) {
             // No allowed counts == broken constraint
             // Handle this case gracefully as encodings may include this in an Or constraint;
@@ -88,44 +88,23 @@ export class CardinalityConstraint extends Constraint {
             };
         }
 
-        const minCount = this.allowedCounts[0];
-        const maxCount = this.allowedCounts[this.allowedCounts.length - 1];
-
-        // If the max count is 0, this is just saying the candidates are all false
-        if (maxCount === 0) {
-            let changed = false;
-            for (const candidate of state.candidates.slice()) {
-                const [cellIndex, value] = board.candidateToIndexAndValue(candidate);
-                const result = board.clearCellMask(cellIndex, valueBit(value));
-                if (result === ConstraintResult.INVALID) {
-                    return ConstraintResult.INVALID;
-                }
-                changed = changed || result === ConstraintResult.CHANGED;
-            }
-
-            // Fully encoded in board, so we can delete ourselves
-            return { result: changed ? ConstraintResult.CHANGED : ConstraintResult.UNCHANGED, deleteConstraints: [this] };
-        }
-
         // If the max count is 1, we can add weak links
-        if (maxCount === 1) {
-            if (!isRepeat) {
-                for (const candidate1 of state.candidates) {
-                    for (const candidate2 of state.candidates) {
-                        if (candidate1 <= candidate2) {
-                            continue;
-                        }
-                        board.addWeakLink(candidate1, candidate2);
+        if (this.allowedCounts[this.allowedCounts.length - 1] === 1) {
+            for (const candidate1 of state.candidates) {
+                for (const candidate2 of state.candidates) {
+                    if (candidate1 <= candidate2) {
+                        continue;
                     }
+                    board.addWeakLink(candidate1, candidate2);
                 }
             }
 
             // If the min count is 0, the weak links are all that's necessary.
-            if (minCount === 0) {
+            if (this.allowedCounts[0] === 0) {
                 // Fully encoded in board, so we can delete ourselves
                 return { result: ConstraintResult.CHANGED, deleteConstraints: [this] };
             }
-            return !isRepeat ? ConstraintResult.CHANGED : ConstraintResult.UNCHANGED;
+            return ConstraintResult.CHANGED;
         }
 
         return ConstraintResult.UNCHANGED;
@@ -205,85 +184,120 @@ export class CardinalityConstraint extends Constraint {
         return mutState.numSatisfiedCandidates + mutState.candidates.length >= minCount;
     }
 
-    logicStep(board: Board, logicalStepDescription: string[]) {
-        const constState = board.getState<CardinalityConstraintState>(this.stateKey);
+    obviousLogicalStep(board: ReadonlyBoard): LogicalDeduction[] {
+        const state = board.getStateMut<CardinalityConstraintState>(this.stateKey);
 
-        // Early exit for pre-encoded / satisfied constraints
-        if (constState.candidates.length === 0) {
-            return ConstraintResult.UNCHANGED;
+        if (state.candidates.length === 0) {
+            // No candidates means we're either always satisfied or we're always broken. Either way we can delete ourselves.
+            if (this.allowedCounts.includes(state.numSatisfiedCandidates)) {
+                return [
+                    {
+                        deleteConstraints: [this],
+                    },
+                ];
+            } else {
+                return [
+                    {
+                        explanation: 'No more possible candidates but required count still not attained',
+                        invalid: true,
+                    },
+                ];
+            }
         }
 
-        // Check for less obvious contradictions that aren't checked in `enforce`, then do propagations
+        const minPossible = state.numSatisfiedCandidates;
+        const maxAllowedCount = this.allowedCounts[this.allowedCounts.length - 1];
 
-        const minPossible = constState.numSatisfiedCandidates;
-        const maxPossible = constState.numSatisfiedCandidates + constState.candidates.length;
-        const minCount = this.allowedCounts.find(count => count >= minPossible);
-        const maxCount = this.allowedCounts.findLast(count => count <= maxPossible);
-
-        // Check count is feasible
-        if (maxPossible < minCount) {
-            if (logicalStepDescription !== null) {
-                logicalStepDescription.push(
-                    `Not possible to achieve required count with ${
-                        constState.candidates.length
-                    } remaining unresolved candidates: ${board.describeCandidates(
-                        constState.candidates
-                    )}, but we require a count of at least ${minCount}.`
-                );
-            }
-            return ConstraintResult.INVALID;
-        }
-        // else, maxPossible >= minCount (and minCount >= minPossible).
-        // Meaning there exists a count between min and max possible, thus the sum is feasible.
-
-        // Do propagations
-        if (minPossible === maxCount) {
-            // All remaining candidates are false
-            logicalStepDescription === null || logicalStepDescription.push(`${board.describeElims(constState.candidates)}.`);
-            if (!board.clearCandidates(constState.candidates)) {
-                return ConstraintResult.INVALID;
-            }
-            // If that worked, we should clear ourselves
-            const mutState = board.getStateMut<CardinalityConstraintState>(this.stateKey);
-            mutState.candidates.length = 0;
-            return ConstraintResult.CHANGED;
-        } else if (maxPossible === minCount) {
-            // All remaining candidates are true
-            logicalStepDescription === null || logicalStepDescription.push(`${board.describeCandidates(constState.candidates)}.`);
-            if (!board.enforceCandidates(constState.candidates)) {
-                return ConstraintResult.INVALID;
-            }
-            // If that worked, we should clear ourselves
-            const mutState = board.getStateMut<CardinalityConstraintState>(this.stateKey);
-            mutState.numSatisfiedCandidates += mutState.candidates.length;
-            mutState.candidates.length = 0;
-            return ConstraintResult.CHANGED;
+        // If we reached the max *allowed* count, not necessarily max attainable allowed count, then the remaining candidates must be false
+        if (minPossible === maxAllowedCount) {
+            return [
+                {
+                    explanation: 'Max allowed count attained, all remaining candidates must be false',
+                    eliminations: state.candidates,
+                    deleteConstraints: [this],
+                },
+            ];
+            // } else if (maxPossible === minCount) {
+            // Leave "hidden singles" for logicalStep
         }
 
-        // In logical solves, enable clause forcing
-        if (logicalStepDescription !== null) {
+        return [];
+    }
+
+    logicalStep(board: ReadonlyBoard): LogicalDeduction[] {
+        const state = board.getStateMut<CardinalityConstraintState>(this.stateKey);
+
+        const minPossible = state.numSatisfiedCandidates;
+        const maxPossible = state.numSatisfiedCandidates + state.candidates.length;
+        const minAllowedCount = this.allowedCounts[0];
+        const minAttainableAllowedCount = this.allowedCounts.find(count => count >= minPossible);
+        const maxAttainableAllowedCount = this.allowedCounts.findLast(count => count <= maxPossible);
+
+        // Covers "hidden singles", which we left out of obviousLogicalStep.
+        if (maxPossible === minAllowedCount) {
+            return [
+                {
+                    explanation: 'Min allowed count only attainable if we set all remaining candidates to true',
+                    singles: state.candidates,
+                    deleteConstraints: [this],
+                },
+            ];
+        }
+
+        // If we reached the max attainable allowed count, then the remaining candidates must be false
+        // This isn't the same as the "obvious" deduction above. For example, allowedCounts could be [0, 5], and started out with 5 candidates.
+        // Once a single candidate is eliminated, our minPossible is still 0, but our maxAttainableAllowedCount has decreased from 5 to 0, matching minPossible.
+        // Thus all remaining candidates must be false too.
+        if (minPossible === maxAttainableAllowedCount) {
+            return [
+                {
+                    explanation: 'Max attainable allowed count attained, all remaining candidates must be false',
+                    eliminations: state.candidates,
+                    deleteConstraints: [this],
+                },
+            ];
+        }
+
+        // Similar to the above example, if there's a gap in the allowed counts, also finds less obvious cases.
+        // Rather than having a single candidate eliminated, consider what would happen if a single candidate was enforced instead.
+        // Then our minAttainableAllowedCount would increase from 0 to 5, which is exactly equal to what's possible if everything remaining were true.
+        // Thus all remaining candidates must be true too.
+        if (maxPossible === minAttainableAllowedCount) {
+            return [
+                {
+                    explanation: 'Min attainable allowed count only attainable if we set all remaining candidates to true',
+                    singles: state.candidates,
+                    deleteConstraints: [this],
+                },
+            ];
+        }
+
+        // If the next attainable allowed count is higher than where we currently are,
+        // we know at least one candidate must be true, and we can thus do clause forcing :)
+        if (minPossible < minAttainableAllowedCount) {
             const calcDeductionType = () => {
-                const allSameCell = new Set(constState.candidates.map(cand => board.candidateToIndexAndValue(cand)[0])).size === 1;
-                const allSameDigit = new Set(constState.candidates.map(cand => board.candidateToIndexAndValue(cand)[1])).size === 1;
+                const allSameCell = new Set(state.candidates.map(cand => board.candidateToIndexAndValue(cand)[0])).size === 1;
+                const allSameDigit = new Set(state.candidates.map(cand => board.candidateToIndexAndValue(cand)[1])).size === 1;
                 return allSameCell ? 'Cell forcing' : allSameDigit ? 'Pointing' : 'Clause forcing';
             };
 
-            const elims = board.calcElimsForCandidateIndices(constState.candidates);
-            if (elims.length > 0) {
-                if (!board.clearCandidates(elims)) {
-                    logicalStepDescription.push(
-                        `${calcDeductionType()} on ${board.describeCandidates(constState.candidates)} => ${board.describeElims(elims)}, contradiction`
-                    );
-                    return ConstraintResult.INVALID;
-                } else {
-                    logicalStepDescription.push(
-                        `${calcDeductionType()} on ${board.describeCandidates(constState.candidates)} => ${board.describeElims(elims)}`
-                    );
-                    return ConstraintResult.CHANGED;
-                }
+            const eliminations = board.calcElimsForCandidateIndices(state.candidates);
+            const singles = board.calcSinglesForCandidateIndices(state.candidates);
+            if (eliminations.length > 0 || singles.length > 0) {
+                return [
+                    {
+                        explanation: `${calcDeductionType()} on ${board.describeCandidates(state.candidates)}`,
+                        eliminations,
+                        singles,
+                    },
+                ];
             }
         }
 
-        return ConstraintResult.UNCHANGED;
+        // We currently won't do clause forcing over the negative literals, if we know at least one candidate needs to be false...
+
+        return [];
     }
+
+    // TODO: Implement bruteForceStep and make it skip clause forcing (check if this speeds up solves)
 }

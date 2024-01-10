@@ -12,12 +12,12 @@ export class RegionConstraint extends Constraint {
     cells: CellIndex[];
 
     constructor(board: Board, params: RegionConstraintParams, name: string, specificName: string) {
-        super(board, name, specificName);
+        super(name, specificName);
 
         this.cells = params.cells.slice();
     }
 
-    init(board: Board, isRepeat: boolean): InitResult {
+    init(board: Board): InitResult {
         return {
             result: board.addRegion(this.specificName, this.cells, this.constraintName) ? ConstraintResult.CHANGED : ConstraintResult.UNCHANGED,
             deleteConstraints: [this],

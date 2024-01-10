@@ -12,6 +12,8 @@ import {
     valuesList,
     CellIndex,
     CellMask,
+    removeDuplicates,
+    CandidateIndex,
 } from './SolveUtility';
 import { ConstraintResult } from './Constraint/Constraint';
 import { Board } from './Board';
@@ -19,7 +21,7 @@ import { Board } from './Board';
 type MinMaxMemo = { min: number; max: number };
 type PotentialCombination = { combination: number[]; sum: number };
 type RestrictSumMemo = { newUnsetMasks: CellMask[] };
-type RestrictSumResult = { constraintResult: number; masks: CellMask[] };
+type RestrictSumResult = { constraintResult: ConstraintResult; masks: CellMask[] };
 type PossibleSumsMemo = { sums: number[] };
 type IsSumPossibleMemo = { isPossible: boolean };
 
@@ -151,7 +153,7 @@ export class SumGroup {
         return this.restrictSumHelper(board, sortedSums);
     }
 
-    restrictMinMaxSum(board: Board, minSum: number, maxSum: number): number {
+    restrictMinMaxSum(board: Board, minSum: number, maxSum: number): ConstraintResult {
         const sortedSums: number[] = [];
         for (let sum = minSum; sum <= maxSum; sum++) {
             sortedSums.push(sum);
@@ -159,13 +161,12 @@ export class SumGroup {
         return this.restrictSums(board, sortedSums);
     }
 
-    restrictSum(board: Board, sum: number): number {
+    restrictSum(board: Board, sum: number): ConstraintResult {
         return this.restrictSums(board, [sum]);
     }
 
-    restrictSums(board: Board, sums: number[]): number {
-        const sumsSet = new Set(sums);
-        const sortedSums = Array.from(sumsSet).sort((a, b) => a - b);
+    restrictSums(board: Board, sums: number[]): ConstraintResult {
+        const sortedSums = removeDuplicates(sums.toSorted((a, b) => a - b));
 
         const result = this.restrictSumHelper(board, sortedSums);
         if (result.constraintResult !== ConstraintResult.UNCHANGED) {
@@ -174,6 +175,47 @@ export class SumGroup {
             }
         }
         return result.constraintResult;
+    }
+
+    getRestrictSumsEliminations(
+        board: Board,
+        sums: number[]
+    ):
+        | { result: ConstraintResult.UNCHANGED }
+        | { result: ConstraintResult.CHANGED; eliminations?: CandidateIndex[] }
+        | { result: ConstraintResult.INVALID; explanation: string } {
+        const sortedSums = removeDuplicates(sums.toSorted((a, b) => a - b));
+
+        const result = this.restrictSumHelper(board, sortedSums);
+        if (result.constraintResult === ConstraintResult.UNCHANGED) {
+            return { result: ConstraintResult.UNCHANGED };
+        }
+
+        if (result.constraintResult === ConstraintResult.INVALID) {
+            return {
+                result: ConstraintResult.INVALID,
+                explanation: `Cells ${board.compactName(this.cells)} could not be restricted to the sum${sums.length === 1 ? '' : 's'} ${sums.join(
+                    ','
+                )}.`,
+            };
+        }
+
+        const eliminations = [];
+        for (let i = 0; i < this.cells.length; ++i) {
+            const cell = this.cells[i];
+            const cellMask = board.cells[cell];
+            const elimMask = cellMask & ~result.masks[i];
+            if (elimMask === 0) {
+                continue;
+            }
+            for (let value = 1; value < this.boardSize; ++value) {
+                if (hasValue(elimMask, value)) {
+                    eliminations.push(board.candidateIndex(cell, value));
+                }
+            }
+        }
+
+        return { result: ConstraintResult.CHANGED, eliminations };
     }
 
     restrictSumHelper(board: Board, sums: number[]): RestrictSumResult {

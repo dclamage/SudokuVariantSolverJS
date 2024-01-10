@@ -2,8 +2,10 @@ import { Board } from '../Board';
 import ConstraintBuilder from '../ConstraintBuilder';
 import { cellIndexFromName, cellName, minValue, valueBit, valuesList, removeDuplicates, CellIndex } from '../SolveUtility';
 import { SumCellsHelper } from '../SumCellsHelper';
-import { Constraint, ConstraintResult } from './Constraint';
+import { Constraint, ConstraintResult, LogicalDeduction } from './Constraint';
+import { EqualSumConstraint } from './EqualSumConstraint';
 import { FPuzzlesArrowEntry } from './FPuzzlesInterfaces';
+import { OrConstraint } from './OrConstraint';
 
 export interface ArrowSumConstraintParams {
     circleCells: CellIndex[];
@@ -19,7 +21,7 @@ export class ArrowSumConstraint extends Constraint {
 
     constructor(board: Board, params: ArrowSumConstraintParams) {
         const specificName = `Arrow at ${cellName(params.circleCells[0], board.size)}`;
-        super(board, 'Arrow', specificName);
+        super('Arrow', specificName);
 
         this.circleCells = params.circleCells.slice();
 
@@ -30,130 +32,54 @@ export class ArrowSumConstraint extends Constraint {
         this.allCellsSet = new Set(this.allCells);
     }
 
-    init(board: Board, isRepeat: boolean) {
+    init(board: Board) {
         if (this.arrowCells.length === 1 && this.circleCells.length === 1) {
-            return this.initClone(board, isRepeat);
+            board.addCloneWeakLinks(this.arrowCells[0], this.circleCells[0]);
+            return {
+                result: ConstraintResult.UNCHANGED,
+                deleteConstraints: [this],
+            };
         }
 
         if (this.circleCells.length === 1) {
-            return this.initCircle(board);
+            return {
+                result: ConstraintResult.UNCHANGED,
+                addConstraints: [
+                    new EqualSumConstraint(this.constraintName, this.specificName, board, { cells: [this.arrowCells, this.circleCells] }),
+                ],
+                deleteConstraints: [this],
+            };
         }
 
-        return this.initPill(board, isRepeat);
-    }
+        // For grids smaller than 10x10 and 2 cell pills, use Or constraint instead
 
-    initClone(board: Board, isRepeat: boolean) {
-        if (!isRepeat) {
-            const circleCell = this.circleCells[0];
-            const arrowCell = this.arrowCells[0];
-            board.addCloneWeakLinks(circleCell, arrowCell);
-        }
-        return ConstraintResult.UNCHANGED;
-    }
-
-    initCircle(board: Board) {
-        const { size } = board;
-        const circleCell = this.circleCells[0];
-        const circleCellMask = board.cells[circleCell];
-
-        let changed = false;
-
-        // Determine the possible sum ranges for the arrow cells
-        const possibleSums = this.arrowCellsSum.possibleSums(board).filter(sum => sum <= size);
-        if (possibleSums.length === 0) {
-            return ConstraintResult.INVALID;
-        }
-        const possibleSumsMask = possibleSums.reduce((mask, sum) => mask | valueBit(sum), 0);
-        if ((circleCellMask & possibleSumsMask) === 0) {
-            return ConstraintResult.INVALID;
+        if (this.circleCells.length === 2 && board.size <= 9) {
+            const subboards = [];
+            for (let tensDigit = 1; tensDigit <= board.size; ++tensDigit) {
+                const subboard = board.subboardClone();
+                subboard.keepCellMask(this.circleCells[0], valueBit(tensDigit));
+                subboard.addConstraint(
+                    new EqualSumConstraint(
+                        `Hypothetical ${this.toString()}`,
+                        `Hypothetical ${this.toSpecificString()} if tens digit in pill = ${tensDigit}`,
+                        board,
+                        { cells: [this.arrowCells, [this.circleCells[1]]], offsets: [0, 10 * tensDigit] }
+                    )
+                );
+                subboards.push(subboard);
+            }
+            return {
+                result: ConstraintResult.UNCHANGED,
+                addConstraints: [new OrConstraint(this.constraintName, this.specificName, board, { subboards })],
+                deleteConstraints: [this],
+            };
         }
 
-        const newCircleCellMask = circleCellMask & possibleSumsMask;
-        if (newCircleCellMask !== circleCellMask) {
-            const keepResult = board.keepCellMask(circleCell, newCircleCellMask);
-            if (keepResult === ConstraintResult.INVALID) {
-                return ConstraintResult.INVALID;
-            }
-            changed = changed || keepResult === ConstraintResult.CHANGED;
-        }
-
-        // Go through each possible circle value and add weak links to the arrow cells which
-        // Cannot contribute to that sum.
-        const newArrowMasks = new Array(this.arrowCells.length).fill(0);
-        let circleCellMaskRemaining = newCircleCellMask;
-        while (circleCellMaskRemaining !== 0) {
-            const circleValue = minValue(circleCellMaskRemaining);
-            circleCellMaskRemaining &= ~valueBit(circleValue);
-
-            // Clone the board so as to not modify the original
-            const boardClone = board.clone();
-
-            // Remove all constraints from the clone
-            boardClone.constraints = [];
-            boardClone.constraintsFinalized = true;
-
-            // Set this sum as a given
-            if (!boardClone.setAsGiven(circleCell, circleValue)) {
-                boardClone.release();
-                continue;
-            }
-
-            // Run the logical step on the clone as if it was this sum
-            const logicStepResult = this.arrowCellsSum.logicStep(boardClone, [circleValue], null);
-            if (logicStepResult === ConstraintResult.INVALID) {
-                boardClone.release();
-                continue;
-            }
-
-            // Update the arrow masks
-            for (let i = 0; i < this.arrowCells.length; i++) {
-                const arrowCell = this.arrowCells[i];
-                newArrowMasks[i] |= boardClone.cells[arrowCell] & board.allValues;
-            }
-
-            if (logicStepResult !== ConstraintResult.CHANGED) {
-                boardClone.release();
-                continue;
-            }
-
-            // Determine which candidates were eliminated
-            const circleCandidate = board.candidateIndex(circleCell, circleValue);
-            for (const arrowCell of this.arrowCells) {
-                const oldMask = board.cells[arrowCell] & ~board.allValues;
-                const newMask = boardClone.cells[arrowCell] & ~board.allValues;
-                let eliminatedMask = oldMask & ~newMask;
-                while (eliminatedMask !== 0) {
-                    const eliminatedValue = minValue(eliminatedMask);
-                    eliminatedMask &= ~valueBit(eliminatedValue);
-
-                    // Add a weak link between this arrow cell value and the eliminated value
-                    const arrowCandidate = board.candidateIndex(arrowCell, eliminatedValue);
-                    board.addWeakLink(arrowCandidate, circleCandidate);
-                }
-            }
-            boardClone.release();
-        }
-
-        // Update the arrow cells
-        for (let i = 0; i < this.arrowCells.length; i++) {
-            const arrowCell = this.arrowCells[i];
-            const newArrowMask = newArrowMasks[i];
-            if (newArrowMask === 0) {
-                return ConstraintResult.INVALID;
-            }
-
-            const keepResult = board.keepCellMask(arrowCell, newArrowMask);
-            if (keepResult === ConstraintResult.INVALID) {
-                return ConstraintResult.INVALID;
-            }
-            changed = changed || keepResult === ConstraintResult.CHANGED;
-        }
-
-        return changed ? ConstraintResult.CHANGED : ConstraintResult.UNCHANGED;
+        return this.initPill(board);
     }
 
     // eslint-disable-next-line no-unused-vars
-    initPill(board: Board, isRepeat: boolean) {
+    initPill(board: Board) {
         const [sumMin, sumMax] = this.arrowCellsSum.sumRange(board);
         const sumMinLength = sumMin.toString().length;
         const sumMaxLength = sumMax.toString().length;
@@ -228,93 +154,12 @@ export class ArrowSumConstraint extends Constraint {
         return true;
     }
 
-    logicStep(board: Board, logicalStepDescription: string[]) {
-        if (this.arrowCells.length === 1) {
-            // Clones are enforced entirely by weak links
-            return ConstraintResult.UNCHANGED;
-        }
-
-        if (this.circleCells.length === 1) {
-            return this.logicStepCircle(board, logicalStepDescription);
-        }
-
-        return this.logicStepPill(board, logicalStepDescription);
-    }
-
-    logicStepCircle(board: Board, logicalStepDescription: string[]) {
-        const circleCell = this.circleCells[0];
-        const circleCellMask = board.cells[circleCell];
-
-        const circleCellGiven = board.isGiven(circleCell);
-        const arrowCellsGiven = this.arrowCells.every(cell => board.isGiven(cell));
-        if (circleCellGiven && arrowCellsGiven) {
-            // Done: enforce should have already verified the sum.
-            return ConstraintResult.UNCHANGED;
-        }
-
-        // If the arrow sum is known, then the circle value must be that value
-        if (arrowCellsGiven) {
-            const arrowSum = this.getArrowSum(board);
-            const arrowSumMask = valueBit(arrowSum) & board.allValues;
-            const keepResult = board.keepCellMask(circleCell, arrowSumMask);
-            if (keepResult === ConstraintResult.INVALID) {
-                if (logicalStepDescription) {
-                    logicalStepDescription.push(`Arrow sum of ${arrowSum} cannot be filled into the circle.`);
-                }
-                return ConstraintResult.INVALID;
-            }
-
-            if (keepResult === ConstraintResult.CHANGED) {
-                if (logicalStepDescription) {
-                    logicalStepDescription.push(`Arrow sum is known. ${cellName(circleCell, board.size)} = ${arrowSum}.`);
-                }
-                return ConstraintResult.CHANGED;
-            }
-
-            return ConstraintResult.UNCHANGED;
-        }
-
-        // Make the arrow sum conform to the possible circle values
-        const circleValues = valuesList(circleCellMask & board.allValues);
-        const sumStepResult = this.arrowCellsSum.logicStep(board, circleValues, logicalStepDescription);
-        if (sumStepResult !== ConstraintResult.UNCHANGED) {
-            // logicStep already added a description
-            return sumStepResult;
-        }
-
-        // Make the circle values conform to the possible arrow sums
-        const possibleSums = this.arrowCellsSum.possibleSums(board).filter(sum => sum <= board.size);
-        const possibleSumsMask = possibleSums.reduce((mask, sum) => mask | valueBit(sum), 0);
-        const newCircleCellMask = circleCellMask & possibleSumsMask;
-        if (newCircleCellMask !== circleCellMask) {
-            const keepResult = board.keepCellMask(circleCell, newCircleCellMask);
-            if (keepResult === ConstraintResult.INVALID) {
-                if (logicalStepDescription) {
-                    logicalStepDescription.push(`Arrow sum cannot be filled into the circle.`);
-                }
-                return ConstraintResult.INVALID;
-            }
-
-            if (keepResult === ConstraintResult.CHANGED) {
-                if (logicalStepDescription) {
-                    const elims = valuesList(circleCellMask & ~newCircleCellMask & board.allValues).map(value =>
-                        board.candidateIndex(circleCell, value)
-                    );
-                    logicalStepDescription.push(`${board.describeElims(elims)}.`);
-                }
-                return ConstraintResult.CHANGED;
-            }
-        }
-
-        return ConstraintResult.UNCHANGED;
-    }
-
-    logicStepPill(board: Board, logicalStepDescription: string[]) {
+    logicalStep(board: Board): LogicalDeduction[] {
         const circleCellGiven = this.circleCells.every(cellIndex => board.isGiven(cellIndex));
         const arrowCellsGiven = this.arrowCells.every(cellIndex => board.isGiven(cellIndex));
         if (circleCellGiven && arrowCellsGiven) {
             // Done: enforce should have already verified the sum.
-            return ConstraintResult.UNCHANGED;
+            return [{ deleteConstraints: [this] }];
         }
 
         const possiblePillValues: number[] = removeDuplicates(
@@ -324,10 +169,22 @@ export class ArrowSumConstraint extends Constraint {
         );
 
         // Make the arrow sum conform to the possible pill values
-        const sumStepResult = this.arrowCellsSum.logicStep(board, possiblePillValues, logicalStepDescription);
-        if (sumStepResult !== ConstraintResult.UNCHANGED) {
-            // logicStep already added a description
-            return sumStepResult;
+        const sumStepResult = this.arrowCellsSum.getRestrictSumsEliminations(board, possiblePillValues);
+        if (sumStepResult.result === ConstraintResult.INVALID) {
+            return [
+                {
+                    explanation: sumStepResult.explanation,
+                    invalid: true,
+                },
+            ];
+        }
+
+        const deductions: LogicalDeduction[] = [];
+        if (sumStepResult.result === ConstraintResult.CHANGED) {
+            deductions.push({
+                explanation: 'Restricting arrow to possible pill values',
+                eliminations: sumStepResult.eliminations,
+            });
         }
 
         // If the arrow sum is known, then force the pill values to be that value
@@ -337,10 +194,12 @@ export class ArrowSumConstraint extends Constraint {
             // Generate all ways to fill the pill
             const possiblePillValues = this.getPillValuesForSum(board, arrowSum.toString());
             if (possiblePillValues.length === 0) {
-                if (logicalStepDescription) {
-                    logicalStepDescription.push(`Arrow sum of ${arrowSum} cannot be filled into the pill.`);
-                }
-                return ConstraintResult.INVALID;
+                return [
+                    {
+                        explanation: `Arrow sum of ${arrowSum} cannot be filled into the pill.`,
+                        invalid: true,
+                    },
+                ];
             }
 
             // Keep only the possible pill values
@@ -351,42 +210,29 @@ export class ArrowSumConstraint extends Constraint {
                 }
             }
 
-            let changed = false;
-            const elims = [];
+            const eliminations = [];
             for (let i = 0; i < this.circleCells.length; i++) {
                 const circleCell = this.circleCells[i];
                 const originalMask = board.cells[circleCell] & board.allValues;
                 const keepMask = possiblePillValuesMask[i] & board.allValues;
-                const keepResult = board.keepCellMask(circleCell, keepMask);
-                if (keepResult === ConstraintResult.INVALID) {
-                    if (logicalStepDescription) {
-                        logicalStepDescription.push(`Arrow sum of ${arrowSum} cannot be filled into the pill.`);
-                    }
-                    return ConstraintResult.INVALID;
-                }
-
-                if (keepResult === ConstraintResult.CHANGED) {
-                    if (logicalStepDescription) {
-                        const elimMask = originalMask & ~keepMask;
-                        if (elimMask !== 0) {
-                            elims.push(...valuesList(elimMask).map(value => board.candidateIndex(circleCell, value)));
-                        }
-                    }
-                    changed = true;
+                const elimMask = originalMask & ~keepMask;
+                if (elimMask !== 0) {
+                    eliminations.push(...valuesList(elimMask).map(value => board.candidateIndex(circleCell, value)));
                 }
             }
 
-            if (logicalStepDescription && elims.length > 0) {
-                logicalStepDescription.push(`Arrow sum is known. ${board.describeElims(elims)}.`);
+            if (eliminations.length > 0) {
+                deductions.push({
+                    explanation: 'Arrow sum is known',
+                    eliminations,
+                });
             }
-
-            return changed ? ConstraintResult.CHANGED : ConstraintResult.UNCHANGED;
         }
 
-        return ConstraintResult.UNCHANGED;
+        return deductions;
     }
 
-    getPillSums(board: Board, circleIndex: number, sumPrefix = ''): string[] {
+    private getPillSums(board: Board, circleIndex: number, sumPrefix = ''): string[] {
         if (circleIndex >= this.circleCells.length) {
             return [sumPrefix];
         }
@@ -406,7 +252,7 @@ export class ArrowSumConstraint extends Constraint {
         return sums;
     }
 
-    getPillValuesForSum(board: Board, sumStr: string, circleIndex: number = 0, sumValues: number[] = []): number[][] {
+    private getPillValuesForSum(board: Board, sumStr: string, circleIndex: number = 0, sumValues: number[] = []): number[][] {
         if (circleIndex >= this.circleCells.length) {
             if (sumStr === sumValues.join('')) {
                 return [sumValues];
@@ -431,7 +277,7 @@ export class ArrowSumConstraint extends Constraint {
         return sums;
     }
 
-    getCircleValue(board: Board) {
+    private getCircleValue(board: Board) {
         if (this.circleCells.length === 1) {
             return minValue(board.cells[this.circleCells[0]]);
         }
@@ -440,7 +286,7 @@ export class ArrowSumConstraint extends Constraint {
         return parseInt(circleValue, 10);
     }
 
-    getArrowSum(board: Board) {
+    private getArrowSum(board: Board) {
         let arrowSum = 0;
         for (const arrowCell of this.arrowCells) {
             arrowSum += minValue(board.cells[arrowCell]);
