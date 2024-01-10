@@ -307,12 +307,12 @@ export class Board {
         }
 
         // Enforce weak link now if one of the candidates is already set
-        if ((this.cells[cellIndex1] & this.allValues) === valueBit(value1)) {
+        if (this.isGiven(cellIndex1) && (this.cells[cellIndex1] & this.allValues) === valueBit(value1)) {
             if (!this.clearCandidate(index2)) {
                 this.invalidInit = true;
             }
         }
-        if ((this.cells[cellIndex2] & this.allValues) === valueBit(value2)) {
+        if (this.isGiven(cellIndex2) && (this.cells[cellIndex2] & this.allValues) === valueBit(value2)) {
             if (!this.clearCandidate(index1)) {
                 this.invalidInit = true;
             }
