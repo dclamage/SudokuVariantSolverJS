@@ -1,7 +1,7 @@
 import { Board } from '../Board';
 import ConstraintBuilder from '../ConstraintBuilder';
 import { CandidateIndex, WeakLink, cellIndexFromName, cellName, maxValue, minValue } from '../SolveUtility';
-import { ConstraintV2, ConstraintResult, InitResult, LogicalDeduction } from './ConstraintV2';
+import { ConstraintV2, LogicalDeduction } from './ConstraintV2';
 import { FPuzzlesLines } from './FPuzzlesInterfaces';
 import { OrConstraint } from './OrConstraint';
 import { generateLEWeakLinks } from './WeakLinksConstraint';

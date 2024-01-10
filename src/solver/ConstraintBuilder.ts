@@ -1,5 +1,5 @@
 import { Board } from './Board';
-import { Constraint } from './Constraint/Constraint';
+import { ConstraintV2 } from './Constraint/ConstraintV2';
 import { FPuzzlesBoard } from './Constraint/FPuzzlesInterfaces';
 
 // Constraint files export a register function which registers them to a provided ConstraintBuilder.
@@ -7,9 +7,9 @@ import { FPuzzlesBoard } from './Constraint/FPuzzlesInterfaces';
 // Example:
 // constraintBuilder.registerConstraint("killercage", (board, params) => new KillerCageConstraint(board, params));
 
-export type ConstraintBuilderFunction = (board: Board, params: unknown) => Constraint | Constraint[];
-export type BooleanConstraintBuilderFunction = (board: Board) => Constraint | Constraint[];
-export type AggregateConstraintBuilderFunction = (board: Board, boardData: FPuzzlesBoard) => Constraint | Constraint[];
+export type ConstraintBuilderFunction = (board: Board, params: unknown) => ConstraintV2 | ConstraintV2[];
+export type BooleanConstraintBuilderFunction = (board: Board) => ConstraintV2 | ConstraintV2[];
+export type AggregateConstraintBuilderFunction = (board: Board, boardData: FPuzzlesBoard) => ConstraintV2 | ConstraintV2[];
 
 class ConstraintBuilder {
     constraintBuilder: Map<string, ConstraintBuilderFunction> = new Map();
@@ -69,16 +69,16 @@ class ConstraintBuilder {
         return !finalize || board.finalizeConstraints();
     }
 
-    addConstraintToBoard(board: Board, constraint: Constraint | Constraint[]) {
+    addConstraintToBoard(board: Board, constraint: ConstraintV2 | ConstraintV2[]) {
         if (Array.isArray(constraint)) {
             for (const c of constraint) {
-                if (!(c instanceof Constraint)) {
+                if (!(c instanceof ConstraintV2)) {
                     throw new Error('ConstraintBuilder.addConstraintToBoard called with an array containing a non-constraint instance.');
                 }
                 board.addConstraint(c);
             }
         } else {
-            if (!(constraint instanceof Constraint)) {
+            if (!(constraint instanceof ConstraintV2)) {
                 throw new Error('ConstraintBuilder.addConstraintToBoard called with a non-constraint instance.');
             }
 

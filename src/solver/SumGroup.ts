@@ -15,7 +15,7 @@ import {
     removeDuplicates,
     CandidateIndex,
 } from './SolveUtility';
-import { ConstraintResult } from './Constraint/Constraint';
+import { ConstraintResult } from './Constraint/ConstraintV2';
 import { Board } from './Board';
 
 type MinMaxMemo = { min: number; max: number };

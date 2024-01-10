@@ -1,5 +1,5 @@
 import { Board } from '../Board';
-import { CandidateIndex, CellIndex, CellValue, minValue, valueBit } from '../SolveUtility';
+import { CandidateIndex, CellIndex, CellValue } from '../SolveUtility';
 import { SumCellsHelper } from '../SumCellsHelper';
 import { ConstraintV2, ConstraintResult, LogicalDeduction, PreprocessingResult } from './ConstraintV2';
 import { FixedSumConstraint } from './FixedSumConstraint';
@@ -66,7 +66,7 @@ export class EqualSumConstraint extends ConstraintV2 {
             return { result: ConstraintResult.UNCHANGED, addConstraints, deleteConstraints: [this] };
         }
 
-        return this.logicStep(board, null);
+        return ConstraintResult.UNCHANGED;
     }
 
     // eslint-disable-next-line no-unused-vars
@@ -96,7 +96,7 @@ export class EqualSumConstraint extends ConstraintV2 {
             ];
         }
 
-        let eliminations: CandidateIndex[] = [];
+        const eliminations: CandidateIndex[] = [];
 
         for (let i = 0; i < this.cells.length; ++i) {
             const sumHelper = this.helpers[i];

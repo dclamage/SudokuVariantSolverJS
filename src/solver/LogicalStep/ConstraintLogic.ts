@@ -1,6 +1,5 @@
 import { Board, LoopResult } from '../Board';
-import { Constraint, ConstraintResult } from '../Constraint/Constraint';
-import { ConstraintV2, InitResult, LogicalDeduction, isConstraintV2 } from '../Constraint/ConstraintV2';
+import { ConstraintResult, ConstraintV2, isConstraintV2 } from '../Constraint/ConstraintV2';
 import { LogicResult } from '../Enums/LogicResult';
 import { LogicalStep } from './LogicalStep';
 
@@ -11,9 +10,9 @@ export class ConstraintLogic extends LogicalStep {
 
     step(board: Board, desc: string[]): LogicResult {
         let invalid = false;
-        const applyObvious = (constraint: Constraint): LoopResult => {
+        const applyObvious = (constraint: ConstraintV2): LoopResult => {
             if (!isConstraintV2(constraint)) {
-                return LoopResult.UNCHANGED;
+                throw new Error('Unreachable V1 code');
             }
             const deductions = ConstraintV2.flattenDeductions(constraint.obviousLogicalStep(board));
             const result = board.applyLogicalDeduction(deductions);
@@ -31,7 +30,7 @@ export class ConstraintLogic extends LogicalStep {
         }
         let changed = false;
         // Now find one non-obvious deduction
-        board.loopConstraints((constraint: Constraint): LoopResult => {
+        board.loopConstraints((constraint: ConstraintV2): LoopResult => {
             if (isConstraintV2(constraint)) {
                 const deductions = constraint.logicalStep(board);
                 let hadInvisibleChange = false;
@@ -75,18 +74,7 @@ export class ConstraintLogic extends LogicalStep {
                 // None of the deductions in this constraints did anything visible, look for another constraint
                 return hadInvisibleChange ? LoopResult.SCHEDULE_LOOP : LoopResult.UNCHANGED;
             } else {
-                const proxyDesc: string[] = [];
-                const result: ConstraintResult = constraint.logicStep(board, proxyDesc);
-                desc.push(...proxyDesc.map(desc => `[${constraint.toSpecificString()}]: ${desc}`));
-                if (result === ConstraintResult.INVALID) {
-                    invalid = true;
-                    return LoopResult.ABORT_LOOP;
-                }
-                if (result === ConstraintResult.CHANGED) {
-                    changed = true;
-                    return LoopResult.ABORT_LOOP;
-                }
-                return LoopResult.UNCHANGED;
+                throw new Error('Unreachable V1 code');
             }
         });
         if (invalid) {

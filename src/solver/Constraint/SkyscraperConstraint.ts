@@ -204,7 +204,7 @@ export class SkyscraperConstraint extends ConstraintV2 {
             }
         }
 
-        let elims: CandidateIndex[] = [];
+        const eliminations: CandidateIndex[] = [];
         for (let cellIndex = 0; cellIndex < this.cells.length; ++cellIndex) {
             const cell = this.cells[cellIndex];
             const cellMask = board.cells[cell];
@@ -219,16 +219,16 @@ export class SkyscraperConstraint extends ConstraintV2 {
 
             for (let v = 1; v <= board.size; ++v) {
                 if (hasValue(elimMask, v)) {
-                    elims.push(board.candidateIndex(cell, v));
+                    eliminations.push(board.candidateIndex(cell, v));
                 }
             }
         }
 
-        if (elims.length > 0) {
+        if (eliminations.length > 0) {
             return [
                 {
                     explanation: '',
-                    eliminations: elims,
+                    eliminations,
                 },
             ];
         }

@@ -1,6 +1,5 @@
 import { Board, ReadonlyBoard } from '../Board';
 import { valueBit, minValue, CellIndex, CellValue, CandidateIndex, WeakLink } from '../SolveUtility';
-import { Constraint } from './Constraint';
 import { ConstraintV2, ConstraintResult, InitResult, LogicalDeduction, isConstraintV2 } from './ConstraintV2';
 
 interface OrConstraintParams {
@@ -150,17 +149,7 @@ export class OrConstraint extends ConstraintV2 {
                             changed = true;
                         }
                     } else {
-                        // Don't bother with logical deductions made in subboards, they get a bit too noisy to show.
-                        const result = constraint.logicStep(subboard, null);
-                        if (result === ConstraintResult.INVALID) {
-                            // Subboard is broken, filter it out
-                            this.subboardsChanged = true;
-                            subboard.release();
-                            return false;
-                        } else if (result === ConstraintResult.CHANGED) {
-                            this.subboardsChanged = true;
-                            changed = true;
-                        }
+                        throw new Error('Unreachable V1 code');
                     }
                 }
             } while (changed);
@@ -270,17 +259,7 @@ export class OrConstraint extends ConstraintV2 {
                             changed = true;
                         }
                     } else {
-                        // Don't bother with logical deductions made in subboards, they get a bit too noisy to show.
-                        const result = constraint.logicStep(subboard, null);
-                        if (result === ConstraintResult.INVALID) {
-                            // Subboard is broken, filter it out
-                            this.subboardsChanged = true;
-                            subboard.release();
-                            return false;
-                        } else if (result === ConstraintResult.CHANGED) {
-                            this.subboardsChanged = true;
-                            changed = true;
-                        }
+                        throw new Error('Unreachable V1 code');
                     }
                 }
             } while (changed);
@@ -319,5 +298,5 @@ export class OrConstraint extends ConstraintV2 {
 }
 
 export interface OrConstraintBuilderParams {
-    constraints: Constraint[];
+    constraints: ConstraintV2[];
 }

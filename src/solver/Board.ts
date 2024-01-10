@@ -21,18 +21,17 @@ import { HiddenSingle } from './LogicalStep/HiddenSingle';
 import { ConstraintLogic } from './LogicalStep/ConstraintLogic';
 import { CellForcing } from './LogicalStep/CellForcing';
 import { NakedTupleAndPointing } from './LogicalStep/NakedTupleAndPointing';
-import { Constraint, ConstraintResult } from './Constraint/Constraint';
 import { LogicResult } from './Enums/LogicResult';
 import { LogicalStep } from './LogicalStep/LogicalStep';
 import { BinaryImplicationLayeredGraph } from './BinaryImplicationLayeredGraph';
 import { TypedArrayPool, TypedArrayEntry } from './Memory/TypedArrayPool';
 import { Fish } from './LogicalStep/Fish';
-import { ConstraintV2, InitResult, LogicalDeduction, isConstraintV2 } from './Constraint/ConstraintV2';
+import { ConstraintV2, ConstraintResult, InitResult, LogicalDeduction, isConstraintV2 } from './Constraint/ConstraintV2';
 
 export type RegionType = string;
 export type Region = {
     name: string;
-    fromConstraint: null | Constraint;
+    fromConstraint: null | ConstraintV2;
     type: RegionType;
     cells: CellIndex[];
 };
@@ -112,7 +111,7 @@ export class Board {
     nakedSingles: CellIndex[];
     binaryImplications: BinaryImplicationLayeredGraph;
     regions: Region[];
-    constraints: Constraint[];
+    constraints: ConstraintV2[];
     constraintsFinalized: boolean;
     constraintStates: Cloneable[];
     constraintStateIsCloned: (undefined | true)[];
@@ -339,7 +338,7 @@ export class Board {
         return true;
     }
 
-    addRegion(name: string, cells: CellIndex[], type: RegionType, fromConstraint: null | Constraint = null, addWeakLinks: boolean = true): boolean {
+    addRegion(name: string, cells: CellIndex[], type: RegionType, fromConstraint: null | ConstraintV2 = null, addWeakLinks: boolean = true): boolean {
         // Don't add regions which are too large
         if (cells.length > this.size) {
             return false;
@@ -380,7 +379,7 @@ export class Board {
         return this.regions.filter(region => region.cells.includes(cellIndex) && (type === null || region.type === type));
     }
 
-    addConstraint(constraint: Constraint) {
+    addConstraint(constraint: ConstraintV2) {
         this.constraints.push(constraint);
     }
 
@@ -388,7 +387,7 @@ export class Board {
     // If a constraint is added and deleted in the same loop, `func` may or may not be called on it.
     // If func returns `ConstraintResult.CHANGED`, then another loop is scheduled.
     // If func returns `ConstraintResult.INVALID`, then the function aborts immediately.
-    loopConstraints(func: (constraint: Constraint) => LoopResult) {
+    loopConstraints(func: (constraint: ConstraintV2) => LoopResult) {
         let loopAgain = false;
         do {
             loopAgain = false;
@@ -448,10 +447,10 @@ export class Board {
     }
 
     initConstraints(isRepeat: boolean = false): boolean {
-        const initedConstraints: Map<Constraint, boolean> = new Map();
+        const initedConstraints: Map<ConstraintV2, boolean> = new Map();
         let initializationPassed = true;
 
-        this.loopConstraints((constraint: Constraint): LoopResult => {
+        this.loopConstraints((constraint: ConstraintV2): LoopResult => {
             let haveChange = false;
             if (isConstraintV2(constraint) && initedConstraints.get(constraint) === true) {
                 // For inited V2 constraints, run obviousLogicalStep instead of re initing
@@ -508,28 +507,7 @@ export class Board {
                 return haveChange ? LoopResult.SCHEDULE_LOOP : LoopResult.UNCHANGED;
             }
 
-            // V1 constraint
-            const result = constraint.init(this, isRepeat || initedConstraints.get(constraint) === true);
-            initedConstraints.set(constraint, true);
-            const payload = typeof result === 'object' ? result : null;
-            const constraintResult = typeof result === 'object' ? result.result : result;
-            if (constraintResult === ConstraintResult.INVALID) {
-                initializationPassed = false;
-                return LoopResult.ABORT_LOOP;
-            }
-            if (constraintResult === ConstraintResult.CHANGED) {
-                haveChange = true;
-            }
-            if (payload) {
-                if (payload.addConstraints) {
-                    this.constraints.push(...payload.addConstraints);
-                }
-                if (payload.deleteConstraints) {
-                    this.constraints = this.constraints.filter(constraint => !payload.deleteConstraints.includes(constraint));
-                }
-            }
-
-            return haveChange ? LoopResult.SCHEDULE_LOOP : LoopResult.UNCHANGED;
+            throw new Error('Unreachable V1 code');
         });
 
         return initializationPassed;
@@ -543,29 +521,6 @@ export class Board {
     }
 
     finalizeConstraintsNoInit() {
-        const constraintsToDelete: Constraint[] = [];
-        for (const constraint of this.constraints) {
-            const result = constraint.finalize(this);
-            const constraintResult = typeof result === 'object' ? result.result : result;
-            const payload = typeof result === 'object' ? result : null;
-
-            if (constraintResult === ConstraintResult.INVALID) {
-                return false;
-            }
-            if (constraintResult === ConstraintResult.CHANGED) {
-                throw new Error('finalize is not allowed to change the board');
-            }
-            if (payload) {
-                if (payload.addConstraints) {
-                    throw new Error('finalize may not add constraints!');
-                }
-                if (payload.deleteConstraints) {
-                    constraintsToDelete.push(...payload.deleteConstraints);
-                }
-            }
-        }
-        this.constraints = this.constraints.filter(constraint => !constraintsToDelete.includes(constraint));
-
         this.constraintsFinalized = true;
         return !this.invalidInit;
     }
@@ -895,7 +850,11 @@ export class Board {
             // Allow constraints to apply their logic
             if (!isDepth0) {
                 for (const constraint of this.constraints) {
-                    const result = isConstraintV2(constraint) ? constraint.bruteForceStep(this) : constraint.logicStep(this, null);
+                    const result = isConstraintV2(constraint)
+                        ? constraint.bruteForceStep(this)
+                        : (() => {
+                              throw new Error('Unreachable V1 code');
+                          })();
                     if (result === ConstraintResult.INVALID) {
                         return LogicResult.INVALID;
                     }
@@ -907,7 +866,11 @@ export class Board {
                 }
             } else {
                 for (const constraint of this.constraints.slice()) {
-                    const result = isConstraintV2(constraint) ? constraint.preprocessingStep(this) : constraint.logicStep(this, null);
+                    const result = isConstraintV2(constraint)
+                        ? constraint.preprocessingStep(this)
+                        : (() => {
+                              throw new Error('Unreachable V1 code');
+                          })();
                     const payload = typeof result === 'object' ? result : null;
                     const constraintResult = typeof result === 'object' ? result.result : result;
                     if (constraintResult === ConstraintResult.INVALID) {
@@ -923,7 +886,11 @@ export class Board {
                             while (payload.addConstraints.length > 0) {
                                 const constraint2 = payload.addConstraints.pop();
                                 this.constraints.push(constraint2);
-                                const result2: InitResult = isConstraintV2(constraint2) ? constraint2.init(this) : constraint2.init(this, false);
+                                const result2: InitResult = isConstraintV2(constraint2)
+                                    ? constraint2.init(this)
+                                    : (() => {
+                                          throw new Error('Unreachable V1 code');
+                                      })();
                                 const payload2 = typeof result2 === 'object' ? result2 : null;
                                 const constraintResult2 = typeof result2 === 'object' ? result2.result : result2;
                                 if (constraintResult2 === ConstraintResult.INVALID) {

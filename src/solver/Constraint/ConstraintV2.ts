@@ -1,12 +1,16 @@
 import { Board, ReadonlyBoard } from '../Board';
 import { CandidateIndex, CellCoords, CellIndex, CellValue, Implication, WeakLink } from '../SolveUtility';
-import { Constraint, ConstraintResult } from './Constraint';
 
-export { ConstraintResult } from './Constraint';
+// Reflects what has happened to the board
+export enum ConstraintResult {
+    UNCHANGED,
+    CHANGED,
+    INVALID,
+}
 
 export type ConstraintModification = {
-    addConstraints?: Constraint[];
-    deleteConstraints?: Constraint[];
+    addConstraints?: ConstraintV2[];
+    deleteConstraints?: ConstraintV2[];
     weakLinks?: WeakLink[]; // Redundant, but convenient
     implications?: Implication[];
 };
@@ -21,7 +25,7 @@ export type PreprocessingResult = InitResult;
 // For constraints that simply wish to de-register themselves because they know no more deductions will ever happen
 // (e.g. because they're already satisfied), this allows them to delete themselves without explanation.
 export type DeletionOnly = {
-    deleteConstraints: Constraint[];
+    deleteConstraints: ConstraintV2[];
 
     // Mark the fields as existing so it's not a type error to access them
     explanation?: undefined;
@@ -41,19 +45,28 @@ export type LogicalDeduction =
           eliminations?: CandidateIndex[];
       } & ConstraintModification);
 
-export function isConstraintV2(constraint: {}): constraint is ConstraintV2 {
+export function isConstraintV2(constraint: unknown): constraint is ConstraintV2 {
     return (constraint as { isConstraintV2?: true }).isConstraintV2 === true;
 }
 
-// Temporary class that we'll replace Constraint with once everything is on ConstraintV2
-export class ConstraintV2 extends Constraint {
+// Convenience class that constraint states can inherit from if they only need to be shallow-cloned
+export class ConstraintState {
+    clone(): ConstraintState {
+        return Object.assign(Object.create(Object.getPrototypeOf(this)), this);
+    }
+}
+
+export class ConstraintV2 {
+    constraintName: string;
+    specificName: string;
     isConstraintV2: true; // Temporary hack that we'll remove once everything is on ConstraintV2
 
     // The constraintName is a string that is used to identify the constraint
     // The specificName is a string that is specific to this constraint instance
     // board should NOT be modified at this time. Initialization should happen in `init` instead.
     constructor(constraintName: string, specificName: string) {
-        super(undefined, constraintName, specificName);
+        this.constraintName = constraintName;
+        this.specificName = specificName;
         this.isConstraintV2 = true;
     }
 
@@ -212,9 +225,12 @@ export class ConstraintV2 extends Constraint {
 
     // Clone the constraint such that it can be backtracked
     // If the constraint is stateless (most are), then you do not need to override this.
-    clone(): Constraint {
+    clone(): ConstraintV2 {
         return this;
     }
+
+    // Release any resources held by the constraint
+    release() {}
 
     ////////////////////
     // Helper methods //
