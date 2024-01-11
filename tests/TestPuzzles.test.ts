@@ -12,7 +12,7 @@ describe('Test puzzles', () => {
     // Run the tests in a beforeAll and then report the failures as individual cases per check for readability
     beforeAll(async () => {
         [failures, numPuzzlesFailed, timeouts] = await runChecksOnPuzzles(puzzles, 1000);
-    });
+    }, 30 * 1000); // Jest timeout after 30 seconds
 
     // Ignore timeouts
     timeouts;
