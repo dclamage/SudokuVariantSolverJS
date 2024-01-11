@@ -11,8 +11,9 @@ async function main() {
             printFailed: { type: 'boolean' },
             printTimeout: { type: 'boolean' },
             printNonTimeout: { type: 'boolean' },
-            verbose: { type: 'boolean', short: 'v' },
+            printAll: { type: 'boolean' },
             timeout: { type: 'string', default: '1000' }, // Default to 1 second per puzzle
+            verbose: { type: 'boolean', short: 'v' },
             help: { type: 'boolean', short: 'h' },
         },
         allowPositionals: true,
@@ -28,6 +29,7 @@ async function main() {
         console.log('                       --verbose can be passed to include solve output.');
         console.log('    --printTimeout     Print JSON for puzzles that timed out.');
         console.log('    --printNonTimeout  Print JSON for puzzles that did not time out.');
+        console.log('    --printAll         Print JSON for all puzzles, do not run any checks.');
         console.log('    --verbose, -v      Print solve output in addition to any failed puzzles.');
         console.log('    --timeout <ms>     Change timeout (default: 1000ms).');
         console.log('    --help             Print help message.');
@@ -54,6 +56,15 @@ async function main() {
         console.log();
         console.log('- Get puzzles that took less than 1 second to solve:');
         console.log('    npx tsx tests/TestPuzzles.ts --printNonTimeout --timeout 1000 < puzzles/puzzles.json');
+        console.log();
+        console.log('- Simply print all puzzles, which adds generated categories:');
+        console.log('    npx tsx tests/TestPuzzles.ts --printAll < puzzles/puzzles.json');
+        console.log();
+        console.log('- Test all thermo puzzles:');
+        console.log('     npx tsx tests/TestPuzzles.ts --printAll < puzzles/puzzles.json > puzzles/puzzles-with-categories.json');
+        console.log('     jq \'map(select(.generatedCategories | index("thermometer")))\' \\');
+        console.log('         < puzzles/puzzles-with-categories.json > puzzles/thermo-puzzles.json');
+        console.log('     npx tsx tests/TestPuzzles.ts < puzzles/thermo-puzzles.json');
         return 0;
     }
 
@@ -62,11 +73,12 @@ async function main() {
     const printChecks = args.positionals;
     const printTimeout = args.values.printTimeout;
     const printNonTimeout = args.values.printNonTimeout;
+    const printAll = args.values.printAll;
     const timeoutMs = parseInt(args.values.timeout, 10);
 
     // Validate args
-    if ((printTimeout ? 1 : 0) + (printNonTimeout ? 1 : 0) + (printFailed ? 1 : 0) > 1) {
-        console.log('At most one of --printTimeout, --printNonTimeout, and --printFailed can be used');
+    if ((printTimeout ? 1 : 0) + (printNonTimeout ? 1 : 0) + (printFailed ? 1 : 0) + (printAll ? 1 : 0) > 1) {
+        console.log('At most one of --printTimeout, --printNonTimeout, --printFailed, and --printAll can be used');
         return 1;
     }
     for (const printCheck of printChecks) {
@@ -76,8 +88,16 @@ async function main() {
         }
     }
 
-    // Run checks
+    // Read puzzles from stdin
     const puzzles = parsePuzzlesJson(fs.readFileSync(0, 'utf-8'));
+
+    // If simply printing all puzzles, skip checks
+    if (printAll) {
+        console.log(JSON.stringify(puzzles.map(puzzle => puzzle.serialize()).concat([{}]), undefined, 4));
+        return 0;
+    }
+
+    // Run checks
     const [failures, numPuzzlesFailed, timeouts] = await runChecksOnPuzzles(puzzles, timeoutMs);
 
     if (printTimeout) {

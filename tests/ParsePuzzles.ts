@@ -7,24 +7,51 @@ export class Puzzle {
     puzzleEncoded: string;
     puzzle: FPuzzlesBoard;
     solution: string;
+    categories: string[];
     comments: string;
-    constructor(title: string, author: string, puzzleEncoded: string, puzzle: FPuzzlesBoard, solution: string, comments: string) {
+    constructor(
+        title: string,
+        author: string,
+        puzzleEncoded: string,
+        puzzle: FPuzzlesBoard,
+        solution: string,
+        categories: string[],
+        comments: string
+    ) {
         this.title = title;
         this.author = author;
         this.puzzleEncoded = puzzleEncoded;
         this.puzzle = puzzle;
         this.solution = solution;
+        this.categories = categories;
         this.comments = comments;
     }
 
     serialize(): object {
         return {
+            // Necessary fields for re-parsing serialized puzzles
             title: this.title,
             author: this.author,
-            puzzleEncoded: this.puzzleEncoded,
+            puzzle: this.puzzleEncoded,
             solution: this.solution,
+            ...(this.categories.length > 0 ? { categories: this.categories } : {}),
             comments: this.comments,
+            // Generated from puzzle data
+            ...(this.puzzle.solution ? { puzzleSolution: this.puzzle.solution.join('') } : {}),
+            generatedCategories: this.generateCategories(),
         };
+    }
+
+    static nonCategoryKeys: string[] = ['size', 'grid', 'title', 'author', 'ruleset', 'solution', 'successMessage'];
+    generateCategories(): object {
+        const categories = Object.keys(this.puzzle).filter(key => !Puzzle.nonCategoryKeys.includes(key));
+        categories.push(`gridsize${this.puzzle.size}x${this.puzzle.size}`);
+        categories.push(...this.categories);
+        if (this.puzzle.size !== 9) {
+            categories.push('non9x9');
+        }
+        categories.sort();
+        return categories;
     }
 }
 
@@ -44,11 +71,12 @@ export function parsePuzzlesJson(puzzlesJson: string): Puzzle[] {
             continue;
         }
         const puzzleObj = puzzleElem as {
-            title: string | undefined;
-            author: string | undefined;
-            puzzle: string | undefined;
-            solution: string | undefined;
-            comments: string | undefined;
+            title?: string;
+            author?: string;
+            puzzle?: string;
+            solution?: string;
+            categories?: string[];
+            comments?: string;
         };
         if (typeof puzzleObj.title !== 'string') {
             throw new Error(`puzzle.title is missing or is not a string: ${JSON.stringify(puzzleObj)}`);
@@ -66,9 +94,9 @@ export function parsePuzzlesJson(puzzlesJson: string): Puzzle[] {
             throw new Error(`puzzle.comments is missing or is not a string: ${JSON.stringify(puzzleObj)}`);
         }
         // Ignore extra fields
-        const { title, author, puzzle: puzzleEncoded, solution, comments } = puzzleObj;
+        const { title, author, puzzle: puzzleEncoded, solution, categories = [], comments } = puzzleObj;
         const puzzle = JSON.parse(lz.decompressFromBase64(puzzleEncoded)) as FPuzzlesBoard;
-        out.push(new Puzzle(title, author, puzzleEncoded, puzzle, solution, comments));
+        out.push(new Puzzle(title, author, puzzleEncoded, puzzle, solution, categories, comments));
     }
     return out;
 }

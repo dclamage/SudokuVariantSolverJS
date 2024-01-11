@@ -53,6 +53,8 @@ export interface FPuzzlesBoard {
     title?: string;
     author?: string;
     ruleset?: string;
+    solution?: (number | '.')[];
+    successMessage?: string;
     grid: FPuzzlesGridEntry[][];
     'diagonal+'?: boolean;
     'diagonal-'?: boolean;

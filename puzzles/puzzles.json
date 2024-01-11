@@ -4,21 +4,44 @@
         "author": "ElChiglia",
         "puzzle": "N4IgzglgXgpiBcBOANCA5gJwgEwQbT2AF9ljSSzKLryBdZQmq8l54+x1p7rjtn/nQaCR3PgIm9hk0UM6zR4rssX0QMAG4wAdvlABjGABsjCEACUArAGEA7CAohDJs1esAOB2oAuACxgYALYA9oEw3gF6IEYQ2jBg+HgWttYAjCCo5gBsaRkWNumZACy5mQDMpRYlAEwgtLSOMXEJ8ATJ1kV52R1dNp3FPeWDVdZldQ2k0bHxiRYVWV0lC5k2yxY5a+YpC/WN0y1t5hWIi9YnK2ddOeftJ7tqMd7eRjAA1hAmAWAAroFRzqZ4BYAAyjPIAg4WVLWWqZaq5NTYCAYGD6bwQYK6IEAEQAMnkNABDIzfOBA1LpRwA1yg+yoCH4KEeLrwu6oJEotEYrEgbHmAnE0lmTxU4yAqGg2FOMWQ8yIBHs5Go9GYswAVXxqCJJLJIEpk2pQPMqVBY3pMsZcphXXcCpAHOV3PVmpA2qFQJOopcRpNdnBFtaFnlnkytrZ9qVXNVQLV/K1gt1IoNYtcvpD0pMsvl4YdUZ5sYFOuFXkVADNSwEdIZ/gGkuZbWaLLbahMDLWm37Q8yGmoMISVTXM5boY3jdbWxmjLLoXSmZ4e6gAI7fQnYDDfAAOL0HU8tOVHOX67VHKU6ajdM1aqWQ1WQZWQRQnDMD3U2OVnW2smxS9nPCYOWTILYyDuMgiA9kQQA===",
         "solution": "824975361915364872736821594689712435471593286352486917263158749598647123147239658",
-        "comments": ""
+        "comments": "",
+        "generatedCategories": [
+            "difference",
+            "even",
+            "gridsize9x9",
+            "littlekillersum",
+            "quadruple",
+            "ratio",
+            "thermometer"
+        ]
     },
     {
         "title": "Thermal Scanner",
         "author": "Fraπ",
         "puzzle": "N4IgzglgXgpiBcBOANCALhNAbO8QBUALGAJwFsBDLAAgGUBjCgOydJFQoFc1CB7EhCABiJCoAHgdiADmJCABMEAbUXAAvsjUb1mndr0aQANyqdcAVlRSIhmEwRoSp1QF1kK/bq1fPa1++8e2kYmuAAslta29o4wgVp+PsFYpggAzBE2dvAOTgF5uglxPkUubsX5QcbJYRlR2TGBhflJKfAATLVZObEVAU3lA3oJLTXSkV0NvYPxrujE5LxkMGhs8CogWBCsYEqKIABKAIwAwoeS+22n56lXqPs3bdfHqSDOzkGb27sHl493ly9/sdQk8QXdQsDXu8DJ8YDs1nt7sczOdLii7id0QcTmDsc8oR8tnDvkiAOyo44ADgp5KBADYCTCifDlAczFTzhDaQcbtS3oSvgiDhCGXd2aLhcjGaBYSzEXTIWLFQcFSj+UzBaz9qSpXdKbqDogDfsjRKTcdyeqZcySfrqXqLed9WadWaFQyrRsbULzYgncc/XcdYGDjr7aHHZ7ZSSdYCDvq/vH8Q6QVHvVqdYn9gqzkrHvz3kA=",
         "solution": "269837145314529768578614392643781529185492637792356481931245876857963214426178953",
-        "comments": "Normal Sudoku rules apply.\nDigits on Thermometers must increase from the bulb to the tip."
+        "comments": "Normal Sudoku rules apply.\nDigits on Thermometers must increase from the bulb to the tip.",
+        "generatedCategories": [
+            "gridsize9x9",
+            "thermometer"
+        ]
     },
     {
         "title": "Solver needs SET",
         "author": "TopAutism",
         "puzzle": "N4IgzglgXgpiBcBOANCALhNAbO8QGUB7LANxgCcACAOxhgBMxL8BRAFRFQEMBXNAC0LkEINoQAOAQT4QwAW04hyPHGBhoRABSxcAxjEoBGALSJKhavsow9/ShGrWy5AJ6VyhAO6Uu1epV1iHjlqADoAHWoAEQgAc0wmT0x+Bx9KY3TMrnIbSnpCGkI0dxhxGzRkHz9KMGDKNAKBA2pggCMKe0cm+olKHAAzNAjouISfegArPRhqYoa0wHvSHxyAizVdGTJQxVjyCHoEAG1D4ABfZDOL89Ac+IsEAAZrpRg76kfn24h7+CeLl7eH3+Xx+fxur2+71+pwAusgTgDIQhDJ8IT8UcC0VCMZdcajAfAcYj0fikYTYfDwQSAEykn60zE0ulQhlUsms4ks67cq5wk483GchAAZmZIrF8FFjLJUrZP1lQslFIRIKhABYJRrpT8tXirtr1ZqjXy5VCAKwSi0GhBW002y0O/V4k0CiUANndnut8A93t9dp9yoDAHYJaHveG9YLVQhI4q4zH4KGTYqABwS9PezMB7NpjOu3lwkAAawgWBw5F0XFiuAR+nLYCOIAASoYAMKGRSttvUrvUjsgIskLhYHi4ECGXvPetYRvwQ4t9vBrvt1N9tvLocjsciScgacwBtN5vBgeoE89rupgdb0fjvcHo/zlun5fn09r8/XzeoYd33dTv8M5zguzbXsKXaIJe55QRBt47nghhro+s7Hv2EHnsK0EtlhcG/tu97IUBh6oc+zb9ogXZYZ+OFtpR8GEfuxFPqB16UTBbY0c2UH0fh/6IURoDAcearYc2okYS2ZptnhIB/ghE6CSAwlkdJnbnm6Z4tppvYMQBTFCSRIEtqJXGiexUl0YOfEKUhBnKUZx7SW+2kbl2mlrnpiGAYZLEtv2apUW2gWYW2ZrWXJBG7kpKmge24Xnu2brrslXkTj5Dl+eJwVdqJCWWYFaV2ShxnNtJyUaWF7ltqlNn3hlsUvlV741VerVFQ1jlkdeIUtlBvXcVVRXIUW9AQP0/QUDM+hHL5pGgVhLnNtRg4lceWEWdl9FrWRp7qa5nYwjtoGnpJF66cdBXVYVl1la156ialt39r257oatzHzS215cd+q1FmAQQYD8hzBsg1LIG6yBqsgwrIKmyAoIYyBmrDkPIGDCMw8jEOoygMMI3DyMoKjUNgxDZPg2jWMo4jyA49DdNg6jRPowjSO01DEOY2jBO87TxMY1TUPI6j7PoxDcMw8zdMM2DUN88KR1AA==",
         "solution": "726438915367841259483195672672384591249753168915627834834519726158962347591276483",
-        "comments": ""
+        "categories": [
+            "set"
+        ],
+        "comments": "",
+        "puzzleSolution": "726438915367841259483195672672384591249753168915627834834519726158962347591276483",
+        "generatedCategories": [
+            "difference",
+            "gridsize9x9",
+            "killercage",
+            "set"
+        ]
     },
     {}
 ]
