@@ -8,14 +8,55 @@ import { runChecksOnPuzzles, serializeCheckFailure, solveChecks } from './SolveC
 async function main() {
     const args = parseArgs({
         options: {
-            verbose: { type: 'boolean', short: 'v' },
-            printFailed: { type: 'boolean', short: 'p' },
+            printFailed: { type: 'boolean' },
             printTimeout: { type: 'boolean' },
             printNonTimeout: { type: 'boolean' },
+            verbose: { type: 'boolean', short: 'v' },
             timeout: { type: 'string', default: '1000' }, // Default to 1 second per puzzle
+            help: { type: 'boolean', short: 'h' },
         },
         allowPositionals: true,
     });
+
+    if (args.values.help) {
+        console.log('Example usage:');
+        console.log('    npx tsx tests/TestPuzzles.ts < puzzles/puzzles.json');
+        console.log();
+        console.log('Flags:');
+        console.log();
+        console.log('    --printFailed      Print JSON for failed puzzles, including their failure reason.');
+        console.log('                       --verbose can be passed to include solve output.');
+        console.log('    --printTimeout     Print JSON for puzzles that timed out.');
+        console.log('    --printNonTimeout  Print JSON for puzzles that did not time out.');
+        console.log('    --verbose, -v      Print solve output in addition to any failed puzzles.');
+        console.log('    --timeout <ms>     Change timeout (default: 1000ms).');
+        console.log('    --help             Print help message.');
+        console.log();
+        console.log('Positional arguments can be used to filter puzzles by which check they failed.');
+        console.log();
+        console.log();
+        console.log('More examples:');
+        console.log();
+        console.log('- Get summary of # of failed checks and puzzles:');
+        console.log('    npx tsx tests/TestPuzzles.ts < puzzles/puzzles.json');
+        console.log();
+        console.log('- Get puzzles that failed and store them in `failures.json`:');
+        console.log('    npx tsx tests/TestPuzzles.ts --printFailed < puzzles/puzzles.json > failures.json');
+        console.log();
+        console.log('- Check if the puzzles that failed earlier now pass:');
+        console.log('    npx tsx tests/TestPuzzles.ts < failures.json');
+        console.log();
+        console.log('- Get all puzzles that failed specifically because their provided solution did not match the random solution:');
+        console.log('    npx tsx tests/TestPuzzles.ts --printFailed ProvidedSolutionCheck < puzzles/puzzles.json');
+        console.log();
+        console.log('- Get puzzles that took more than 20 seconds to solve:');
+        console.log('    npx tsx tests/TestPuzzles.ts --printTimeout --timeout 20000 < puzzles/puzzles.json');
+        console.log();
+        console.log('- Get puzzles that took less than 1 second to solve:');
+        console.log('    npx tsx tests/TestPuzzles.ts --printNonTimeout --timeout 1000 < puzzles/puzzles.json');
+        return 0;
+    }
+
     const verbose = args.values.verbose;
     const printFailed = args.values.printFailed;
     const printChecks = args.positionals;
