@@ -161,7 +161,7 @@ class SudokuVariantSolver {
                     const haveGivenPencilmarks = dataCell.givenPencilMarks?.length > 0;
                     const haveCenterPencilmarks = dataCell.centerPencilMarks?.length > 0;
                     if (haveGivenPencilmarks && haveCenterPencilmarks) {
-                        dataCellMask = valuesMask(dataCell.givenPencilMarks.filter((value: CellValue) => dataCell.centerPencilMarks.includes(value)));
+                        dataCellMask = valuesMask(dataCell.givenPencilMarks) & valuesMask(dataCell.centerPencilMarks);
                     } else if (haveGivenPencilmarks) {
                         dataCellMask = valuesMask(dataCell.givenPencilMarks);
                     } else if (haveCenterPencilmarks) {
