@@ -1,4 +1,5 @@
 import { default as SudokuVariantSolver, ExpandedCandidates, SolverResult } from '../src/index';
+import { SolveStats } from '../src/solver/Board';
 import { FPuzzlesBoard } from '../src/solver/Constraint/FPuzzlesInterfaces';
 import { Puzzle } from './ParsePuzzles';
 import { expandedCandidatesToCandidateArray } from './TestUtility';
@@ -157,5 +158,16 @@ export class WrappedSolver {
         }
 
         return this.returnSolveOutput();
+    }
+
+    // A timeoutMs of 0 indicates no timeout
+    async solvePuzzleForStats(puzzle: Puzzle, timeoutMs: number): Promise<{ solveStats: SolveStats; timeout: boolean }> {
+        let thisSolver = this.solver;
+        setTimeout(() => thisSolver?.cancel(), timeoutMs);
+        await this.solver.countSolutions({ board: puzzle.puzzle, options: { enableStats: true } });
+        const solveStats = this.solver.solveStats;
+        const timeout = this.solveOutput.cancelled;
+        this.solveOutput = new SolveOutput();
+        return { solveStats, timeout };
     }
 }

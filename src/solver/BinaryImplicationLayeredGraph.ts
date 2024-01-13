@@ -408,6 +408,16 @@ export class BinaryImplicationLayeredGraph {
         return this.graph.hasAnyCommonNegConsequences(lit, negConsequentsInout);
     }
 
+    // In this order: negneg, negpos, posneg, pospos
+    countImplicationsByType(): [number, number, number, number] {
+        const allVariables = Array.from({ length: this.numVariables }, (_, i) => i);
+        const negneg = allVariables.reduce((acc, v) => acc + this.getNegConsequences(~v).length, 0);
+        const negpos = allVariables.reduce((acc, v) => acc + this.getPosConsequences(~v).length, 0);
+        const posneg = allVariables.reduce((acc, v) => acc + this.getNegConsequences(v).length, 0);
+        const pospos = allVariables.reduce((acc, v) => acc + this.getPosConsequences(v).length, 0);
+        return [negneg, negpos, posneg, pospos];
+    }
+
     private hasParentImplication(lit1: Literal, lit2: Literal): boolean {
         for (const big of this.parentGraphs) {
             if (big.hasImplication(lit1, lit2)) {

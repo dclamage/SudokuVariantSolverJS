@@ -4,6 +4,7 @@ import * as process from 'process';
 import { parseArgs } from 'node:util';
 import { parsePuzzlesJson } from './ParsePuzzles';
 import { runChecksOnPuzzles, serializeCheckFailure, solveChecks } from './SolveChecks';
+import { WrappedSolver } from './RunSolver';
 
 async function main() {
     const args = parseArgs({
@@ -12,6 +13,7 @@ async function main() {
             printTimeout: { type: 'boolean' },
             printNonTimeout: { type: 'boolean' },
             printAll: { type: 'boolean' },
+            printStats: { type: 'boolean' },
             timeout: { type: 'string', default: '1000' }, // Default to 1 second per puzzle
             verbose: { type: 'boolean', short: 'v' },
             help: { type: 'boolean', short: 'h' },
@@ -30,6 +32,7 @@ async function main() {
         console.log('    --printTimeout     Print JSON for puzzles that timed out.');
         console.log('    --printNonTimeout  Print JSON for puzzles that did not time out.');
         console.log('    --printAll         Print JSON for all puzzles, do not run any checks.');
+        console.log('    --printStats       Print JSON for all puzzles and their stats, do not run any checks.');
         console.log('    --verbose, -v      Print solve output in addition to any failed puzzles.');
         console.log('    --timeout <ms>     Change timeout (default: 1000ms).');
         console.log('    --help             Print help message.');
@@ -74,11 +77,12 @@ async function main() {
     const printTimeout = args.values.printTimeout;
     const printNonTimeout = args.values.printNonTimeout;
     const printAll = args.values.printAll;
+    const printStats = args.values.printStats;
     const timeoutMs = parseInt(args.values.timeout, 10);
 
     // Validate args
-    if ((printTimeout ? 1 : 0) + (printNonTimeout ? 1 : 0) + (printFailed ? 1 : 0) + (printAll ? 1 : 0) > 1) {
-        console.log('At most one of --printTimeout, --printNonTimeout, --printFailed, and --printAll can be used');
+    if ((printTimeout ? 1 : 0) + (printNonTimeout ? 1 : 0) + (printFailed ? 1 : 0) + (printAll ? 1 : 0) + (printStats ? 1 : 0) > 1) {
+        console.log('At most one of --printTimeout, --printNonTimeout, --printFailed, --printAll, and --printStats can be used');
         return 1;
     }
     for (const printCheck of printChecks) {
@@ -94,6 +98,19 @@ async function main() {
     // If simply printing all puzzles, skip checks
     if (printAll) {
         console.log(JSON.stringify(puzzles.map(puzzle => puzzle.serialize()).concat([{}]), undefined, 4));
+        return 0;
+    } else if (printStats) {
+        const wrappedSolver = new WrappedSolver();
+        const out: object[] = [];
+        for (const puzzle of puzzles) {
+            const { solveStats, timeout } = await wrappedSolver.solvePuzzleForStats(puzzle, timeoutMs);
+            out.push({
+                ...puzzle.serialize(),
+                ...solveStats,
+                timeout,
+            });
+        }
+        console.log(JSON.stringify(out, undefined, 4));
         return 0;
     }
 
