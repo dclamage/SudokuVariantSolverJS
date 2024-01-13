@@ -139,6 +139,7 @@ export class Board {
             this.memos = new Map();
 
             this.logicalSteps = [
+                //
                 new NakedSingle(),
                 new HiddenSingle(),
                 new ConstraintLogic(),
