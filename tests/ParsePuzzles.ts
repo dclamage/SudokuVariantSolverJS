@@ -4,6 +4,7 @@ import * as lz from 'lz-string';
 export class Puzzle {
     title: string;
     author: string;
+    license: string;
     puzzleEncoded: string;
     puzzle: FPuzzlesBoard;
     solution: string;
@@ -12,6 +13,7 @@ export class Puzzle {
     constructor(
         title: string,
         author: string,
+        license: string,
         puzzleEncoded: string,
         puzzle: FPuzzlesBoard,
         solution: string,
@@ -20,6 +22,7 @@ export class Puzzle {
     ) {
         this.title = title;
         this.author = author;
+        this.license = license;
         this.puzzleEncoded = puzzleEncoded;
         this.puzzle = puzzle;
         this.solution = solution;
@@ -32,6 +35,7 @@ export class Puzzle {
             // Necessary fields for re-parsing serialized puzzles
             title: this.title,
             author: this.author,
+            license: this.license,
             puzzle: this.puzzleEncoded,
             solution: this.solution,
             ...(this.categories.length > 0 ? { categories: this.categories } : {}),
@@ -73,6 +77,7 @@ export function parsePuzzlesJson(puzzlesJson: string): Puzzle[] {
         const puzzleObj = puzzleElem as {
             title?: string;
             author?: string;
+            license?: string;
             puzzle?: string;
             solution?: string;
             categories?: string[];
@@ -84,6 +89,9 @@ export function parsePuzzlesJson(puzzlesJson: string): Puzzle[] {
         if (typeof puzzleObj.author !== 'string') {
             throw new Error(`puzzle.author is missing or is not a string: ${JSON.stringify(puzzleObj)}`);
         }
+        if (typeof puzzleObj.license !== 'string') {
+            throw new Error(`puzzle.license is missing or is not a string: ${JSON.stringify(puzzleObj)}`);
+        }
         if (typeof puzzleObj.puzzle !== 'string') {
             throw new Error(`puzzle.puzzle is missing or is not a string: ${JSON.stringify(puzzleObj)}`);
         }
@@ -94,9 +102,9 @@ export function parsePuzzlesJson(puzzlesJson: string): Puzzle[] {
             throw new Error(`puzzle.comments is missing or is not a string: ${JSON.stringify(puzzleObj)}`);
         }
         // Ignore extra fields
-        const { title, author, puzzle: puzzleEncoded, solution, categories = [], comments } = puzzleObj;
+        const { title, author, license, puzzle: puzzleEncoded, solution, categories = [], comments } = puzzleObj;
         const puzzle = JSON.parse(lz.decompressFromBase64(puzzleEncoded)) as FPuzzlesBoard;
-        out.push(new Puzzle(title, author, puzzleEncoded, puzzle, solution, categories, comments));
+        out.push(new Puzzle(title, author, license, puzzleEncoded, puzzle, solution, categories, comments));
     }
     return out;
 }
