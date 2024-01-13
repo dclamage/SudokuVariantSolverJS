@@ -97,8 +97,8 @@ class SudokuVariantSolver {
                 () => this.eventCanceled,
                 undefined,
                 undefined,
-                data.options.allowPreprocessing,
-                data.options.enableStats
+                data.options?.allowPreprocessing,
+                data.options?.enableStats
             );
             if (countResult.result === 'cancelled partial count') {
                 this.messageCallback({ result: 'count', count: countResult.count, complete: false, cancelled: true });
