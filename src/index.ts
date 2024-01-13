@@ -166,6 +166,8 @@ class SudokuVariantSolver {
                         dataCellMask = valuesMask(dataCell.givenPencilMarks);
                     } else if (haveCenterPencilmarks) {
                         dataCellMask = valuesMask(dataCell.centerPencilMarks);
+                    } else {
+                        dataCellMask = 0;
                     }
                 }
 
