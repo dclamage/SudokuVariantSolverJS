@@ -26,10 +26,10 @@ describe('Test puzzles', () => {
         const checkName = check.constructor.name;
         if (disabledChecks.includes(checkName)) {
             it(`${checkName} disabled`, () => {
-                // expect(true).toBe(true); // Add an assertion
+                expect(true).toBe(true); // Add an assertion
             });
         } else {
-            it(checkName, () => {
+            it(`${checkName}`, () => {
                 expect(failures.get(checkName).map(checkFailure => serializeCheckFailure(checkFailure, false))).toEqual([]);
             });
         }

@@ -4,8 +4,8 @@ import { CandidateIndex, cellName, maskToString, popcount, valuesList } from '..
 import { LogicalStep } from './LogicalStep';
 
 export class CellForcing extends LogicalStep {
-    constructor(board: Board) {
-        super(board, 'Cell Forcing');
+    constructor() {
+        super('Cell Forcing');
     }
 
     step(board: Board, desc: string[]): LogicResult {

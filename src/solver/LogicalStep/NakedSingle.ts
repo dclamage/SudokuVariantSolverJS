@@ -4,8 +4,8 @@ import { cellName, minValue } from '../SolveUtility';
 import { LogicalStep } from './LogicalStep';
 
 export class NakedSingle extends LogicalStep {
-    constructor(board: Board) {
-        super(board, 'Naked Single');
+    constructor() {
+        super('Naked Single');
     }
 
     step(board: Board, desc: string[]): LogicResult {

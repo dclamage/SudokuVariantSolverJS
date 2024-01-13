@@ -4,8 +4,8 @@ import { Board } from '../Board';
 import { LogicalStep } from './LogicalStep';
 
 export class NakedTupleAndPointing extends LogicalStep {
-    constructor(board: Board) {
-        super(board, 'Naked Tuple and Pointing');
+    constructor() {
+        super('Naked Tuple and Pointing');
     }
 
     step(board: Board, desc: string[]) {

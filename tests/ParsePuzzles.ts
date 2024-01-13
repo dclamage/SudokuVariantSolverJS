@@ -1,5 +1,5 @@
-import { FPuzzlesBoard } from '../src/solver/Constraint/FPuzzlesInterfaces';
 import * as lz from 'lz-string';
+import { FPuzzlesBoard } from '../src/solver/Constraint/FPuzzlesInterfaces';
 
 export class Puzzle {
     title: string;

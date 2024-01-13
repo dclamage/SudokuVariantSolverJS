@@ -4,8 +4,8 @@ import { LogicResult } from '../Enums/LogicResult';
 import { LogicalStep } from './LogicalStep';
 
 export class ConstraintLogic extends LogicalStep {
-    constructor(board: Board) {
-        super(board, 'Constraint Logic');
+    constructor() {
+        super('Constraint Logic');
     }
 
     step(board: Board, desc: string[]): LogicResult {

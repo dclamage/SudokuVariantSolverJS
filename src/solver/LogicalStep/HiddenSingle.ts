@@ -4,8 +4,8 @@ import { cellName, maskToString, minValue } from '../SolveUtility';
 import { LogicalStep } from './LogicalStep';
 
 export class HiddenSingle extends LogicalStep {
-    constructor(board: Board) {
-        super(board, 'Hidden Single');
+    constructor() {
+        super('Hidden Single');
     }
 
     step(board: Board, desc: string[]) {

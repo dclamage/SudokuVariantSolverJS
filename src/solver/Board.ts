@@ -27,6 +27,7 @@ import { BinaryImplicationLayeredGraph } from './BinaryImplicationLayeredGraph';
 import { TypedArrayPool, TypedArrayEntry } from './Memory/TypedArrayPool';
 import { Fish } from './LogicalStep/Fish';
 import { Constraint, ConstraintResult, LogicalDeduction } from './Constraint/Constraint';
+import { Skyscraper } from './LogicalStep/Skyscraper';
 
 export type RegionType = string;
 export type Region = {
@@ -136,17 +137,24 @@ export class Board {
             this.constraintStates = [];
             this.constraintStateIsCloned = [];
             this.memos = new Map();
+
             this.logicalSteps = [
-                new NakedSingle(this),
-                new HiddenSingle(this),
-                new ConstraintLogic(this),
-                new CellForcing(this),
-                new NakedTupleAndPointing(this),
-                new Fish(
-                    this,
-                    Array.from({ length: size / 2 - 1 }, (_, i) => i + 2)
-                ),
+                new NakedSingle(),
+                new HiddenSingle(),
+                new ConstraintLogic(),
+                new CellForcing(),
+                new NakedTupleAndPointing(),
             ];
+
+            // Create a separate fish logical step for each size of fish
+            for (let fishSize = 2; fishSize <= size / 2; fishSize++) {
+                this.logicalSteps.push(new Fish([fishSize]));
+
+                // Add skyscraper after x-wing
+                if (fishSize === 2) {
+                    this.logicalSteps.push(new Skyscraper());
+                }
+            }
         }
     }
 
@@ -803,7 +811,7 @@ export class Board {
                 // Temporary hack: At depth 0, run cell forcing
                 // We need this as more and more constraints are becoming weaklinks based which is super weak without the support encoding.
                 // TODO: When we have LUT based cell forcing, see if this is fast enough to run at all levels of the solve
-                result = new CellForcing(this).step(this, null);
+                result = new CellForcing().step(this, null);
                 if (result === LogicResult.INVALID || result === LogicResult.COMPLETE) {
                     return result;
                 }
