@@ -1,4 +1,4 @@
-import { Board, SolveOptions } from './solver/Board';
+import { Board, SolveOptions, SolveStats } from './solver/Board';
 import { registerAllConstraints } from './solver/Constraint/ConstraintLoader';
 import { FPuzzlesBoard } from './solver/Constraint/FPuzzlesInterfaces';
 import ConstraintBuilder from './solver/ConstraintBuilder';
@@ -6,7 +6,6 @@ import { CellIndex, CellMask, CellValue, minValue, valueBit, valuesList, valuesM
 
 export type ExpandedCandidates = ({ given: true; value: number } | number[])[];
 
-// TODO: Update after we have types for board format
 export type SolverInputData = { board: FPuzzlesBoard; options?: SolveOptions };
 export type SolverResult =
     | { result: 'invalid' }
@@ -25,6 +24,7 @@ class SudokuVariantSolver {
     eventCanceled: boolean = false;
     constraintBuilder: ConstraintBuilder;
     messageCallback: (result: SolverResult) => void;
+    solveStats: SolveStats;
 
     constructor(messageCallback: (result: SolverResult) => void) {
         this.messageCallback = messageCallback;
@@ -39,7 +39,16 @@ class SudokuVariantSolver {
     async solve(data: SolverInputData) {
         this.eventCanceled = false;
 
+        const createStartTimeMs = Date.now();
         const board = this.createBoard(data.board);
+        const createEndTimeMs = Date.now();
+        const createElapsedTimeMs = createEndTimeMs - createStartTimeMs;
+
+        this.solveStats = board.solveStats;
+        this.solveStats.createStartTimeMs = createStartTimeMs;
+        this.solveStats.createEndTimeMs = createEndTimeMs;
+        this.solveStats.createElapsedTimeMs = createElapsedTimeMs;
+
         if (!board) {
             this.messageCallback({ result: 'invalid' });
         } else {
@@ -66,7 +75,16 @@ class SudokuVariantSolver {
     async countSolutions(data: SolverInputData) {
         this.eventCanceled = false;
 
+        const createStartTimeMs = Date.now();
         const board = this.createBoard(data.board);
+        const createEndTimeMs = Date.now();
+        const createElapsedTimeMs = createEndTimeMs - createStartTimeMs;
+
+        this.solveStats = board.solveStats;
+        this.solveStats.createStartTimeMs = createStartTimeMs;
+        this.solveStats.createEndTimeMs = createEndTimeMs;
+        this.solveStats.createElapsedTimeMs = createElapsedTimeMs;
+
         if (!board) {
             this.messageCallback({ result: 'invalid' });
         } else {
@@ -76,7 +94,11 @@ class SudokuVariantSolver {
                 count => {
                     this.messageCallback({ result: 'count', count: count, complete: false });
                 },
-                () => this.eventCanceled
+                () => this.eventCanceled,
+                undefined,
+                undefined,
+                data.options?.allowPreprocessing,
+                data.options?.enableStats
             );
             if (countResult.result === 'cancelled partial count') {
                 this.messageCallback({ result: 'count', count: countResult.count, complete: false, cancelled: true });
@@ -107,7 +129,7 @@ class SudokuVariantSolver {
     }
 
     /**
-     * Calculates the true candidates for the given Sudoku board.
+     * Calculates the true candidates for the given Sudoku board. Does not currently support gathering (full) stats.
      * @param {Object} data - The data object containing the Sudoku board and options.
      * @param {Object} data.board - The Sudoku board in the f-puzzles format.
      * @param {Object} [data.options] - The options for calculating true candidates.
@@ -117,7 +139,16 @@ class SudokuVariantSolver {
     async trueCandidates(data: SolverInputData) {
         this.eventCanceled = false;
 
+        const createStartTimeMs = Date.now();
         const board = this.createBoard(data.board);
+        const createEndTimeMs = Date.now();
+        const createElapsedTimeMs = createEndTimeMs - createStartTimeMs;
+
+        this.solveStats = board.solveStats;
+        this.solveStats.createStartTimeMs = createStartTimeMs;
+        this.solveStats.createEndTimeMs = createEndTimeMs;
+        this.solveStats.createElapsedTimeMs = createElapsedTimeMs;
+
         if (!board) {
             this.messageCallback({ result: 'invalid' });
         } else {

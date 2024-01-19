@@ -42,6 +42,7 @@ export type SolveOptions = {
     allowPreprocessing?: boolean;
     maxSolutions?: number;
     maxSolutionsPerCandidate?: number;
+    enableStats?: boolean; // Setting to false / leaving unset doesn't guarantee all stats will be 0, but it does mean they are potentially meaningless.
 };
 
 export type SolveResultCancelled = {
@@ -90,6 +91,88 @@ export interface Cloneable {
     clone(): this;
 }
 
+// Stats for brute force solves
+export class SolveStats {
+    // Before the solve, how many implications of each type there were (each implication is counted twice, as it includes the contrapositive)
+    preSolveNegNegImplications: number;
+    preSolveNegPosImplications: number;
+    preSolvePosNegImplications: number;
+    preSolvePosPosImplications: number;
+    preSolveTotalImplications: number;
+    // After the first preprocessing, how many implications of each type there were (each implication is counted twice, as it includes the contrapositive)
+    postInitialPreprocessingNegNegImplications: number;
+    postInitialPreprocessingNegPosImplications: number;
+    postInitialPreprocessingPosNegImplications: number;
+    postInitialPreprocessingPosPosImplications: number;
+    postInitialPreprocessingTotalImplications: number;
+    // After the solve, how many implications of each type there were (each implication is counted twice, as it includes the contrapositive)
+    postSolveNegNegImplications: number;
+    postSolveNegPosImplications: number;
+    postSolvePosNegImplications: number;
+    postSolvePosPosImplications: number;
+    postSolveTotalImplications: number;
+
+    // Number of guesses
+    guesses: number;
+    // How many times applyBruteForceLogic was called, split into whether it was a preprocessing or normal brute force pass
+    preprocessingPasses: number;
+    bruteForcePasses: number;
+    // How many times we called preprocessingStep / bruteForceStep
+    preprocessingSteps: number;
+    bruteForceSteps: number;
+    // How many times enforceNewMask was called (and the new mask was nonempty and actually different from the original mask)
+    masksEnforced: number;
+    // How many times enforce was called on any constraint
+    constraintSinglesEnforced: number;
+    // How many times enforceCandidateElim was called on any constraint
+    constraintEliminationsEnforced: number;
+
+    // Solve timings
+    solveStartTimeMs: number;
+    solveEndTimeMs: number;
+    solveElapsedTimeMs: number;
+
+    // Create board timings, not added by us but by index.js
+    createStartTimeMs: number;
+    createEndTimeMs: number;
+    createElapsedTimeMs: number;
+
+    constructor() {
+        this.preSolveNegNegImplications = 0;
+        this.preSolveNegPosImplications = 0;
+        this.preSolvePosNegImplications = 0;
+        this.preSolvePosPosImplications = 0;
+        this.preSolveTotalImplications = 0;
+        this.postInitialPreprocessingNegNegImplications = 0;
+        this.postInitialPreprocessingNegPosImplications = 0;
+        this.postInitialPreprocessingPosNegImplications = 0;
+        this.postInitialPreprocessingPosPosImplications = 0;
+        this.postInitialPreprocessingTotalImplications = 0;
+        this.postSolveNegNegImplications = 0;
+        this.postSolveNegPosImplications = 0;
+        this.postSolvePosNegImplications = 0;
+        this.postSolvePosPosImplications = 0;
+        this.postSolveTotalImplications = 0;
+
+        this.guesses = 0;
+        this.preprocessingPasses = 0;
+        this.bruteForcePasses = 0;
+        this.preprocessingSteps = 0;
+        this.bruteForceSteps = 0;
+        this.masksEnforced = 0;
+        this.constraintSinglesEnforced = 0;
+        this.constraintEliminationsEnforced = 0;
+
+        this.solveStartTimeMs = 0;
+        this.solveEndTimeMs = 0;
+        this.solveElapsedTimeMs = 0;
+
+        this.createStartTimeMs = 0;
+        this.createEndTimeMs = 0;
+        this.createElapsedTimeMs = 0;
+    }
+}
+
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export type StateKey<T extends Cloneable> = number;
 
@@ -118,6 +201,7 @@ export class Board {
     constraintStateIsCloned: (undefined | true)[];
     memos: Map<string, unknown>;
     logicalSteps: LogicalStep[];
+    solveStats: SolveStats;
 
     constructor(size: number | undefined = undefined) {
         if (size !== undefined) {
@@ -156,6 +240,8 @@ export class Board {
                     this.logicalSteps.push(new Skyscraper());
                 }
             }
+
+            this.solveStats = new SolveStats();
         }
     }
 
@@ -185,6 +271,7 @@ export class Board {
         this.constraintStateIsCloned = [];
         clone.memos = this.memos;
         clone.logicalSteps = this.logicalSteps;
+        clone.solveStats = this.solveStats;
         return clone;
     }
 
@@ -213,6 +300,7 @@ export class Board {
         clone.constraintsFinalized = this.constraintsFinalized;
         clone.memos = new Map(); // Don't inherit memos
         clone.logicalSteps = this.logicalSteps;
+        clone.solveStats = this.solveStats;
         return clone;
     }
 
@@ -592,6 +680,8 @@ export class Board {
             return true;
         }
 
+        this.solveStats.masksEnforced++;
+
         if (popcount(cellMask) === 1) {
             this.nakedSingles.push(cellIndex);
         }
@@ -602,6 +692,7 @@ export class Board {
             removedMask &= ~valueBit(value);
 
             for (const constraint of this.constraints) {
+                this.solveStats.constraintEliminationsEnforced++;
                 if (!constraint.enforceCandidateElim(this, cellIndex, value)) {
                     return false;
                 }
@@ -776,6 +867,12 @@ export class Board {
     }
 
     applyBruteForceLogic(isDepth0: boolean) {
+        if (isDepth0) {
+            this.solveStats.preprocessingPasses++;
+        } else {
+            this.solveStats.bruteForcePasses++;
+        }
+
         let changed = false;
         while (true) {
             // Just in case, check if the board is completed
@@ -830,6 +927,7 @@ export class Board {
             if (!isDepth0) {
                 for (const constraint of this.constraints) {
                     const result = constraint.bruteForceStep(this);
+                    this.solveStats.bruteForceSteps++;
                     if (result === ConstraintResult.INVALID) {
                         return LogicResult.INVALID;
                     }
@@ -842,6 +940,7 @@ export class Board {
             } else {
                 for (const constraint of this.constraints.slice()) {
                     const result = constraint.preprocessingStep(this);
+                    this.solveStats.preprocessingSteps++;
                     const payload = typeof result === 'object' ? result : null;
                     const constraintResult = typeof result === 'object' ? result.result : result;
                     if (constraintResult === ConstraintResult.INVALID) {
@@ -1218,6 +1317,7 @@ export class Board {
 
         // Enforce all constraints
         for (const constraint of this.constraints) {
+            this.solveStats.constraintSinglesEnforced++;
             if (!constraint.enforce(this, cellIndex, value)) {
                 return false;
             }
@@ -1277,9 +1377,39 @@ export class Board {
         options: SolveOptions | null | undefined,
         isCancelled: (() => boolean) | undefined
     ): Promise<SolveResultCancelled | SolveResultBoard | SolveResultNoSolution> {
-        const { random = false, allowPreprocessing = true } = options || {};
+        const { random = false, allowPreprocessing = true, enableStats = false } = options || {};
         const jobStack = [this.clone()];
         let lastCancelCheckTime = Date.now();
+
+        if (enableStats) {
+            this.solveStats.solveStartTimeMs = Date.now();
+
+            [
+                this.solveStats.preSolveNegNegImplications,
+                this.solveStats.preSolveNegPosImplications,
+                this.solveStats.preSolvePosNegImplications,
+                this.solveStats.preSolvePosPosImplications,
+            ] = this.binaryImplications.countImplicationsByType();
+            this.solveStats.preSolveTotalImplications =
+                this.solveStats.preSolveNegNegImplications +
+                this.solveStats.preSolveNegPosImplications +
+                this.solveStats.preSolvePosNegImplications +
+                this.solveStats.preSolvePosPosImplications;
+            this.applyBruteForceLogic(allowPreprocessing);
+            [
+                this.solveStats.postInitialPreprocessingNegNegImplications,
+                this.solveStats.postInitialPreprocessingNegPosImplications,
+                this.solveStats.postInitialPreprocessingPosNegImplications,
+                this.solveStats.postInitialPreprocessingPosPosImplications,
+            ] = this.binaryImplications.countImplicationsByType();
+            this.solveStats.postInitialPreprocessingTotalImplications =
+                this.solveStats.postInitialPreprocessingNegNegImplications +
+                this.solveStats.postInitialPreprocessingNegPosImplications +
+                this.solveStats.postInitialPreprocessingPosNegImplications +
+                this.solveStats.postInitialPreprocessingPosPosImplications;
+        }
+
+        let result: SolveResultCancelled | SolveResultBoard | SolveResultNoSolution = { result: 'no solution' };
 
         while (jobStack.length > 0) {
             if (isCancelled) {
@@ -1289,7 +1419,8 @@ export class Board {
 
                     // Check if the job was cancelled
                     if (isCancelled()) {
-                        return { result: 'cancelled' };
+                        result = { result: 'cancelled' };
+                        break;
                     }
                     lastCancelCheckTime = Date.now();
                 }
@@ -1309,7 +1440,8 @@ export class Board {
                 // Puzzle is complete, return the solution
                 Board.releaseJobStack(jobStack);
                 // The caller is responsible for releasing the board
-                return { result: 'board', board: currentBoard };
+                result = { result: 'board', board: currentBoard };
+                break;
             }
 
             const unassignedIndex = currentBoard.findUnassignedLocation();
@@ -1317,11 +1449,13 @@ export class Board {
                 // Puzzle is complete, return the solution
                 Board.releaseJobStack(jobStack);
                 // The caller is responsible for releasing the board
-                return { result: 'board', board: currentBoard };
+                result = { result: 'board', board: currentBoard };
+                break;
             }
 
             const cellMask = currentBoard.cells[unassignedIndex];
             const chosenValue = random ? randomValue(cellMask) : minValue(cellMask);
+            this.solveStats.guesses++;
 
             // Queue up two versions of the board, one where the cell is set to the chosen value, and one where it's not
 
@@ -1344,7 +1478,24 @@ export class Board {
             }
         }
 
-        return { result: 'no solution' }; // No solution found
+        if (enableStats) {
+            this.solveStats.solveEndTimeMs = Date.now();
+            this.solveStats.solveElapsedTimeMs = this.solveStats.solveEndTimeMs - this.solveStats.solveStartTimeMs;
+
+            [
+                this.solveStats.postSolveNegNegImplications,
+                this.solveStats.postSolveNegPosImplications,
+                this.solveStats.postSolvePosNegImplications,
+                this.solveStats.postSolvePosPosImplications,
+            ] = this.binaryImplications.countImplicationsByType();
+            this.solveStats.postSolveTotalImplications =
+                this.solveStats.postSolveNegNegImplications +
+                this.solveStats.postSolveNegPosImplications +
+                this.solveStats.postSolvePosNegImplications +
+                this.solveStats.postSolvePosPosImplications;
+        }
+
+        return result;
     }
 
     async countSolutions(
@@ -1353,12 +1504,43 @@ export class Board {
         isCancelled: (() => boolean) | null | undefined,
         solutionsSeen: Set<string> | null | undefined = null,
         solutionEvent: ((board: Board) => void) | null | undefined = null,
-        allowPreprocessing: boolean = true
+        allowPreprocessing: boolean = true,
+        enableStats: boolean = false
     ): Promise<SolveResultCancelledPartialSolutionCount | SolveResultSolutionCount> {
         const jobStack = [this.clone()];
         let numSolutions = 0;
         let lastReportTime = Date.now();
         const wantReportProgress = reportProgress || isCancelled;
+
+        if (enableStats) {
+            this.solveStats.solveStartTimeMs = Date.now();
+
+            [
+                this.solveStats.preSolveNegNegImplications,
+                this.solveStats.preSolveNegPosImplications,
+                this.solveStats.preSolvePosNegImplications,
+                this.solveStats.preSolvePosPosImplications,
+            ] = this.binaryImplications.countImplicationsByType();
+            this.solveStats.preSolveTotalImplications =
+                this.solveStats.preSolveNegNegImplications +
+                this.solveStats.preSolveNegPosImplications +
+                this.solveStats.preSolvePosNegImplications +
+                this.solveStats.preSolvePosPosImplications;
+            this.applyBruteForceLogic(allowPreprocessing);
+            [
+                this.solveStats.postInitialPreprocessingNegNegImplications,
+                this.solveStats.postInitialPreprocessingNegPosImplications,
+                this.solveStats.postInitialPreprocessingPosNegImplications,
+                this.solveStats.postInitialPreprocessingPosPosImplications,
+            ] = this.binaryImplications.countImplicationsByType();
+            this.solveStats.postInitialPreprocessingTotalImplications =
+                this.solveStats.postInitialPreprocessingNegNegImplications +
+                this.solveStats.postInitialPreprocessingNegPosImplications +
+                this.solveStats.postInitialPreprocessingPosNegImplications +
+                this.solveStats.postInitialPreprocessingPosPosImplications;
+        }
+
+        let result: SolveResultCancelledPartialSolutionCount | SolveResultSolutionCount = undefined;
 
         while (jobStack.length > 0) {
             if (wantReportProgress && Date.now() - lastReportTime > 100) {
@@ -1368,7 +1550,8 @@ export class Board {
                 // Check if the job was cancelled
                 if (isCancelled && isCancelled()) {
                     Board.releaseJobStack(jobStack);
-                    return { result: 'cancelled partial count', count: numSolutions };
+                    result = { result: 'cancelled partial count', count: numSolutions };
+                    break;
                 }
 
                 // Report progress
@@ -1403,7 +1586,8 @@ export class Board {
                         if (maxSolutions > 0 && numSolutions === maxSolutions) {
                             Board.releaseJobStack(jobStack);
                             currentBoard.release();
-                            return { result: 'count', count: numSolutions };
+                            result = { result: 'count', count: numSolutions };
+                            break;
                         }
                     }
                 } else {
@@ -1415,7 +1599,8 @@ export class Board {
                     if (maxSolutions > 0 && numSolutions === maxSolutions) {
                         Board.releaseJobStack(jobStack);
                         currentBoard.release();
-                        return { result: 'count', count: numSolutions };
+                        result = { result: 'count', count: numSolutions };
+                        break;
                     }
                 }
                 currentBoard.release();
@@ -1429,7 +1614,8 @@ export class Board {
                 if (maxSolutions > 0 && numSolutions === maxSolutions) {
                     Board.releaseJobStack(jobStack);
                     currentBoard.release();
-                    return { result: 'count', count: numSolutions };
+                    result = { result: 'count', count: numSolutions };
+                    break;
                 }
                 currentBoard.release();
                 continue;
@@ -1437,6 +1623,7 @@ export class Board {
 
             const cellMask = currentBoard.cells[unassignedIndex];
             const chosenValue = minValue(cellMask);
+            this.solveStats.guesses++;
 
             // Queue up two versions of the board, one where the cell is set to the chosen value, and one where it's not
 
@@ -1459,7 +1646,26 @@ export class Board {
             }
         }
 
-        return { result: 'count', count: numSolutions };
+        result ??= { result: 'count', count: numSolutions };
+
+        if (enableStats) {
+            [
+                this.solveStats.postSolveNegNegImplications,
+                this.solveStats.postSolveNegPosImplications,
+                this.solveStats.postSolvePosNegImplications,
+                this.solveStats.postSolvePosPosImplications,
+            ] = this.binaryImplications.countImplicationsByType();
+            this.solveStats.postSolveTotalImplications =
+                this.solveStats.postSolveNegNegImplications +
+                this.solveStats.postSolveNegPosImplications +
+                this.solveStats.postSolvePosNegImplications +
+                this.solveStats.postSolvePosPosImplications;
+
+            this.solveStats.solveEndTimeMs = Date.now();
+            this.solveStats.solveElapsedTimeMs = this.solveStats.solveEndTimeMs - this.solveStats.solveStartTimeMs;
+        }
+
+        return result;
     }
 
     async calcTrueCandidates(
