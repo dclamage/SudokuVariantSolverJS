@@ -1,0 +1,247 @@
+[
+    {
+        "title": "Antiknight Coloring Book: Counting Clue",
+        "author": "Lubaf",
+        "license": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
+        "puzzle": "N4IgzglgXgpiBcBOANCALhNAbO8QEEA7DAa0IgHMALNAAgGEB7LRgJwkItoCFHGT4DRgFdiHLvSzC4qAIbC0VNghAAZYQCNZAMxCpWwnGBhoVABSyyAxjFqLbAE0qYwtAIx2qrEdVqJaHLQw1lRBALYADmgAnrQ2WFgAdLQAIs5ormHCYHSEjHSsMBHBdADumFSB9rRgsmG23qXIcczCYYTNbAGETlayaDAOtIUUEIyEiQA6hNNpoxm0WTm0eQVFJd1xMAmuiv20soUHcVQwYK5klDQA5JmMAG62shGHaFMzhHMuByycxy9YDgObz1WiAwgNYJDaq1UHaNilQ4OVxdLRWEiI1jI96zdKuWS/LjBKyheysMKMeoDViLbJ0DhWQqyYw1NCvcS0bQgzy2DSGDRBHo4wgAUQAHhE2AMhlzKTVhA5+IZZBpEhDTKgKOwHAgANq60AjMaEBAAZgAvshDTBRuMzZbrbaTfALVaQEa7fAAGwO90240IAAcvo9zoATA7I27Qwg3OaALrIA1+p326P+z0AFhDGedrsdAe9OdT8GD6ZLEatUYLnrjieTMZdxcL2fLhfzKcLPrbnrLNfD1ebtYTSeAQ+drf7CG7U6LPedAHZxwgl/OV8v4HG15uRwaN5PO56Z4fnX2T0GN2fG6vZ1vZwAGXezg+Nl+56cb4+Nr/v+A389/hud4AY+9bPhuACskHQdufYbo+27AY2oGjgBb4llB26YbO2EAXB24Ibe8FPmhME4WReHViBxEEQmiYgLIYiXNQpjwGgBgwKgZIUlSMCsHqoDgmceq6iAABKiD0G4ejiYGUkyWJC7yagYlesp4kQepYmZlpppaWGWluPJ8bxiOIAAkCIK4MmQlgCJ4kGYGClGQuCkGV6zn0BBbn0JmnmmiAJm+rZ9liXJrkqUpEXiWpHkqZp3lBW6IXwPq4lKd5KlyZl6X0HFMX0NFYmaU5QX0WArQYJ6uooG4yCZsgC7IF6yBhsgprIBByCBt1yAoG1HV1S1TUNV1TUtR1bVdT1tX1c1nW9Q1TWTX1yB1dNa2rUt80DXN40LbNPUrR1o29W1s37bth0LQ1w2bW1+0nQtM2mUAA=",
+        "solution": "914762358892316745763258914658473291581947623476591832345829176239185467127634589",
+        "comments": "",
+        "puzzleSolution": "914762358892316745763258914658473291581947623476591832345829176239185467127634589",
+        "generatedCategories": [
+            "antiknight",
+            "gridsize9x9",
+            "palindrome",
+            "thermometer"
+        ]
+    },
+    {
+        "title": "Antiknight Coloring Book: Electricity Warning Sign",
+        "author": "Lubaf",
+        "license": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
+        "puzzle": "N4IgzglgXgpiBcBOANCALhNAbO8QEEA7DAa0IgHMALNAAgGEB7LRgJwkItoCFHGT4tAKI4AxmnajMAT1oB1AIatynWgGVKhEKgUBXNFTYIQAGV0AjBQDNtIVrpxgYaYwAUsC0TFoHvAE0pMMFoARh8qVkZdalpEWg5aGE8qRIBbAAc0WS8sLAA6WgARQLRg1N0wOkJGOlYYdKS6AHdMKgTfWjAFVO9IpuRaUWZdVMIBtnjCANEFNBg/WjqKCEZCPIAdQk3i5dLacsraatr6xsnBmFzgg1naJW8FQaoYMGCyShoAcjLGADcH9JKNAbLaEHZBO4sVSPQFYDh+SI9Whwwi9JILDpdJFWNhNJR+YITSyiEh41gEkHbErBBRQrhJUQpXysVKMHpzVj7Cp0DiiOoKJydNBAjhcKyI8LecwOcyJKaUwhCAAe6TYcwW4rZnV0fn4DgU5jyqJcqAo7D8CAA2pbgABfZCgJYrLTwEL2x0wZarBBuh3uuye50IAAc/qd3vgoYdAa9LoALGHAxGE9Hw/HbQBdZA2xOxn3uguppMuqMevOR3NBitF8ulmNVhNZnM1qu+u1+lsRgDslYjdbTId7JaHCEb2bLVYADCP4NPOy65xOI23692Zz35wgN0v05v4GObauFzOAKynmcrgfwbdHhAAZhnKZ3o5nACZM+Pb/Az3uf8/r+ugF7g+e7vqBb4foeV5/oW/4AGywV+IH/mB/7IV+75Nv+MEdvBM4IcBEGEeBWFfn+ZHnnuBF4cRaEzuhV6YVmIAKMQEDvNQLjwBIugwKgzKsuyMCsFaoAoi8VqWiAABKiD0CEtjScG8mKV2KmoNJcHqTJJ7adJcZ6XeemvnpIQqRmGYfiAsLwoiuCHuJYCSTJZldopJlwSAFn+o5zlKfQbkaWpnkaVpgU6fQnnedGvnwNaLn0MG7kBV5lnMWAwwYBGlooMGyB3sgXbIHGyCvsgcHICEyAnsgeUlWVKBFRVVU1QVTXFZV1W1cgKAFWVFUFS1pUdUVuVdWN/X5SNnUlaN3WDV1k19YVHVDXlFUoGVQ0bStBV1Z1NUDd1m0jZZQA==",
+        "solution": "983742615842976153764158932631524798598263471479831526327415869215697384156389247",
+        "comments": "",
+        "puzzleSolution": "983742615842976153764158932631524798598263471479831526327415869215697384156389247",
+        "generatedCategories": [
+            "antiknight",
+            "gridsize9x9",
+            "palindrome",
+            "thermometer"
+        ]
+    },
+    {
+        "title": "Antiknight Boxless Coloring Book: Badly Made Paper Ice Crystals",
+        "author": "Lubaf",
+        "license": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
+        "puzzle": "N4IgzglgXgpiBcBOANCALhNAbO8QEEA7DAa0IgHMALNAAgCEB7ADxzDFoGFGtGAnCIQoNGjEvAYBDACZYAnrQCyMmLQAKkgA4w+tAJIBjVZz5ywaSVjAhUkgK5oq/BCAAydgEaSAZjZB87Nhg0FwARSkwOS0YhWklaTUtBaT5GAFtVLEFVPhgZWkdVMEkM2m9+AHdJPmkOflovAxIqmrAAOgAdQi7wiki43li8gyoCqh009OCdWjS7c1pBA1zJMCKLPgxY71S0sdUPQI9aGEJpTu7CXv65hcJGOlztSTpBWiMsKzGXuNy49/G7FoZEoNAA5BxJgA3VRaapoC5dNRYSRGfa0aQRNAcACMY1SdmotEQi0IJ1RoxgaU0aAUHywbVo12xs3mdHujxgzzoFUwVDehVoxVKqQqyHePDsaUI4vqyQgBheMGktFyfRiiMIAFFmJp+GhlWVdkK7NIxIFJB42oRgn4KAJpAgANpO4AAX2Q7s9HtAaogMQQAAYff4YOrCEGQ36A/Bg57Q+HI/HoxHY1Gw/7U8GALrIV0JzMIHHpxPwYvJjMx8temslwtlutVxup4u5/MphAAJmbXZ78G7FdLA99ldTw4LMeHPunbdr3sH9YAzH3lwuY6uR6WNxPU9uO/Bl7OdwgACx9s9r1MXuc14/wa93h/7s9H/cAVj7H8vCC/m/rv7vAD32ned3VnEDb33AA2PsYO/eA4L/GNELvFDoLdV9RwQAB2PtcPg/Cbzw4iCIwvMkNTAAOPtqPg2iKIQei7yY/d6IgjDcxASRiAgEFqBCeA0ACGBUEKPhJgyA0+GdUAshtax4BdEAACVEE4HE/FUzhO00tTF10zgTwMt8DKggzsIMyiDMQEBs2zMiQESOSUimGSQDkmAFKU5ScU4MzUGUztOAsgLfKsgKgpsuyQw8rynRU3ybIizhwpUxdOCSlSTxS2z7PjWLnXi5Tssy5T0tS4rgs09KzOi/LsjirK/Oqqrkv8hKqrq2SGsKlS33UzSoO0zTsM4fSAsowzcpinrFKKyaNIC0adICobxr6qauvc2bvP6laVKGjStoKuaVNGxaVMmnTjp2+axpGza8u6+TeuU/r1uUoajJul7TuUyb2uU0aQoOnKAv6qKnu237vKGkGgZyn7PNeobAf6iykca/6wbOjLpvqmGiqCi6yuGzHXvSkmguuqGTu83yPqC77adulSgo+3zmYcsBJQwGMnWw5BF2QTtkBQE9kBxZBKOQKDkDfZAJZllBReFhW5cFqWZYluWpdV+WxeQQXRcFnXJelw2FeF4WUBl9WjcV83RZQKWFZl02hZF2XvYVqXBeVr3hYl+3BZtr2paVp3PeD73/bF+ygA===",
+        "solution": "732941865489235671846123597274618953398567412915874326651789234567392148123456789",
+        "comments": "",
+        "puzzleSolution": "732941865489235671846123597274618953398567412915874326651789234567392148123456789",
+        "generatedCategories": [
+            "antiknight",
+            "gridsize9x9",
+            "palindrome",
+            "thermometer"
+        ]
+    },
+    {
+        "title": "Antiknight Coloring Book: Hanging Vines",
+        "author": "Lubaf",
+        "license": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
+        "puzzle": "N4IgzglgXgpiBcBOANCALhNAbO8QEEA7DAa0IgHMALNAAgGEB7LRgJwkItoCFHGT4tABIBDThy4A1DjDAhUIgK5oqbBCAAyigEYiAZvJCtFOMDDTqAClhEBjGLRUOAJpUxhaARkdVWjRdS0iLQctDB2VGEAtgAOaACetPZYWAB0tAAibmgeUYpgdISMdKwwMeF0AO6YVKFOtGAiUQ5+lchJzIpRhO1sIYSutiJoMM60pRQQjISpADqE81mTObR5BbRFJWUV/UkwKR4qw7QipSdJVLIeZJQ0AOS5jABuDiIxp2hzC4RL7icsnHO7ywHGcfmatBBhBa4TG9UaEL0bEqp2cHj6ulsJBRrDRX0W2Q8IgBXHCtkiTlYUUYzRGrFW+ToHFspREZgaaA+EloenBPgc2hM2jCA3xhAAogAPGJsEZjXk0hqKZz8EwibSpaEWVAUdjOBAAbQNwAAvshTeazaAJlNCAgABxWowwSbTBAAFidNrd8E95udrrt8AArF6XbaEKH/d6g6GALrIY1hwMIABMVuTEfg6ej4Z9jtzKd9mZ9UeteaDfvLRfjiYt1azOfrAcbJaDBYbPqrLdLbY9fZDJoTxp7QYADAOm6OEBPC625/mMwvKwOq0O69P4J5Jzvl2mBx3NwB2AcnvfwM+m4edoPby33m8IADMB9PA4AbG/z5/r5u74/4Bfc9/03ICAI7D8vwAn8NxjBAQLgwCBwQitn1fB9N0/c9L0w9cR0QlCi0IrNiJ9MDQPQ6DIO/IcExAMRSHIagLHgNBjBgVBKWpWkYFYQ1QChWRDQNEAACVEHoTxDFE+1JOko85NQUT30UsTg1U0T3Q0p8NNTDTPDkuM43XEBgVBcFcBHQS5HgI0xIk4NpNk995PoRylJUlyjKdazhLE2Sj1clyPLc6T1OCsStPcsSdPdEBvP9XzbJE0T1OizT6Ai0SdPSvSvOMuiwE6DAfQNFBPGQYNkFTZAj2Qd1kHtZAn2Qd9Gua6rata5AUCqiqGrqhqWoqpq2t6zqxvqyrkBGjqarqqqatGnqOoGmapr69qWvm7qUBatrBumiqapQJqdsmhrNqa4b2r2zq6ray7jKAA",
+        "solution": "915274836832769514743186952694518327528693471451832769367451298276945183189327645",
+        "comments": "",
+        "puzzleSolution": "915274836832769514743186952694518327528693471451832769367451298276945183189327645",
+        "generatedCategories": [
+            "antiknight",
+            "gridsize9x9",
+            "palindrome",
+            "thermometer"
+        ]
+    },
+    {
+        "title": "Antiknight Coloring Book: Fuzz On The Lens",
+        "author": "Lubaf",
+        "license": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
+        "puzzle": "N4IgzglgXgpiBcBOANCALhNAbO8QEEA7DAa0IgHMALNAAgGEB7LRgJwkItoCFHGT4tAGIBXKFFoB5QrQAqVGLQAyMQmBCoAhiLRU2CEEpEAjTQDMNIViJxgYaAwAUsmgMaLdigCaVMYWgCMtLqsjCLUtIi0HLQwblSxALYADmgAnrTuWFgAdLQAIr5o/okiYHSEjHSsMMlxdADumFQxnrRgmomKoQ3ImcwiiYR9bNGEPq6aaDBetDUUEIyEOQA6hGuFC8W0peW0ldW19WOZMNn+ulO0mjXXmQpg/mSUNADkJYwAboqayTdoq3WhE2fmuLE4dz+WA4XlCXVo0MI3TiszaHXhZjYDRuXn8o1MrhI2NYuMBGyK/k04K4cVcCU8rESjC601YOzKdA4rhqmjs7TQ/w4XDMcOCCloxhsxli4zJhAAogAPZJsaazEXM9oiLz8GyaYw5JEOVAUdheBAAbQtoHmi0ICAA7ABfZA2mALJaOl1uj32+DO11Wd12hAAZm9Qd9YYjts98HDgdjfoAbDHg3HU4n0ymnQBdZDWyMh/1pqMlrNlgM+4tVotxhPVjOl4uZxs5istvMFtsIALNuO1pPRjv1/t+ht18dj4c9+CtycIAAMXcLQ/gfZHfsH2d70/gACY94fNwhj7Plye53vl/nVzv13uN7OnwuD0f35eL+fryvn3uAByPh+s5nq+oFrl+P63n+l6AZeAAse6IQhSGoZeACsUHdq+cGzrhOEAWhs6YRhe4kcRv4EbBhEobRs7IRRpGkbm+YgJoxAQM81AOPAaDWDAqAMkyLIwKwlqgIiMDqPAVogAASog9ABJYCn0PuKmKaGGn0PB2nodpybaQ62n/tpiAgCxXYgFCMJwrghaSdJslyaGSkqa56moC59BaV5+46Sp/n6X59CGZZgaOZaFrya55lea5plefB9DGUl9CmeFEkcFJUXyQ6akqflvnyf+AVeaV+mZSAkUydFcnJcVcnoQFVU1c5yahSpzXGZZrFgAMGBxha6HIAEyD7sgKChsgDrIPByDJsg/4zXNk0LUtyDTWNE0jdNy2LWN80jRNKCzct03HaNq2netE2zUd60oMtY3TSgB2bSty0jfNE2LU9K0TS9yDfatI1nWtv0fWN20fQ9i3g4guZOkAA===",
+        "solution": "512937468749683125386145297835214976274569813961378542698721354457892631123456789",
+        "comments": "",
+        "puzzleSolution": "512937468749683125386145297835214976274569813961378542698721354457892631123456789",
+        "generatedCategories": [
+            "antiknight",
+            "gridsize9x9",
+            "palindrome",
+            "thermometer"
+        ]
+    },
+    {
+        "title": "Antiknight Coloring Book: Four Fours in Front And A Lot of Two Fours Plus One In Back",
+        "author": "Lubaf",
+        "license": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
+        "puzzle": "N4IgzglgXgpiBcBOANCALhNAbO8QEEA7DAa0IgHMALNAAgGEB7LRgJwkItoCFHGT4tAGKMArq2FjWYWh2GtGxWkQAmy2gBlGdRgDNaAFQDujSeJkAFLKJkB5QjFoBJQjwCGAYxIhUrUTjAYNAQQK09HNCpHFUpMGQBGWkiFUWpaRFlXGE8qWhgAWwAHNABPWg8YLCwAOloAEVi0GXybOkJtWlYYQuy6I0wqOUjHMDd8xwUjZHLmUXzCabZMmI83NBg1LooIRWqAHUIDhu2m2hawNo6unrXM8sqsGUjbty7aN3KosBkyShoAcmajAAbo43IVXmh9odCMc4u8WJx3rQIVgOCoFONaGiHJ1smphrRRljdGwjK8VDIlgAjTwkcmsSnQo6NGRuRFcbIeXLDVj5RjjdYSc50DgeLpuQJEtCQjhcXSYpJRWjU/zUvKEFTMwgAUQAHoU2Os1AqBUTRCp+P43NTqg5gqgKOwVAgANqu0BbHaEBAADgAvshPTBtoo/YHg6GffAA0GQF6wzGI/GQ97w3GE9HY5G00mM6nE9mU1HwwBdZAe4u5gCsyczCFr+ZL8EbOcTrariYAzHWC9GAGy95uDpu5kdtgf+8uV+stoe5nuj7vz5dL6OLicIAAMK+jO7X293h+nm7nB7Pp47s6vfYQG8766P8Hvs5ft/gO5PD4Q8Sfv/P/6noB37wOOIH7qeEHgU+n4VkBT4AEyIch55IUGT4ACyYdhX6zsBeF/oRqEoaeaGkThcERlR55gbOZEgVh56MaezEMVOcEgQA7E+3HnrxwDUQJfE8SJpbliAbjEBAvzUME8BoH4MCoLy/KCjArBuqAOIwGAbquiAABKiD0PEPiGcZCFmUZ9BdlZxkYXZ9DVo5/aOZxjm+o5iAgGJ7EgKi6KYrglbabp8DuoZ1Y2VZUUOagBn9k5VmcUlvlxqFemGYlcWRUl8UYfQrnxV29DuWlWkcDpmUGQVpnFfQln5dF9UOeVIAZeF+kGVFRVZaVyX0J58W+oNPmln5YCzBgiaupxyC+sg/bICgCHIF2yDxMg1bIBha3IHNC1Lbtm0rVty0bcgq3bUd817XN23HZd50Letc03Utc3rQtKDbZtq2rT9t2vYtO0XQt20oJtc2rbtS3rXDoNzZt20A7df17bt137bdiDjUAA=",
+        "solution": "786923154378641925912564837541298376467389512295837641859172463634715298123456789",
+        "comments": "",
+        "puzzleSolution": "786923154378641925912564837541298376467389512295837641859172463634715298123456789",
+        "generatedCategories": [
+            "antiknight",
+            "gridsize9x9",
+            "palindrome",
+            "thermometer"
+        ]
+    },
+    {
+        "title": "Antiking Coloring Book: Relaxed String",
+        "author": "Lubaf",
+        "license": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
+        "puzzle": "N4IgzglgXgpiBcBOANCALhNAbO8QEEA7DAawkIHMACAYQHss6Anc6gITrpPioCUYsAQwAeMACZUAymhaUQqQQFc0AC2YIQAGUUAjQQDN5IJopxgYaDQAUhAYxhVVDsRAqYwVAIyOVTOoooVKkQqcioYQVsgmABbAAc0AE8qeywsADoqABFXdyoYxTA0KkI6YqYYOIjigHdMFTCnKjBBGIc/GuQUhkUYwi7mUMIXW0E0cSoKtzpCdIAdQgWctzQPAqKSssnK6qGUgSwPVTGqQQrTlJUYMA8ySgByNboANwdBOLO0ecXCZbzBRiUC4fLDkMR+NpUUGEdoRCRNFqQ/TMGpnMQeQZ6WwkVFMdHfJa5VanQHUCJRHwwJgxOhtcZMfKFYrkWwVQTmZpoT6sKj6CGUqg6Uw6cLDAmEACiwjizHGEj5tOaijEXFMgh06RhllQFBYYgQAG0DaAphAZggAKwAX2QJpg00IlptdodTttxntZsd8Gt7tN5p9zo9rvgAHYg/7veG/Z6A9GXV6EOGALrIY3BxOBmMhgAsEdj3rz2czRYTAdLGfL+ZD8cr3oAbNXMym02Xvb62wgK5GEAAmJsB/vFwcD71DzvwRvDqOjpNW1PpntZifdgt92eTjfjusIKcTzwbgDMG5bi7Xy538FXIe3S9v573l4P04Qz4nx5f8AADPPW5eABwbtemb3iGj5Lm+l7geekFLh+E4/guE6AZ+KHABusEwRh2GfvBl6IX+S5oRuaGXnhcFHpRuEbgRZ4hqRREkUxn4/ixNHsWxyapiAgjEBAdwUAgMiKDAqBONStIWFShqgNC1yGgaIC8IgNCeEYyk0L26kqYe2k0DmekWnp9Z6aGen/npiAgFxv4gCCYIQrg6ZyWAClKZ4qnqb2mleZ5qC8IePn+TmQVKSFun+Ra+nqSFRnBTQJmRTQZn+fWCXqWlKVKVFFmpTQuVKaGyXqf++XqUVVk2dxYA9BgAYGr2yD/sgobIBayCeMgh7IDmyAoPWyADe1KDNb1jWdd1rUoJ1vXdQNrXtY1zVzcgjWtc1nUoL17W9a1m2rW1TWDV1R3de1819QdM2HSNHUnb1F1rT1x2NbdZ13Z1jXddtx3rX1yZWkAA",
+        "solution": "287513496659842137914367528362781945471925863835679214598134672746298351123456789",
+        "comments": "",
+        "puzzleSolution": "287513496659842137914367528362781945471925863835679214598134672746298351123456789",
+        "generatedCategories": [
+            "antiking",
+            "gridsize9x9",
+            "palindrome",
+            "thermometer"
+        ]
+    },
+    {
+        "title": "Antiknight Coloring Book: Shave and a Haircut...",
+        "author": "Lubaf",
+        "license": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
+        "puzzle": "N4IgzglgXgpiBcBOANCALhNAbO8QEEA7DAa0IgHMALNAAgGEB7LRgJwkItoCFHGT4tAMpUAhgDcYtUYQAm02gAlREVgGMArmgB0ukKlFaqbBCAAyGgEaiAZvpCsNOMDDSmACllFqpaKlNlKTDBaAEZaP1ZGDWpaRFoOWhhvKiSAWwAHNABPWh8sLG1aABEgtBC0jTA6QkY6VhgM5LoAd0wqRL8pMFE0qSiW5DzmDTTCIbYEuQg1UTQYeQaKCEZCbQAdQk3S5fLaSuraWvrG5qm8mAKQvznpBoU1fzAQskoaAHIKxklpDNFWHSbbZlEKiFicBR/LAcWRRPq0aGEfrJeRdWg9eE2Ngtf6yEKTaxqEg41h4jZbQg7YLScFcZKPCL+VhpRh9easfZVOgcNQNUQudFof4YCE2OGMqSWJyWJJycmbACiAA8Mmx5vIxaz0RpZPwnKJLNokW5UBR2LIEABtS2gJYrQgIABMAF9kLaYMtVk7Xe7PQ74C63Q4PfbvUG7V6Az7g36EAA2aMR/0J8MhyMp32h+AAdmdAF1kDaY1nA5n04m08mK7H4Bni+XUzW60n49Ws7nG+384Wy/7S/X/QBmNuR4ed0cj/0d3sIacD2eThfjqfdostqNun2L+Bj4Bb5cIAAs2+PB5zq5nG73m7Pu+3oXvj7PAAYL/P4AAOE/fm/Xy8Ps8AP/bdXwLNdKwQL8zygy8YPfOD1wQiD4CA99UPXdDkNAnt4O3JCawAVm3IizxIy8yPfCj1yorC30Q4iGNIkDmJfFjL1AgsQBkUhyGoNx4DQRwYFQLpmVZVwYFYK1QERGAwCtS0QAAJUQehQnsJSPzUjTs201AlLjPTlIIoylMPUzB1Mx1TNCbS8zzbsQChGE4VwItZPk+BrWU8zDw0yyCJAezow8hTlMMj8dPoRAgocziwBGDBI0tFBB2QUJkEPZBHWQD9kDjZBs2QAjcuKzLsuQFAMrSgqiqKrKSoK6qKpQPLauQNKMrynKUBKhrSp68r2s68qMuGsrusqjr8sK0qSqq8qcsGvLGtmrLmoywa0vqib8ocoA==",
+        "solution": "931428675854291367745613298673182954582946731416735829367859142298567413129374586",
+        "comments": "",
+        "puzzleSolution": "931428675854291367745613298673182954582946731416735829367859142298567413129374586",
+        "generatedCategories": [
+            "antiknight",
+            "gridsize9x9",
+            "palindrome",
+            "thermometer"
+        ]
+    },
+    {
+        "title": "Antiking Extra Region Noclone Coloring Book: Bartizan",
+        "author": "Lubaf",
+        "license": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
+        "puzzle": "N4IgzglgXgpiBcBOANCALhNAbO8QEEA7DAawkIHMACAUQA80AnAQyoCUYKIB7QqgOW4BjLLxhUAwt1GNy1AELduJeFXnNGGKM0IhUzAK5oAFt0YIQAGQMAjZgDM9IRgZxgYaCwAUszIeJNxABMILjQwKgBGKhNGbgMKYypEKnIqGD8kmABbAAc0AE8qfywsADoqABFQzAjsgzA0KkJuJsYYXIymgHdMYzTAqjBmbPE47uRi6QNswkmzVMIQoWY0GCCqdq5eMoAdQn3qsLqGppa2jq7F4phSiJNVqg1xViFjGDAIskoAcjruABuL1yGjQewOhAAKu8qCFjtdXswKOJ6o0hjMYtwYjDCDMbDBGFRcrJiOtrrUpoxCASKkcKdlmEVzptLo9eiY0ojkeDDjVwk9RJR0plsQTstxRmtCaimuQhO1mO4hmhQXIqPY4tlRVQbK4bOkljzCPRcmY1hsNRL0UFlK5mDYytTPKgKLIgggANoe0BbHi6eAADgAvsgfZw/Qhg6HnOHeJGQ2Htv6o4mI4GEzGk/Ho764/AAMwZ3P+ws52MloMAXWQ3szaYAbEXywhG2Ws/BW6m8ym692m+2e8WEKWuxW22nC9Xa0OO/205E53mF6GE6vx3mR72x6Ph1WazvZ+v/cuDwAGRf+89HhBXg8ntfAPfT5uHu8Xm/v+AAJk/t63CBPf94D/GcfxXKcD07ICoJnGCXzAs9fyQ69v1XCCgIAFk/LCUJwg8EKAgjQM/Ij4M/ABWJ8DzwzDsIfB8gMolCmIPSj0JnGiOLolceMfFCAHZP0EgSq2rEAdFIOQECYAwYFQQJGHFSUCU9UAsHID5PQ9EA2EQCRIicXSJC/Qy9PzUyJAwizyIs+sLP4iyAwsxAQErSs9xAMhSgJFZkVUkASiwMBPR0+sJBs1A2DCuzIrChzYokFzIv4iQYp0lL4vSiQnOSxLDIDPL3OjQLgvgbS2EiCRzMiyqrJq8LDK/KrGoayKmrSth80swyuoinSursorQBKkK2Aw1LDPGzKxuyya8si8iJoWiRpsWnKdMWpLQtm9yxLAaYMDzD0UHzZByOQfjkHrZAMOQL9kEiZAAyui6brup6HuQE6zp+x7nu++7rsu27Ttuy7rse87/ve57rvu86UEu0HPvulBHuR57zqBt6sY+y60fe07Luhx77uR3HSeQcmXuJr73KAA",
+        "solution": "935764218674281935518932674347615892862597341291348567456879123789123456123456789",
+        "comments": "",
+        "puzzleSolution": "935764218674281935518932674347615892862597341291348567456879123789123456123456789",
+        "generatedCategories": [
+            "antiking",
+            "gridsize9x9",
+            "killercage",
+            "thermometer"
+        ]
+    },
+    {
+        "title": "Antiknight Limited Region Coloring Book: Four Smiley Faces",
+        "author": "Lubaf",
+        "license": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
+        "puzzle": "N4IgzglgXgpiBcBOANCALhNAbO8QEEA7DAa0IgHMALNAAgBkIBbTGAE1oCUYKIB7QrQDCfLHwBOEQhVoAhPnxLxaAMT4BXcbQDKLHAE9VAQwDGMMCFRH1aKhIQh66gEZGAZpZDj1OMDDQOACKUmGC0RmLS4bQADhFSbOJ8TDC0WFKp4jBGHLapYEYptG4SAO5G4mxhErSuJiTllWAAdAA6hO3BvGhhEQIy2SZUtHniTMn+MFpM6mB0UiZZRn60cxUYUW5JTCNUqc4+zrQwhGxtHYRdobQzc7SEfHRZMdnzgmZYWGG2RnQVqUZaENzGEyJQaAByMLjABuALi4jQ53aABU9rQ2CEerQpNETEYKKlbnQwOodmg+LtUoQyc4prFJMR2DjBNcTBJCFNmrQrtimEZDA8njAXr9aKVMFRcYD8YTkYQAApYUypPIYrFhACMuyS6motEQLOOpmGMCYMTQhg+WG5vOhszoQtoz1e4sluLVBSKSVKyCBojJhD9NQSEHxaGZWV4AnlAFEAB4xCQRjhbZKrdRsRQ+IzOZqcgKoCiSNgIADaZeAAF9kNXazXQFH+IQEAAGBteHjNtsdpsCHu1zvRlvwduDvsjseNrv90dVgC6yErQ+78E1vZnI/X483CG3dYPG+He6Pq/3K9n68Xy4nCAATKfZw+d8f4M/p6/3xeR1/b2+GwB9bXoe9YvquADMj4jpBYGzjBH4QVBCDwd+yELkuCGzgALEh8A4bBI74SBB6oXhuFEaROHAaRACsuF0QRCAMZhI7MbR9GAYewGcbhABsfECYx8D8UJIksQg/HUX+ADsuGyUJ8nEXJykKehN67vAAAcuHaUJuniVpOlGaBXGLiARjEBAYLUAE8BoN4MCoKM4wpBG4jlqA6SchY8AViAnCIEImqeAFQh3iFgXgRFQhYdFNHRbx0XSdFmnRYgIDzvO6EgHEXmJBMHkgF55jlmW/m8UFIXSZVqCcJpYUhfVUWZR2xU+X5nAVeFtU0UIzVZYObWlf51VRbVFWxS1g0ZO1ZWdUI6W1dVi3+fVqW1fVyVTZ5M3DZw1XJeNQiJdtRW7b5c0Vet/m9VtA07d5e13jFIXgS9tVYX1IWfeFp1DRd/lvd1/nPcFf3nR1z1jf5moNeDj0A5wz2JbVb0o/5n2HRjQipfDJWI89WOcLDuP3WdCMdW911IwtGVZWZJAQJ8Uyyrgy7Wu12PA5wn3QzzQjxT1NU3Q1Qt871sVC4L5VfWTHPliDQhE891NvUTVPfUrmvU716OcLdIW9bjHby75ivc1Dr3C5wQNW3zb2S4DAua8FH0vfTqBgAGGCzmWKCasgNHIOByCacg0nIHeyBYcgvHB6HyABygcdRzHQcRzHIfJ5HicJxHQdB9nEch2HAepwnQcxwHxfINnUcZznpeB7Htfx3HEdh1HKBp/HZct/n0etyHAdN1HIc9+3CeIFlQA",
+        "solution": "915387246381962457439621875596738124854173962742815693678294531267549318123456789",
+        "comments": "",
+        "puzzleSolution": "915387246381962457439621875596738124854173962742815693678294531267549318123456789",
+        "generatedCategories": [
+            "antiknight",
+            "gridsize9x9",
+            "killercage",
+            "palindrome",
+            "thermometer"
+        ]
+    },
+    {
+        "title": "Antiknight Almost Deficit Coloring Book: Stripes on Donuts",
+        "author": "Lubaf",
+        "license": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
+        "puzzle": "N4IgzglgXgpiBcBOANCALhNAbO8QEEA7DAa0IgHMALNAAnywFsB7MOgERgDMIBjTWgGFmWZgCcIhCrQBCzZiXi0AymgkAHGGFrNCtdroCuaMCFRjDOMDDQIQAFSoxaAE0qZtk2gENavbxTOjIZstGCGjLRozFFOtIQRAEYwYrTqEsQwLrReHn7ihCkAdPruJrSM3gCe8cx0YjCa3nQA7phUXr7+gUUAOoT97GXawaGEdbQNTXRevDBYWNpoVM0+DT5+TmDaZJQ0AOQjzABuzt7q3mJofQOEQxR53qJSGxdYki5izIzO74WTMG82WWzjA3h+tC44halxc2nEtES3l4JBhYjhN0Gwx8z2kgN4VFiKRYPzQKQqIRmhF4DW81jCaEuGBeXC+kRBiMsiVoMEILkxhAAClhkc4OW4HuUAIyxL6Gai0RA5PT4wkwRjqNA1OYLEr3PKjOjjeqNQGtdpeDlgiFfFrIfJYCKEe0Ij58ZpZAEPXQCgCiAA91OIydlWd8woYXApLN5EkVCrZUBQJC4EABtNPAAC+yGzuZzoAa3sICAADAWQEWILoyxWqzX4OXc5WYMXa836yXG3XW9Wu+WALrITMttvwKU9scTju9hvTvMLyd9hDz0fL8dLudZocjzsIABMm67h5nY5Phdnx6PB+v8HPBYfO8X+dP64AzLeP6+G1+L2Pf2uP6ftuw5/uuAAst6Qd+XbQc+C6AbBUHIU+iEIAArLemEwRhWF4Th8DYfBIGZg+L5gQ2ABst7UQRtEUV29FofATF7ixJEMQgADst48QRfHEfxvHCahbEABy3hJBFSZx8Aycx8niWRi4DkOIDeMQEC7NQtjwGohgwKgIJiCSNgpOmoB/Fo6ZpiAABKiCCFKZj2Y5+4uQ5ghvh5jngT5gjof5lH+Vx/lif5iAgKpIEgG8HxsrgI5WaY8AZvZlGCH5qB2ehAUeeBgjBdlb6CKF0XNslNn2VKTkefugjucVXn5ZlUUDhWlWpbZdklY19kFd52W5Vl6V5eVlmSNZXX2SVRX9aVHm5eF2UZZF40gJ1aV2Rlc12VxC3rZt3UZYN9n7e5h2TSlW0lct81re1akkBACwpN0iWgDqizpvNI12QVgXZQVu3DYthUeRlf0ZYDo3Be1zZfdd83OUDDUtadOW1UNzUrVjo19dtzXw598zfal1V43ZNUEzVGP1Sj9n1RjJUMz1aNNd5xMgIjP1U612U1TDfO7fVf31btJV/SVQuzVFFY8+TfOhQLgh3XzkXZfVyuM4IGszQtTVqyVa3y6TSP/Qb81qwVeuY9rmO2xl9sZWrq1ywjZu8/t9v7Wr+222Jlt2YHtuOfbjlq45Jsews5v7X9+1C/tu2B39ge7b5/lC45cOm7HXuU+dHn7Rjges4HGOOazbn+ZzMVgCIxjrmmKBSsg6HIGJyBvsgXHIOByD7sglHD/3g/t73yBt13KA9z3XcDyPKBD23Hd913Pd98vY8j6v48d23fcDz3KAjwvyCn1PncT5v4990v4/TzfY9r9fPcP0PA9t23Q89wPHcj3XhfdqQA==",
+        "solution": "915837426642571893384692157837924615251743968496185372769218534578369241123456789",
+        "comments": "",
+        "puzzleSolution": "915837426642571893384692157837924615251743968496185372769218534578369241123456789",
+        "generatedCategories": [
+            "antiknight",
+            "gridsize9x9",
+            "killercage",
+            "palindrome",
+            "thermometer"
+        ]
+    },
+    {
+        "title": "Almost Boxless Antiknight Coloring Book: Two Hooks Intertwined",
+        "author": "Lubaf",
+        "license": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
+        "puzzle": "N4IgzglgXgpiBcBOANCALhNAbO8QEEsBbAezDQAIAhEgDxzDAvwDsMBrFiAcwAtKAwiSwkAThBbdqJEu3gUAKgHcSFABIz2TAJJsYotEokwAJiFQBDAK5peYhCAAyVgEYWAZuZCirDGGgcAER5MJgsRSQoLCgAHcIkTURIiGAosYwpRGAsTCltUsAsUincxJQtREyYxCjcAY3ZyyrAAOgAdFg7g7lCKIityChYSSiyY7MoJCjqYLCwmWwtKCtTout4YRgpOHn4AciZSADdVuIN2zpYABSwLGbyNihMQtCYARgekqz4KRAop7LrCgwIgxNAAT2msywLQo3V6/UGw1GMHGSwoRlsU3yFEKxSSSmQ02EViILCJNQSEDqS1MmRgPRILAuHQUj2ePVe/xYUWmFm4qURlDApLyqhxLFJLn0sXEelyU16dTELH0sPhXKIFkhyPpaMomN4UzW/JgLJYGrCESkgN4D30pBSaBlQu5dSyFjABTQFQwkXcSSI9tqvhcwJYJnNAFFaDExM7cgHkrirCZZL4LC4WqqAqhuOIzPAANpF0BZRksBAADgAvsgywyIEzq3WGxWW/XvI3m/Ba53y03K73W1328P+92h3224OOzOe7WALrIUuj2fwADsI4HPa3E7He/nQ8Pa9328nCBPO+P54Pt/XW+Xq+vCAAbPee+/9+uv0e3x+h1/U9AIA/9v0/UD4HfJ8/3gAAGSCEPAockNg1DgIQdCX3gxDcOQzCaxgjD4DeSDSPwkiyKoijyNg2jiPo7DSKI7CACZIPYijONg7jiN4tiOMErjCJXWCAGZIIkiipPEyS5Ok+TZJYi94AAFkg9SKM02DtOI3TsP0lTDLHYz13U5SxwAVkg6yKNs2D7OIxzsOclTXKsmzCOXEALDYCAdj4AJ4DQHwYFQfJREdfx9AQVd0lVMBYqLEAACVEAEN4vDSgRWKy9KxLygRVMKyzCtfQqN0KqtCsQEBF0XESQDieLEmSXA4uMRLi2SlKqwyrKN361AUtfIbUsssaUtUyaxMm1jJreHKssWgrhvm4rhtmjbUum7aUomvbRuK+qR3izYktS2bVp2gRrv226stGu7Bruvq9r60rhsG8rhtGn7xoEf6psBrLZqB+agcW8qTu89gIDmfQaQFWLQBmOYup6xbKuGxbqpxgRarWgRsdS+a8dJgnQeJqnyZS2baoa7ywBJDAeyLVjkDE5BVOQN5kFfZAN2QKtkBQSzOeQcWUAFvmRZ5jmhZ5kWhZQDnxZliWBaVwXReQNWJb56XJeFnW+a5+WddV42Ra5vmtZNoW+Y583dfV427YlnmraFkWnc942BZ90WGqAA===",
+        "solution": "234167895359618427487925613648792531965871342792583164871234956516349278123456789",
+        "comments": "",
+        "puzzleSolution": "234167895359618427487925613648792531965871342792583164871234956516349278123456789",
+        "generatedCategories": [
+            "antiknight",
+            "gridsize9x9",
+            "killercage",
+            "palindrome",
+            "thermometer"
+        ]
+    },
+    {
+        "title": "Boxless Antiknight Coloring Book: The Flag",
+        "author": "Lubaf",
+        "license": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
+        "puzzle": "N4IgzglgXgpiBcBOANCALhNAbO8QCEB7ADxzDAAIBBAOwwGsaIBzACzQoGFCtCAnCDWYUihevAoAVVjAoAxLAENmIVIoCuaVvwQgAMuoBGigGaqQfdWRhpdAERaZKi3kIqKKABxeCAJn0IAW1ksQVk+GEVfCi1ZMEVgihN+AHdFPl9KfgpjAGN6NIywADoAHRpygAUlXNlYil9HNEoARhjWAPU2CkQKQQpI3NYBwM80AE8KWqwsYooHZicKQPUwDhpCDgjPSI4UzFZ++vjEgJTkKZ51QJoL7L8IXMU0GGiIxcIaMoqaBaWVtYUDZbGA7Z59GhTGAzShacHpWQeIYwcgURgsdgAckogUIADdEd4+GhvuU/s13K5hINhrE+Ljgi8+MtVhxBLkIoowHE0OkMG4TAFAu1ZIYrIYBjRfKSaABRYiefgvaKCoIUMDqXxiKyKQzFGg2czMAS+BAAbTNwAAvshrbabaB3hBPggAAwOiwwD40N0ep0u+Du22e72+4P+n2Bv1e52R90AXWQlpDsYQLWjofg6fDMYD2btBYzqazRbzpcj6cTyYjCAATOW6w34PWc5mW47c5H2ymA+2Hf2q4X7a3iwBmJvjkcBycdzMznuR+c1+DjwcLhAAFibW6nkZ3Q4L6/g+6PJ+XW7Xy4ArE2b7uEHfZ8XH0eX9f+8PrYOP4flwA2JsAPveAgKfANQKPCD/ytS9OwQAB2JtEOA5CDyQ9CUJgpMwMjAAOJt8OAwicIQYijzI5diJ/GDExARQ6AgdE2FseA0EsGBUDpBkbBgPhzVAUIDTAc0zRAAAlFpOEQcwxNrKSZNHeTUDEjclPEq81LEv9NPgzTcM0xB5PjeMsJAbxBP8IJcGTQSURE8S5JaGS5NrZzOFHNyNxkySr28zg/z8+C/NwkBjI9WzhPgC1xMUpzlMU1z4vchTOC85S5N89L/LcoKspCsLgwi+yVM4OLxNUxLyuS5TVLSmLOEy+qAqS3L6vykzCrCSLorEjSyt6zhKoGjzlI0uqSsakrmqq1qSva0ywCuDAAzNP9kFrZBcOQDdkCvZAUFHZB4OQFojuQQ6UD2tbTp2raNq2nbTrW46Nr2g79t29azq2w7ru2k7kDWw6tpQHaXs+jbjp2lBTr2n7AfOzbPtOja1tBs7oYRjbDuO2Gkb207jsO26vrRkygA==",
+        "solution": "628459371739561482841672593952783614163894725274915836385126947496237158517348269",
+        "comments": "",
+        "puzzleSolution": "628459371739561482841672593952783614163894725274915836385126947496237158517348269",
+        "generatedCategories": [
+            "antiknight",
+            "gridsize9x9",
+            "palindrome",
+            "thermometer"
+        ]
+    },
+    {
+        "title": "Boxless Antiknight Coloring Book: Abstract Album Cover Art",
+        "author": "Lubaf",
+        "license": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
+        "puzzle": "N4IgzglgXgpiBcBOANCALhNAbO8QCEB7ADxzDAAIBBAOwwGsaIBzACzQoGFCtCAnCDWYUihevGoAjMGj4BDAMYcqWSQFcAtl0IA3GH2p80IVHLVpW/BCAAyayXIBmJkHzVkYxvABEWmSnK8QhRyFAAOgYIAJnyEGjAUWIIJfDByURQWCWBy8RSO/ADucnxRlPwUDgr0xaVgAHQAOjTNvsz+FBpqMhQ0hBypYWkcghQKMFhYlBZyHCUJoQqsMOQUjCzsAOSUGroLEUZNLTQACliKCVkUUX5olACMmayxamwUiBSjaUsUMBphaAAnmMJlh6hQ2h0uj0+gMYENZhRCphWKMrjk8rFCsgxjxNDQcRVohAFLMYBlUu1CDQjs0ACrLa63AJBYTfVghPhYzrdDhgTSZQhPBI3dojGjCsYQPgKHAZcaTcGQu6dOTAwbDEKskISkrciCOcL6DSYNDkyrA/rLAxuMi0mjKlnUtmKDlZPi7eJmgzQ8UKVJyMDZNAlDDBRyxLRXdSqX40KL2gCixDC/DNGQjcQo/KiYncckk9RonhczAEUQQAG1K8AAL7IOsN+ugSkQakIAAMzdcMCpNE73db7fgXYbPb7A7HQ/7I8HvbbM67AF1kDXxwuEPc5xP4Fup/Ph3vG8ftxvd6fDxeZ1uV2vpwgAExXx/P+BP/c798tg8zr/r4dfs2QG3ieTYfmeADMr5QeBw4wd+O7wf+M5Ife8BQSByEIAALK+uGwTO+GgceWHwERpHkWhuGYWhACsr70QRCCMQhZ4saR7F0UBYF1iB3EkWhABsr7CUx8Ciaxw4SaR0lCbWNE/ggADsr4qWJanEapWnqfJq6STOAAcr5GWJJn6QgZmkZZaFmfx8kriAch0BA6xsF4shqDAqDup6nj6FWoBJMWYBVpWIAAEqIJw9wuJFnAPrFUUQYlnDYSltEpYJKVKSlBkpYgIBLkuukgBEQUxHEuBrkFKyhRFD7RbFEGNag4XYS1EW0fFsVdclrVdWlrXtRlrXNSN9WcON4X3KlsUzX1EUzQlRXdjVIXwNWnWcDl/WcFlu1Te1g0Rc1x3hQ1Z0zVNM37Yt22xQ1eWjZwT0Re1eUrWOa11eFSnda1f0LeFgmza1IMZZ9gXJOtm3Ay9sUgztEUg7dv2TbFBmgxFmNA5jy3FV90M/Q1QPNfjq1ExtYVtXtTX3ZDIDfVTW2vXDBUM0zsN/azmM5StDl6oQhQBYzlNc1j4WYxDDkKlMVYRX9aUE1DwU/YrCOcMlRWoLLMMK7NxUOWAeIYMOlYPsgBnICgSnIIJyAQcg9zINhyC0ZbbvILb9uO87rsoBbNt2w7Tsu57FtW7bKCu87VvuxbPue77HsB8Htuu479sW+7/se873th/HXspyHfuh1bqe2477v287FuO67NfFxXxVAA==",
+        "solution": "289763145857631492976314528794185263531892674362549817645278931418927356123456789",
+        "comments": "",
+        "puzzleSolution": "289763145857631492976314528794185263531892674362549817645278931418927356123456789",
+        "generatedCategories": [
+            "antiknight",
+            "arrow",
+            "gridsize9x9",
+            "palindrome",
+            "thermometer"
+        ]
+    },
+    {
+        "title": "Boxless Antiknight Coloring Book: Messy Bed",
+        "author": "Lubaf",
+        "license": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
+        "puzzle": "N4IgzglgXgpiBcBOANCALhNAbO8QCEB7ADxzDAAIBBAOwwGsaIBzACzQoGFCtCAnCDWYUihevAoBZGOQCeImABMQqAIYBXNK34IQAGXUAjVQDMVIPurIw0ugCItMlALbqwHGoQ58YABxiqHIIUAMYwWFiUWoEUqj6xoawylIws7ADkLoQAbjCxvnFoAHQAOjRlDsxOsbxCCQVYgop8hM55jTR5PqqKFFp5YKptFCb8AO5xipT8FMYh9BN8U6XlNJXVqrXCASGsfUl8zq02MHwUru4UgiHdYANohYLCJi3O+3mGVoYUMDSKK2UAApYVRhd4URSONCUACM+xa6jYFEQVxoP1Bexgzl8aHkYQiRQo62h5zcHi8FB8/hiY0wrGC/Qog2GLTGyFCPHUzho7JmTQgIUCSkpMCqhBoAJoAFFiL5+GhhS9Wkz1IoxFZVIYip1bKhmAJlPAANpG4AAX2Q5stFtAPjFNAQAAYbRZRRBxU6XXb3Q74M7La77Z6A96PX6vW6w86ALrIU2Bn0IGERoPwZMhyO+9NWnMpxNpvNh7MJotm2Px0O+gBMhertYQNYzqcbtszDfr8BbNu75dz1qb+YAzB3hwOw6PW6mJyXfdPKwhh72ZwgACwdtdj30bvs55fwbd7g/z/dluOT/MAVg7V83CBv57D973T+P9+71t7793x4AbB2/7e8AAQ+vrAXuYG/qeFZtvAADsHbwYBiE7ghqFIVBIEIAAHB2OGAXhmHwARe7EceBFfmWsYgKodAQKkbC2PAaCWDAqD9IcxwKnwCDxh0Mg8UaIAAEowpwMLmCJnBVhJomDjJnArvJF7yT+8mwfJWHyYgIDRtGp4gA0TSvLgvGCPxxqCUJiCcHJqBWQpEnWcpdnWapdlYZw6nuZwmnedpdmwZw2m6S6fFgAJwkebZkUOd5zkxW5wmBV5wk/p5EkXuldkrulIUBmFEVCWl0VCYFJWBYpdlpfFRWcIlpV1Tpen5WZ4UWcJ1nSd5XVJVJElpT1QmZSVmWVcJmU1Zlql5aABXtUJOW+eNPkSTl/nCYOK12VWWXCTt03NbNrWFTtY1CZtZ05TVOUHaFx3zTtJWbSVOWDZl4khVRYCchgYZGjCyBVsgg7ICuyAXsgP7ILByBYcgKAoADQMg2DENQzDcNw2jgPQ/DyAA2DIMw1DiM4yDWOgzjMNgyg5Pg5D+P02DxOw4ztNk3jANw+jlNA9jdMQygYNAwD1OsxDMNI8DeM/npQA=",
+        "solution": "123456789912345678856279143769123854274938561547681932391867425638594217485712396",
+        "comments": "",
+        "puzzleSolution": "123456789912345678856279143769123854274938561547681932391867425638594217485712396",
+        "generatedCategories": [
+            "antiknight",
+            "gridsize9x9",
+            "palindrome",
+            "thermometer"
+        ]
+    },
+    {
+        "title": "Antiknight Coloring Book: Two Birds",
+        "author": "Lubaf",
+        "license": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
+        "puzzle": "N4IgzglgXgpiBcBOANCALhNAbO8QEEA7DAa0IgHMALNAAgGEB7LRgJwkItoCFHGT4tACoB3RjwisAJmBCoAhgFc0VNghAAZRQCN5AMzkhWinGBhp1ABSzyAxjFoqHUypjC0AjI6qtGi6rSItBy0MHZUoQC2AA5oAJ609lhYAHS0ACKuaO6RimB0hIx0rDDRYXQimFQhTrRg8pEOviLIicyKkYStbMGELrbyaDBStCUUEIyEKQA6hLOZ49m0ufm0hcWl5b2JMMnuKoO08iVHiVQwYO5klDQA5DmMAG4O8tHHaDNzhAtuRyycpzeWA4Ul8jVowMITTCI1q9XBejYImOMloPV0thIyOkYE+8yy7nk/y4YVsEScrEijEaQ1YyzydA4thK8jMdTQ7w4XD0YO8Dm0Jm0oT6eMIAFEAB7RNhDEY86l1RRSfgmeTaFJQiyoCjsKQIADa+tAYwmhAQADYAL7IY0wcaTC3W232s3wK02ox200IACsTs9Lt9/pNDvgfo9IddABZg17QzGI3Ho5aALrII0B71u2OBsM5rPh50F/OhwuZ0sl5M2ysIGNpjORx2J3Puouh1vl10dxt55tZhNtqvAGvwOvpwcIADsI+nffbI4ADIvl3Oh52EAAmEdb+sT+CzvcH9f7ld7perhDnvdbi/wG/X1Pj49HnsvpMIAAcp+PV5/I4AzNuQG7seX63m+uZgXuUHHh4AHwbegGIY+DbvvAMGviOGFoXBt64Xu+GwSOhE9oBIE9thkFYcRNF4Qhe5IQxqZpiA8jEBA1zUBY8BoMYMCoBSVI0jArAGqAkIXAa+ogAASog9AeIYcn0BuSnyf+an0FGmk+pp5qaZOmkfppiAgCmKaPiAQIgmCuAZhJsjwIasn/vQpmoDJrnGR5rmGR5Ub0PpHk+oFSnmqF5n+g5UkuSpSkbnFHkePQGlJVpZkWSxYDtBgob6huyBRsgk7ICgHjIB+yA+sg/7IOaNXFXVyAFUV1VlRVVWlR19W1SVLXIOVKCVeVtX1f11UlSV5UFW1hXdQ1RW1dVlVTU1KAFfVs0lZVtXTXNlX1UVe0oL1nV7bVrVNdtpUWUAA==",
+        "solution": "247918536376245918598637241981362457712594863435871692659783124864129375123456789",
+        "comments": "",
+        "puzzleSolution": "247918536376245918598637241981362457712594863435871692659783124864129375123456789",
+        "generatedCategories": [
+            "antiknight",
+            "gridsize9x9",
+            "palindrome",
+            "thermometer"
+        ]
+    },
+    {}
+]
