@@ -208,7 +208,7 @@ export class SumGroup {
             if (elimMask === 0) {
                 continue;
             }
-            for (let value = 1; value < this.boardSize; ++value) {
+            for (let value = 1; value <= this.boardSize; ++value) {
                 if (hasValue(elimMask, value)) {
                     eliminations.push(board.candidateIndex(cell, value));
                 }
@@ -270,7 +270,7 @@ export class SumGroup {
             newMask &= curMask;
 
             let constraintResult: number = ConstraintResult.UNCHANGED;
-            if (curMask != newMask) {
+            if (curMask !== newMask) {
                 for (let cellIndex = 0; cellIndex < this.cells.length; cellIndex++) {
                     if (this.cells[cellIndex] === unsetCell) {
                         resultMasks[cellIndex] = newMask;
