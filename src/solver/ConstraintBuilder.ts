@@ -8,11 +8,13 @@ import { FPuzzlesBoard } from './Constraint/FPuzzlesInterfaces';
 // constraintBuilder.registerConstraint("killercage", (board, params) => new KillerCageConstraint(board, params));
 
 export type ConstraintBuilderFunction = (board: Board, params: unknown) => Constraint | Constraint[];
+export type MultiConstraintBuilderFunction = (board: Board, params: unknown[]) => Constraint | Constraint[];
 export type BooleanConstraintBuilderFunction = (board: Board) => Constraint | Constraint[];
 export type AggregateConstraintBuilderFunction = (board: Board, boardData: FPuzzlesBoard) => Constraint | Constraint[];
 
 class ConstraintBuilder {
     constraintBuilder: Map<string, ConstraintBuilderFunction> = new Map();
+    multiConstraintBuilder: Map<string, MultiConstraintBuilderFunction> = new Map();
     constraintNames: string[] = [];
 
     booleanConstraintBuilder: Map<string, BooleanConstraintBuilderFunction> = new Map();
@@ -57,11 +59,19 @@ class ConstraintBuilder {
                 continue;
             }
 
-            const builder = this.constraintBuilder.get(constraintName);
-            if (builder) {
-                for (const instance of constraintData) {
-                    const newConstraint = builder(board, instance);
-                    this.addConstraintToBoard(board, newConstraint);
+            if (this.constraintBuilder.has(constraintName)) {
+                const builder = this.constraintBuilder.get(constraintName);
+                if (builder) {
+                    for (const instance of constraintData) {
+                        const newConstraint = builder(board, instance);
+                        this.addConstraintToBoard(board, newConstraint);
+                    }
+                }
+            } else if (this.multiConstraintBuilder.has(constraintName)) {
+                const builder = this.multiConstraintBuilder.get(constraintName);
+                if (builder) {
+                    const newConstraints = builder(board, constraintData);
+                    this.addConstraintToBoard(board, newConstraints);
                 }
             }
         }
@@ -89,6 +99,12 @@ class ConstraintBuilder {
     // Assumes the data is an array of constraint instances and sends one instance at a time
     registerConstraint(constraintName: string, builder: ConstraintBuilderFunction) {
         this.constraintBuilder.set(constraintName, builder);
+        this.constraintNames.push(constraintName);
+    }
+
+    // Assumes the data is an array of constraint instances and sends the entire array
+    registerMultiConstraint(constraintName: string, builder: MultiConstraintBuilderFunction) {
+        this.multiConstraintBuilder.set(constraintName, builder);
         this.constraintNames.push(constraintName);
     }
 
