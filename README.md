@@ -263,5 +263,6 @@ We welcome contributions from the community! Whether you're fixing bugs, improvi
 
 ## License
 
-This project is licensed under the ISC License. For more details, please see the [LICENSE](LICENSE) file in the project root.
-All contributions to this project are also licensed under this license.
+The source code of this project is licensed under the ISC License. For more details, please see the [LICENSE](LICENSE) file in the project root. All contributions to the source code of this project are also licensed under this license.
+
+The puzzle data located in the 'puzzles' folder are licensed under Creative Commons Attribution 4.0 International (CC BY 4.0). Please adhere to the terms of this license when using or redistributing this data.
