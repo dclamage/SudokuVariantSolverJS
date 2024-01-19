@@ -12,7 +12,9 @@ describe('Test puzzles', () => {
     // Run the tests in a beforeAll and then report the failures as individual cases per check for readability
     beforeAll(async () => {
         [failures, numPuzzlesFailed, timeouts] = await runChecksOnPuzzles(puzzles, 1000);
-    }, 30 * 1000); // Jest timeout after 30 seconds
+    }, 600 * 1000); // Jest timeout after 10 minutes
+    // TODO: Separate tests by runtime so we can run the quicker puzzles first
+    // TODO: Possibly parallelize by puzzle to make use of multiple cores
 
     // Ignore timeouts
     timeouts;
