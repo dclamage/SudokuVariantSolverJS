@@ -46,7 +46,19 @@ export class Puzzle {
         };
     }
 
-    static nonCategoryKeys: string[] = ['size', 'grid', 'title', 'author', 'ruleset', 'solution', 'successMessage'];
+    static nonCategoryKeys: string[] = [
+        'size',
+        'grid',
+        'title',
+        'author',
+        'ruleset',
+        'solution',
+        'successMessage',
+        'truecandidatesoptions',
+        'disabledlogic',
+        'line',
+        'text',
+    ];
     generateCategories(): object {
         const categories = Object.keys(this.puzzle).filter(key => !Puzzle.nonCategoryKeys.includes(key));
         categories.push(`gridsize${this.puzzle.size}x${this.puzzle.size}`);

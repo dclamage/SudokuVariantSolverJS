@@ -21,6 +21,7 @@ export class SolutionValidityCheck {
             !(
                 (solveOutput.solutionCount === 0) === solveOutput.randomSolutionInvalid && // solutionCount matches randomSolution
                 (solveOutput.solutionCount === 0) === solveOutput.trueCandidatesInvalid && // solutionCount matches trueCandidates
+                solveOutput.repeatedSteppingInvalid === solveOutput.logicalSolveInvalid && // contradiction detected by stepping iff contradiction detected by logical solve
                 (!solveOutput.logicalSolveInvalid || solveOutput.solutionCount === 0) && // if contradiction detected by logical solve then solutionCount is 0
                 (!solveOutput.repeatedSteppingInvalid || solveOutput.solutionCount === 0) && // if contradiction detected by stepping then solutionCount is 0
                 true
@@ -48,7 +49,11 @@ solveChecks.push(new SolutionCountCheck());
 
 export class TrueCandidatesRandomSolveCheck {
     check(puzzle: Puzzle, solveOutput: SolveOutput): string | undefined {
-        if (!solutionPartOfExpandedCandidates(solveOutput.randomSolution, solveOutput.trueCandidates)) {
+        if (
+            solveOutput.randomSolution &&
+            solveOutput.trueCandidates &&
+            !solutionPartOfExpandedCandidates(solveOutput.randomSolution, solveOutput.trueCandidates)
+        ) {
             return 'Random solution not part of true candidates.';
         }
     }
@@ -57,7 +62,11 @@ solveChecks.push(new TrueCandidatesRandomSolveCheck());
 
 export class TrueCandidatesLogicalSolveCheck {
     check(puzzle: Puzzle, solveOutput: SolveOutput): string | undefined {
-        if (!expandedCandidatesPartOfExpandedCandidates(solveOutput.trueCandidates, solveOutput.logicalSolve)) {
+        if (
+            solveOutput.logicalSolve &&
+            solveOutput.trueCandidates &&
+            !expandedCandidatesPartOfExpandedCandidates(solveOutput.trueCandidates, solveOutput.logicalSolve)
+        ) {
             return 'True candidates not part of logical solve.';
         }
     }
@@ -70,7 +79,7 @@ export class ProvidedSolutionCheck {
             if (!solveOutput.randomSolution || solveOutput.randomSolution.join('') !== puzzle.solution) {
                 return `Provided solution does not match random solution.
     Provided solution: ${puzzle.solution}
-    Random solution: ${solveOutput.randomSolution.join('')}`;
+    Random solution: ${solveOutput.randomSolution ? solveOutput.randomSolution.join('') : 'No random solution'}`;
             }
         }
     }
@@ -93,6 +102,8 @@ solveChecks.push(new LogicalSolveStepCandidatesCheck());
 export class LogicalSolveStepExplanationCheck {
     check(puzzle: Puzzle, solveOutput: SolveOutput): string | undefined {
         if (
+            !solveOutput.logicalSolveInvalid &&
+            !solveOutput.repeatedSteppingInvalid &&
             !sequenceEqual(
                 solveOutput.logicalSolveExplanation,
                 solveOutput.repeatedSteppingExplanation.length > 0 && solveOutput.repeatedSteppingExplanation[0] === 'Initial Candidates'
