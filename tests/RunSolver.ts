@@ -69,13 +69,13 @@ export class SolveOutput {
                 // This may be set repeatedly, we'll take the last one
                 if (result.candidates) this.repeatedStepping = result.candidates;
                 this.repeatedSteppingExplanation.push(result.desc);
-                this.repeatedSteppingInvalid = result.invalid;
+                this.repeatedSteppingInvalid = result.invalid || this.repeatedSteppingInvalid;
                 this.repeatedSteppingChanged = result.changed;
                 break;
             case 'logicalsolve':
                 this.logicalSolve = result.candidates;
                 this.logicalSolveExplanation = result.desc;
-                this.logicalSolveInvalid = result.invalid;
+                this.logicalSolveInvalid = result.invalid || this.logicalSolveInvalid;
                 this.logicalSolveChanged = result.changed;
                 break;
         }
