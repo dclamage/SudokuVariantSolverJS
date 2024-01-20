@@ -2,6 +2,7 @@ import {
     allValues,
     combinations,
     minValue,
+    maxValue,
     permutations,
     popcount,
     sequenceEqual,
@@ -901,7 +902,7 @@ export class Board {
             if (result === LogicResult.CHANGED) {
                 changedThisRound = true;
                 changed = true;
-                // Keep looking for singles until there are none
+                // Keep looking for logic until there is none
                 continue;
             }
 
@@ -917,7 +918,7 @@ export class Board {
                 if (result === LogicResult.CHANGED) {
                     changedThisRound = true;
                     changed = true;
-                    // Keep looking for singles / cell forcing until there are none
+                    // Keep looking for logic until there is none
                     continue;
                 }
             }
@@ -982,6 +983,24 @@ export class Board {
                         break;
                     }
                 }
+            }
+
+            if (changedThisRound || initialNonGivenCount !== this.nonGivenCount || this.nakedSingles.length !== 0) {
+                // Keep looking for logic until there is none
+                continue;
+            }
+
+            // Look for pairs (fast brute-force method)
+            result = this.applyPairs();
+            if (result === LogicResult.INVALID) {
+                return result;
+            }
+
+            if (result === LogicResult.CHANGED) {
+                changedThisRound = true;
+                changed = true;
+                // Keep looking for logic until there is none
+                continue;
             }
 
             if (!changedThisRound && initialNonGivenCount === this.nonGivenCount && this.nakedSingles.length === 0) {
@@ -1202,7 +1221,7 @@ export class Board {
         return filteredSingles;
     }
 
-    applyNakedSingles() {
+    private applyNakedSingles() {
         let changed = false;
         while (this.nakedSingles.length > 0) {
             const cellIndex = this.nakedSingles.pop();
@@ -1217,7 +1236,7 @@ export class Board {
         return this.nonGivenCount === 0 ? LogicResult.COMPLETE : changed ? LogicResult.CHANGED : LogicResult.UNCHANGED;
     }
 
-    applyHiddenSingles() {
+    private applyHiddenSingles() {
         const { size, givenBit, cells, allValues } = this;
         let changed = false;
         for (const region of this.regions) {
@@ -1258,6 +1277,88 @@ export class Board {
         }
 
         return this.nonGivenCount === 0 ? LogicResult.COMPLETE : changed ? LogicResult.CHANGED : LogicResult.UNCHANGED;
+    }
+
+    private applyPairs() {
+        const maxPairMask = valueBit(this.size) | valueBit(this.size - 1);
+        const usedMasks: Array<CellMask> = [];
+        const pairCells = new Array(maxPairMask);
+
+        const cellCount = this.size * this.size;
+        for (let i = 0; i < cellCount; i++) {
+            const cellMask = this.cells[i];
+            if (this.isGivenMask(cellMask)) {
+                continue;
+            }
+
+            const numValues = popcount(cellMask);
+            if (numValues === 2) {
+                if (pairCells[cellMask] === undefined) {
+                    usedMasks.push(cellMask);
+                    pairCells[cellMask] = [i];
+                } else {
+                    pairCells[cellMask].push(i);
+                }
+            }
+        }
+
+        if (usedMasks.length === 0) {
+            return LogicResult.UNCHANGED;
+        }
+
+        // Go in order for cache locality
+        usedMasks.sort((a, b) => a - b);
+
+        let changed = false;
+        for (const cellMask of usedMasks) {
+            const pairCellIndexes = pairCells[cellMask];
+            if (pairCellIndexes.length < 2) {
+                continue;
+            }
+
+            const pairValue0 = minValue(cellMask);
+            const pairValue1 = maxValue(cellMask);
+
+            for (let index0 = 0; index0 < pairCellIndexes.length - 1; index0++) {
+                const cellIndex0 = pairCellIndexes[index0];
+                const candidate0v0 = this.candidateIndex(cellIndex0, pairValue0);
+                const candidate0v1 = this.candidateIndex(cellIndex0, pairValue1);
+
+                for (let index1 = index0 + 1; index1 < pairCellIndexes.length; index1++) {
+                    const cellIndex1 = pairCellIndexes[index1];
+                    const candidate1v0 = this.candidateIndex(cellIndex1, pairValue0);
+                    const candidate1v1 = this.candidateIndex(cellIndex1, pairValue1);
+
+                    if (this.isWeakLink(candidate0v0, candidate1v0) && this.isWeakLink(candidate0v1, candidate1v1)) {
+                        const elims1 = this.calcElimsForCandidateIndices([candidate0v0, candidate1v0]);
+                        if (elims1.length > 0) {
+                            const result = this.performElims(elims1);
+                            if (result === LogicResult.INVALID) {
+                                return result;
+                            }
+
+                            if (result === LogicResult.CHANGED) {
+                                changed = true;
+                            }
+                        }
+
+                        const elims2 = this.calcElimsForCandidateIndices([candidate0v1, candidate1v1]);
+                        if (elims2.length > 0) {
+                            const result = this.performElims(elims2);
+                            if (result === LogicResult.INVALID) {
+                                return result;
+                            }
+
+                            if (result === LogicResult.CHANGED) {
+                                changed = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return changed ? LogicResult.CHANGED : LogicResult.UNCHANGED;
     }
 
     isGiven(cellIndex: CellIndex): boolean {
