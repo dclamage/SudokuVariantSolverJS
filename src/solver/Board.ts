@@ -16,6 +16,7 @@ import {
     CellCoords,
     CellValue,
     CandidateIndex,
+    valuesList,
 } from './SolveUtility';
 import { NakedSingle } from './LogicalStep/NakedSingle';
 import { HiddenSingle } from './LogicalStep/HiddenSingle';
@@ -570,6 +571,7 @@ export class Board {
                     for (const implication of payload.implications) {
                         this.binaryImplications.addImplication(implication[0], implication[1]);
                     }
+                    this.binaryImplications.sortGraph();
                 }
                 if (payload.addConstraints && payload.addConstraints.length > 0) {
                     this.constraints.push(...payload.addConstraints);
@@ -695,6 +697,23 @@ export class Board {
             for (const constraint of this.constraints) {
                 this.solveStats.constraintEliminationsEnforced++;
                 if (!constraint.enforceCandidateElim(this, cellIndex, value)) {
+                    return false;
+                }
+            }
+
+            // Check for binary implications
+            const candidateIndex = this.candidateIndex(cellIndex, value);
+            const negConsequences = this.binaryImplications.getNegConsequences(~candidateIndex);
+            for (const negConsequence of negConsequences) {
+                const [cellIndex2, value2] = this.candidateToIndexAndValue(negConsequence);
+                if (!this.clearValue(cellIndex2, value2)) {
+                    return false;
+                }
+            }
+            const posConsequences = this.binaryImplications.getPosConsequences(~candidateIndex);
+            for (const posConsequence of posConsequences) {
+                const [cellIndex2, value2] = this.candidateToIndexAndValue(posConsequence);
+                if (!this.setAsGiven(cellIndex2, value2)) {
                     return false;
                 }
             }
@@ -1004,6 +1023,20 @@ export class Board {
             }
 
             if (!changedThisRound && initialNonGivenCount === this.nonGivenCount && this.nakedSingles.length === 0) {
+                if (isDepth0) {
+                    result = this.discoverBinaryImplications();
+                    if (result === LogicResult.INVALID) {
+                        return result;
+                    }
+
+                    if (result === LogicResult.CHANGED) {
+                        changedThisRound = true;
+                        changed = true;
+                        // Keep looking for logic until there is none
+                        continue;
+                    }
+                }
+
                 return changed ? LogicResult.CHANGED : LogicResult.UNCHANGED;
             }
         }
@@ -1359,6 +1392,160 @@ export class Board {
         }
 
         return changed ? LogicResult.CHANGED : LogicResult.UNCHANGED;
+    }
+
+    private discoverBinaryImplications() {
+        const { size, cells } = this;
+        const totalCells = size * size;
+
+        let addedImplications = false;
+        const invalidCandidates: CandidateIndex[] = [];
+        const alwaysTrueCandidates: CandidateIndex[] = [];
+        for (let cellIndex = 0; cellIndex < totalCells; cellIndex++) {
+            const cellMask = cells[cellIndex];
+            if (this.isGivenMask(cellMask)) {
+                continue;
+            }
+
+            // Find truth implications
+            for (let value = 1; value <= size; value++) {
+                if ((cellMask & valueBit(value)) === 0) {
+                    continue;
+                }
+                const candidateIndex = this.candidateIndex(cellIndex, value);
+
+                const newBoard = this.clone();
+                if (!newBoard.setAsGiven(cellIndex, value)) {
+                    invalidCandidates.push(candidateIndex);
+                    continue;
+                }
+
+                const bruteForceResult = newBoard.applyBruteForceLogic(false);
+                if (bruteForceResult === LogicResult.INVALID) {
+                    invalidCandidates.push(candidateIndex);
+                    continue;
+                }
+
+                if (bruteForceResult !== LogicResult.UNCHANGED) {
+                    if (this.addBinaryImplicationsFromTruth(candidateIndex, newBoard)) {
+                        addedImplications = true;
+                    }
+                }
+            }
+
+            // Find false implications
+            for (let value = 1; value <= size; value++) {
+                if ((cellMask & valueBit(value)) === 0) {
+                    continue;
+                }
+                const candidateIndex = this.candidateIndex(cellIndex, value);
+
+                const newBoard = this.clone();
+                if (!newBoard.clearValue(cellIndex, value)) {
+                    alwaysTrueCandidates.push(candidateIndex);
+                    continue;
+                }
+
+                const bruteForceResult = newBoard.applyBruteForceLogic(false);
+                if (bruteForceResult === LogicResult.INVALID) {
+                    alwaysTrueCandidates.push(candidateIndex);
+                    continue;
+                }
+
+                if (bruteForceResult !== LogicResult.UNCHANGED) {
+                    if (this.addBinaryImplicationsFromFalse(candidateIndex, newBoard)) {
+                        addedImplications = true;
+                    }
+                }
+            }
+        }
+
+        if (addedImplications) {
+            this.binaryImplications.sortGraph();
+        }
+
+        let changed = addedImplications;
+        for (const invalidCandidate of invalidCandidates) {
+            if (!this.clearCandidate(invalidCandidate)) {
+                return LogicResult.INVALID;
+            }
+            changed = true;
+        }
+
+        for (const alwaysTrueCandidate of alwaysTrueCandidates) {
+            const [cellIndex, value] = this.candidateToIndexAndValue(alwaysTrueCandidate);
+            if (!this.setAsGiven(cellIndex, value)) {
+                return LogicResult.INVALID;
+            }
+            changed = true;
+        }
+
+        return changed ? LogicResult.CHANGED : LogicResult.UNCHANGED;
+    }
+
+    private addBinaryImplicationsFromTruth(trueCandidateIndex: CandidateIndex, newBoard: Board) {
+        const { size, cells, allValues } = this;
+        const { cells: newCells } = newBoard;
+        const totalCells = size * size;
+
+        let changed = false;
+        const trueCellIndex = this.cellIndexFromCandidate(trueCandidateIndex);
+        for (let cellIndex = 0; cellIndex < totalCells; cellIndex++) {
+            if (cellIndex === trueCellIndex) {
+                continue;
+            }
+
+            const cellMask0 = cells[cellIndex] & allValues;
+            const cellMask1 = newCells[cellIndex] & allValues;
+            if (cellMask0 === cellMask1) {
+                continue;
+            }
+
+            const eliminatedMask = cellMask0 & ~cellMask1;
+            if (eliminatedMask === 0) {
+                continue;
+            }
+
+            for (const value of valuesList(eliminatedMask)) {
+                const eliminatedCandidateIndex = this.candidateIndex(cellIndex, value);
+                if (this.binaryImplications.addImplication(trueCandidateIndex, ~eliminatedCandidateIndex)) {
+                    changed = true;
+                }
+            }
+        }
+        return changed;
+    }
+
+    private addBinaryImplicationsFromFalse(falseCandidateIndex: CandidateIndex, newBoard: Board) {
+        const { size, cells, givenBit } = this;
+        const { cells: newCells } = newBoard;
+        const totalCells = size * size;
+
+        let changed = false;
+        const falseCellIndex = this.cellIndexFromCandidate(falseCandidateIndex);
+        for (let cellIndex = 0; cellIndex < totalCells; cellIndex++) {
+            if (cellIndex === falseCellIndex) {
+                continue;
+            }
+
+            const cellMask0 = cells[cellIndex];
+            const cellMask1 = newCells[cellIndex];
+            if (cellMask0 === cellMask1) {
+                continue;
+            }
+
+            if ((cellMask0 & givenBit) !== 0 || (cellMask1 & givenBit) === 0) {
+                continue;
+            }
+
+            const trueValue = minValue(cellMask1);
+            const trueCandidate = this.candidateIndex(cellIndex, trueValue);
+            if (this.binaryImplications.addImplication(~falseCandidateIndex, trueCandidate)) {
+                changed = true;
+            }
+        }
+
+        return changed;
     }
 
     isGiven(cellIndex: CellIndex): boolean {
