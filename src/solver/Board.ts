@@ -198,6 +198,8 @@ export class Board {
     invalidInit: boolean;
     nonGivenCount: number;
     nakedSingles: CellIndex[];
+    reducedCells: CellIndex[];
+    reducedCellsBoolean: Uint8Array;
     binaryImplications: BinaryImplicationLayeredGraph;
     regions: Region[];
     constraints: Constraint[];
@@ -220,7 +222,12 @@ export class Board {
             this.invalidInit = false;
             this.nonGivenCount = size * size;
             this.nakedSingles = [];
-            this.binaryImplications = new BinaryImplicationLayeredGraph(size * size * size);
+            this.reducedCells = [];
+            this.reducedCellsBoolean = new Uint8Array(size * size);
+            this.binaryImplications = new BinaryImplicationLayeredGraph(
+                size * size * size,
+                Array.from({ length: size * size }, (_, cellIndex) => Array.from({ length: size }, (_, i) => cellIndex * size + i))
+            );
             this.regions = [];
             this.constraints = [];
             this.constraintStates = [];
@@ -229,7 +236,6 @@ export class Board {
 
             this.bruteForceExpensiveSteps = [
                 new ConstraintLogic(),
-                new CellForcing(),
                 new NakedTupleAndPointing(),
                 new Fish([2]),
                 new Skyscraper(),
@@ -277,6 +283,8 @@ export class Board {
         clone.invalidInit = this.invalidInit;
         clone.nonGivenCount = this.nonGivenCount;
         clone.nakedSingles = this.nakedSingles.slice(); // Deep copy
+        clone.reducedCells = this.reducedCells.slice(); // Deep copy
+        clone.reducedCellsBoolean = new Uint8Array(this.reducedCellsBoolean);
         clone.binaryImplications = this.binaryImplications;
         clone.regions = this.regions;
         clone.constraints = this.constraints.map(constraint => constraint.clone()); // Clone constraints that need backtracking state
@@ -309,6 +317,8 @@ export class Board {
         clone.invalidInit = this.invalidInit;
         clone.nonGivenCount = this.nonGivenCount;
         clone.nakedSingles = this.nakedSingles.slice(); // Deep copy
+        clone.reducedCells = this.reducedCells.slice(); // Deep copy
+        clone.reducedCellsBoolean = new Uint8Array(this.reducedCellsBoolean);
         clone.binaryImplications = this.binaryImplications.subboardClone(); // Deep copy
         clone.regions = this.regions.slice(); // Deep copy
         clone.constraints = []; // Don't inherit constraints
@@ -605,6 +615,7 @@ export class Board {
                 return false;
             }
         }
+        this.binaryImplications.preprocess();
         return true;
     }
 
@@ -700,33 +711,15 @@ export class Board {
 
         if (popcount(cellMask) === 1) {
             this.nakedSingles.push(cellIndex);
-        }
-
-        // Check for binary implications
-        let removedMask = origMask & ~cellMask;
-        while (removedMask !== 0) {
-            const value = minValue(removedMask);
-            removedMask &= ~valueBit(value);
-
-            const candidateIndex = this.candidateIndex(cellIndex, value);
-            const negConsequences = this.binaryImplications.getNegConsequences(~candidateIndex);
-            for (const negConsequence of negConsequences) {
-                const [cellIndex2, value2] = this.candidateToIndexAndValue(negConsequence);
-                if (!this.clearValue(cellIndex2, value2)) {
-                    return false;
-                }
-            }
-            const posConsequences = this.binaryImplications.getPosConsequences(~candidateIndex);
-            for (const posConsequence of posConsequences) {
-                const [cellIndex2, value2] = this.candidateToIndexAndValue(posConsequence);
-                if (!this.setAsGiven(cellIndex2, value2)) {
-                    return false;
-                }
+        } else {
+            if (!this.reducedCellsBoolean[cellIndex]) {
+                this.reducedCells.push(cellIndex);
+                this.reducedCellsBoolean[cellIndex] = 1;
             }
         }
 
         // Check for constraint implications
-        removedMask = origMask & ~cellMask;
+        let removedMask = origMask & ~cellMask;
         while (removedMask !== 0) {
             const value = minValue(removedMask);
             removedMask &= ~valueBit(value);
@@ -931,6 +924,18 @@ export class Board {
                 // Until there are no more naked singles
             }
 
+            result = this.applyCellForcing();
+            if (result === LogicResult.INVALID) {
+                return result;
+            }
+
+            if (result === LogicResult.CHANGED) {
+                changedThisRound = true;
+                changed = true;
+                // Keep looking for logic until there is none
+                continue;
+            }
+
             result = this.applyHiddenSingles();
             if (result === LogicResult.INVALID || result === LogicResult.COMPLETE) {
                 return result;
@@ -959,23 +964,6 @@ export class Board {
                     }
                 }
             } else {
-                if (isDepth0) {
-                    // Temporary hack: At depth 0, run cell forcing
-                    // We need this as more and more constraints are becoming weaklinks based which is super weak without the support encoding.
-                    // TODO: When we have LUT based cell forcing, see if this is fast enough to run at all levels of the solve
-                    result = new CellForcing().step(this, null);
-                    if (result === LogicResult.INVALID || result === LogicResult.COMPLETE) {
-                        return result;
-                    }
-
-                    if (result === LogicResult.CHANGED) {
-                        changedThisRound = true;
-                        changed = true;
-                        // Keep looking for logic until there is none
-                        continue;
-                    }
-                }
-
                 // If we get here, then there are no more singles to find
                 // Allow constraints to apply their logic
                 if (!isDepth0) {
@@ -1067,6 +1055,8 @@ export class Board {
                     }
 
                     if (result === LogicResult.CHANGED) {
+                        // Recompute cell forcing
+                        this.binaryImplications.preprocess();
                         changedThisRound = true;
                         changed = true;
                         // Keep looking for logic until there is none
@@ -1347,6 +1337,42 @@ export class Board {
         }
 
         return this.nonGivenCount === 0 ? LogicResult.COMPLETE : changed ? LogicResult.CHANGED : LogicResult.UNCHANGED;
+    }
+
+    private applyCellForcing(): LogicResult {
+        let changed = false;
+
+        while (this.reducedCells.length > 0) {
+            const cellIndex = this.reducedCells.pop();
+            this.reducedCellsBoolean[cellIndex] = 0;
+
+            const mask = this.cells[cellIndex] & this.allValues;
+            const count = popcount(mask);
+            if (count === 0) return LogicResult.INVALID;
+            if (count === 1) continue;
+            // Cell clauses are registered with clauseId = cellIndex
+            const cellForcingVariable = this.binaryImplications.clauseIdAndMaskToVariable(cellIndex, mask);
+            for (const elim of this.binaryImplications.getNegConsequences(cellForcingVariable)) {
+                const [cellIndex, value] = this.candidateToIndexAndValue(elim);
+                if (hasValue(this.cells[cellIndex], value)) {
+                    if (!this.clearValue(cellIndex, value)) {
+                        return LogicResult.INVALID;
+                    }
+                    changed = true;
+                }
+            }
+            for (const single of this.binaryImplications.getPosConsequences(cellForcingVariable)) {
+                const [cellIndex, value] = this.candidateToIndexAndValue(single);
+                if (this.cells[cellIndex] !== (valueBit(value) | this.givenBit)) {
+                    if (!this.setAsGiven(cellIndex, value)) {
+                        return LogicResult.INVALID;
+                    }
+                    changed = true;
+                }
+            }
+        }
+
+        return changed ? LogicResult.CHANGED : LogicResult.UNCHANGED;
     }
 
     private applyPairs() {

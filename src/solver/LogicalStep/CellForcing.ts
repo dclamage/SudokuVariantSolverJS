@@ -1,6 +1,6 @@
 import { Board } from '../Board';
 import { LogicResult } from '../Enums/LogicResult';
-import { CandidateIndex, cellName, maskToString, popcount, valuesList } from '../SolveUtility';
+import { CandidateIndex, cellName, maskToString, popcount, valueBit, valuesList } from '../SolveUtility';
 import { LogicalStep } from './LogicalStep';
 
 export class CellForcing extends LogicalStep {
@@ -22,8 +22,11 @@ export class CellForcing extends LogicalStep {
                     continue;
                 }
 
-                const cellCandidates: CandidateIndex[] = valuesList(cellMask).map(value => board.candidateIndex(cellIndex, value));
-                const elims: CandidateIndex[] = board.calcElimsForCandidateIndices(cellCandidates);
+                const allElims = board.binaryImplications.getNegConsequences(board.binaryImplications.clauseIdAndMaskToVariable(cellIndex, cellMask));
+                const elims = allElims.filter(elim => {
+                    const [cellIndex, value] = board.candidateToIndexAndValue(elim);
+                    return board.cells[cellIndex] & valueBit(value);
+                });
                 if (elims.length === 0) {
                     continue;
                 }
