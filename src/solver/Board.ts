@@ -2077,10 +2077,22 @@ export class Board {
         return false;
     }
 
+    private static potentialCandidates(jobStack: Board[]) {
+        const potentialCandidatesEntry = jobStack[0].cellsPool.get();
+        const potentialCandidates = potentialCandidatesEntry.array64;
+        const length64 = potentialCandidates.length;
+        for (const board of jobStack) {
+            for (let cellIndex = 0; cellIndex < length64; cellIndex++) {
+                potentialCandidates[cellIndex] |= board.cells64[cellIndex];
+            }
+        }
+        return potentialCandidatesEntry;
+    }
+
     async calcTrueCandidates(
         maxSolutionsPerCandidate: number,
         isCancelled: (() => boolean) | null | undefined,
-        reportProgress: ((candidates: CellMask[]) => void) | null | undefined = null
+        reportProgress: ((definiteCandidates: CellMask[], potentialCandidates: CellMask[]) => void) | null | undefined = null
     ): Promise<SolveResultTrueCandidates | SolveResultTrueCandidatesWithCount | SolveResultNoSolution | SolveResultCancelled> {
         const { size, allValues } = this;
         const totalCells = size * size;
@@ -2115,7 +2127,10 @@ export class Board {
                     // Report the current progress
                     if (reportProgress) {
                         const candidates = Array.from(trueCandidates).map(mask => mask & allValues);
-                        reportProgress(candidates);
+                        const potentialCandidatesEntry = Board.potentialCandidates(jobStack);
+                        const potentialCandidates = Array.from(potentialCandidatesEntry.array).map(mask => mask & allValues);
+                        reportProgress(candidates, potentialCandidates);
+                        this.cellsPool.release(potentialCandidatesEntry);
                     }
                     lastReportTime = Date.now();
                 }

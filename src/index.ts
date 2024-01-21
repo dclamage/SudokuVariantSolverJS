@@ -12,7 +12,14 @@ export type SolverResult =
     | { result: 'cancelled' }
     | { result: 'solution'; solution: CellValue[] }
     | { result: 'no solution' }
-    | { result: 'truecandidates'; candidates: ExpandedCandidates; counts?: number[]; inprogress?: true }
+    | {
+          result: 'truecandidates';
+          candidates?: ExpandedCandidates;
+          definiteCandidates?: ExpandedCandidates;
+          potentialCandidates?: ExpandedCandidates;
+          counts?: number[];
+          inprogress?: true;
+      }
     | { result: 'count'; count: number; complete: boolean; cancelled?: true }
     | { result: 'step'; desc: string; candidates?: ExpandedCandidates; invalid?: boolean; changed?: boolean }
     | { result: 'logicalsolve'; desc: string[]; candidates?: ExpandedCandidates; invalid: boolean; changed: boolean };
@@ -156,9 +163,15 @@ class SudokuVariantSolver {
             const trueCandidatesResult = await board.calcTrueCandidates(
                 maxSolutionsPerCandidate,
                 () => this.eventCanceled,
-                candidates => {
-                    const expandedCandidates = this.expandCandidates(candidates);
-                    this.messageCallback({ result: 'truecandidates', candidates: expandedCandidates, inprogress: true });
+                (definiteCandidates, potentialCandidates) => {
+                    const expandedDefiniteCandidates = this.expandCandidates(definiteCandidates);
+                    const expandedPotentialCandidates = this.expandCandidates(potentialCandidates);
+                    this.messageCallback({
+                        result: 'truecandidates',
+                        definiteCandidates: expandedDefiniteCandidates,
+                        potentialCandidates: expandedPotentialCandidates,
+                        inprogress: true,
+                    });
                 }
             );
 
