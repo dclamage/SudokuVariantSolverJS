@@ -12,7 +12,7 @@ export type SolverResult =
     | { result: 'cancelled' }
     | { result: 'solution'; solution: CellValue[] }
     | { result: 'no solution' }
-    | { result: 'truecandidates'; candidates: ExpandedCandidates; counts?: number[] }
+    | { result: 'truecandidates'; candidates: ExpandedCandidates; counts?: number[]; inprogress?: true }
     | { result: 'count'; count: number; complete: boolean; cancelled?: true }
     | { result: 'step'; desc: string; candidates?: ExpandedCandidates; invalid?: boolean; changed?: boolean }
     | { result: 'logicalsolve'; desc: string[]; candidates?: ExpandedCandidates; invalid: boolean; changed: boolean };
@@ -154,7 +154,15 @@ class SudokuVariantSolver {
         } else {
             const { maxSolutionsPerCandidate = 1 } = data.options || {};
 
-            const trueCandidatesResult = await board.calcTrueCandidates(maxSolutionsPerCandidate, () => this.eventCanceled);
+            const trueCandidatesResult = await board.calcTrueCandidates(
+                maxSolutionsPerCandidate,
+                () => this.eventCanceled,
+                candidates => {
+                    const expandedCandidates = this.expandCandidates(candidates);
+                    this.messageCallback({ result: 'truecandidates', candidates: expandedCandidates, inprogress: true });
+                }
+            );
+
             if (trueCandidatesResult.result === 'no solution') {
                 this.messageCallback({ result: 'invalid' });
             } else if (trueCandidatesResult.result === 'cancelled') {

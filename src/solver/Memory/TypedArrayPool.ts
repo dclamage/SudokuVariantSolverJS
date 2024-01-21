@@ -40,7 +40,10 @@ export class TypedArrayPool<T extends Uint8Array | Uint16Array | Uint32Array | B
 
         // Check for a pool of the appropriate size
         if (this._bufferPool.length > 0) {
-            return this._bufferPool.pop()!;
+            const buffer = this._bufferPool.pop()!;
+            const zero = BigInt(0);
+            buffer.array64.fill(zero);
+            return buffer;
         }
 
         // Allocate an ArrayBuffer of the appropriate size

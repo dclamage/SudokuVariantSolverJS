@@ -184,6 +184,8 @@ export enum LoopResult {
 }
 
 export class Board {
+    static JUMP_BACK_THRESHOLD: number = 100;
+
     size: number;
     allValues: CellMask;
     givenBit: CellMask;
@@ -1670,7 +1672,7 @@ export class Board {
         return this.enforceNewMask(cellIndex, origMask);
     }
 
-    findUnassignedLocation(ignoreMasks: CellMask[] | null = null): CellIndex {
+    findUnassignedLocation(ignoreMasks: CellMask[] | Uint16Array | Uint32Array | null = null): CellIndex {
         const { size, givenBit, cells } = this;
         let minCandidates = size + 1;
         let minCandidateIndex = null;
@@ -1681,11 +1683,13 @@ export class Board {
             if (cell & givenBit) {
                 continue;
             }
-            if (ignoreMasks !== null && (cell & ~ignoreMasks[cellIndex]) === 0) {
+
+            const allowedMask = ignoreMasks !== null ? cell & ~ignoreMasks[cellIndex] : cell;
+            if (allowedMask === 0) {
                 continue;
             }
 
-            const numCandidates = popcount(cell);
+            const numCandidates = popcount(allowedMask);
             if (numCandidates >= 2 && numCandidates < minCandidates) {
                 minCandidates = numCandidates;
                 minCandidateIndex = cellIndex;
@@ -1743,6 +1747,7 @@ export class Board {
 
         let result: SolveResultCancelled | SolveResultBoard | SolveResultNoSolution = { result: 'no solution' };
 
+        let numGuessesSinceLastJumpBack = 0;
         while (jobStack.length > 0) {
             if (isCancelled) {
                 if (Date.now() - lastCancelCheckTime > 100) {
@@ -1756,6 +1761,13 @@ export class Board {
                     }
                     lastCancelCheckTime = Date.now();
                 }
+            }
+
+            if (numGuessesSinceLastJumpBack > Board.JUMP_BACK_THRESHOLD) {
+                // Jump out of this branch (but leave it in the job stack)
+                // Take the first element and put it at the end
+                jobStack.push(jobStack.shift());
+                numGuessesSinceLastJumpBack = 0;
             }
 
             const currentBoard = jobStack.pop();
@@ -1874,6 +1886,7 @@ export class Board {
 
         let result: SolveResultCancelledPartialSolutionCount | SolveResultSolutionCount = undefined;
 
+        let numGuessesSinceLastJumpBack = 0;
         while (jobStack.length > 0) {
             if (wantReportProgress && Date.now() - lastReportTime > 100) {
                 // Give the event loop a chance to receive new messages
@@ -1891,6 +1904,13 @@ export class Board {
                     reportProgress(numSolutions);
                 }
                 lastReportTime = Date.now();
+            }
+
+            if (numGuessesSinceLastJumpBack > Board.JUMP_BACK_THRESHOLD) {
+                // Jump out of this branch (but leave it in the job stack)
+                // Take the first element and put it at the end
+                jobStack.push(jobStack.shift());
+                numGuessesSinceLastJumpBack = 0;
             }
 
             const currentBoard = jobStack.pop();
@@ -2000,75 +2020,72 @@ export class Board {
         return result;
     }
 
+    private static isBranchInteresting(board: Board, uninterestingCandidates: Uint16Array | Uint32Array) {
+        const { size, cells, allValues } = board;
+        const totalCells = size * size;
+
+        for (let cellIndex = 0; cellIndex < totalCells; cellIndex++) {
+            const cellMask = cells[cellIndex] & allValues;
+            const interestingMask = ~uninterestingCandidates[cellIndex] & allValues;
+            if ((cellMask & interestingMask) !== 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     async calcTrueCandidates(
         maxSolutionsPerCandidate: number,
-        isCancelled: (() => boolean) | null | undefined
+        isCancelled: (() => boolean) | null | undefined,
+        reportProgress: ((candidates: CellMask[]) => void) | null | undefined = null
     ): Promise<SolveResultTrueCandidates | SolveResultTrueCandidatesWithCount | SolveResultNoSolution | SolveResultCancelled> {
         const { size, allValues } = this;
         const totalCells = size * size;
         const totalCandidates = totalCells * size;
         const wantSolutionCounts = maxSolutionsPerCandidate > 1;
 
-        const board = this.clone();
-        const bruteForceResult = board.applyBruteForceLogic(true);
-        if (bruteForceResult === LogicResult.INVALID) {
-            // Puzzle is invalid
-            board.release();
-            return { result: 'no solution' };
-        }
-
-        if (bruteForceResult === LogicResult.COMPLETE) {
-            // Puzzle is unique just from basic logic
-            const candidates = Array.from(board.cells).map(mask => mask & allValues);
-            board.release();
-
-            if (wantSolutionCounts) {
-                return {
-                    result: 'true candidates with per-candidate solution count',
-                    candidates: candidates,
-                    counts: Array.from({ length: totalCandidates }, () => 1),
-                };
-            }
-
-            return {
-                result: 'true candidates',
-                candidates: candidates,
-            };
-        }
-
-        const attemptedCandidates = Array.from({ length: size * size }, () => 0);
-        const candidateCounts = wantSolutionCounts ? Array.from({ length: totalCandidates }, () => 0) : null;
-        const solutionsSeen: Set<string> | null = wantSolutionCounts ? new Set() : null;
-
-        // Loop until we've found all true candidates
+        const jobStack = [this.clone()];
         let lastReportTime = Date.now();
-        while (true) {
-            // Choose a cell to try
-            const cellIndex = board.findUnassignedLocation(attemptedCandidates);
-            if (cellIndex === null) {
-                // All candidates have been attempted
-                const candidates = Array.from(board.cells).map(mask => mask & allValues);
-                board.release();
+        const wantReportProgress = reportProgress || isCancelled;
 
-                if (wantSolutionCounts) {
-                    return {
-                        result: 'true candidates with per-candidate solution count',
-                        candidates: candidates,
-                        counts: candidateCounts,
-                    };
+        const trueCandidatesEntry = this.cellsPool.get();
+        const trueCandidates = trueCandidatesEntry.array;
+        const trueCandidatesCounts = wantSolutionCounts ? Array.from({ length: totalCandidates }, () => 0) : null;
+        const trueCandidatesAtMaxCountEntry = wantSolutionCounts ? this.cellsPool.get() : null;
+        const trueCandidatesAtMaxCount = wantSolutionCounts ? trueCandidatesAtMaxCountEntry.array : null;
+        const uninterestingCandidates = wantSolutionCounts ? trueCandidatesAtMaxCount : trueCandidates;
+        let haveSolution = false;
+
+        const countSolution = (currentBoard: Board) => {
+            if (wantSolutionCounts) {
+                for (let cellIndex = 0; cellIndex < totalCells; cellIndex++) {
+                    let currentBoardMask = currentBoard.cells[cellIndex] & allValues;
+                    trueCandidates[cellIndex] |= currentBoardMask;
+
+                    while (currentBoardMask !== 0) {
+                        const value = minValue(currentBoardMask);
+                        const valueMask = valueBit(value);
+                        currentBoardMask &= ~valueMask;
+
+                        const candidateIndex = currentBoard.candidateIndex(cellIndex, value);
+                        trueCandidatesCounts[candidateIndex]++;
+                        if (trueCandidatesCounts[candidateIndex] === maxSolutionsPerCandidate) {
+                            trueCandidatesAtMaxCount[cellIndex] |= valueMask;
+                        }
+                    }
                 }
-
-                return {
-                    result: 'true candidates',
-                    candidates: candidates,
-                };
+            } else {
+                for (let cellIndex = 0; cellIndex < totalCells; cellIndex++) {
+                    trueCandidates[cellIndex] |= currentBoard.cells[cellIndex] & allValues;
+                }
             }
+            haveSolution = true;
+        };
 
-            const cellMask = board.cells[cellIndex];
-            let chooseMask = cellMask & ~attemptedCandidates[cellIndex];
-            let removedCandidates = false;
-            while (chooseMask !== 0) {
-                if (Date.now() - lastReportTime > 100) {
+        try {
+            let numGuessesSinceLastJumpBack = 0;
+            while (jobStack.length > 0) {
+                if (wantReportProgress && Date.now() - lastReportTime > 100) {
                     // Give the event loop a chance to receive new messages
                     await new Promise(resolve => setTimeout(resolve, 0));
 
@@ -2077,119 +2094,111 @@ export class Board {
                         return { result: 'cancelled' };
                     }
 
+                    // Report the current progress
+                    if (reportProgress) {
+                        const candidates = Array.from(trueCandidates).map(mask => mask & allValues);
+                        reportProgress(candidates);
+                    }
                     lastReportTime = Date.now();
                 }
 
-                const chosenValue = minValue(chooseMask);
-                const chosenValueMask = valueBit(chosenValue);
-                chooseMask ^= chosenValueMask;
+                if (numGuessesSinceLastJumpBack > Board.JUMP_BACK_THRESHOLD) {
+                    // Jump out of this branch (but leave it in the job stack)
+                    // Take the first element and put it at the end
+                    let board = jobStack.shift();
+                    while (board && !Board.isBranchInteresting(board, uninterestingCandidates)) {
+                        board.release();
+                        board = jobStack.shift();
+                    }
+                    if (!board) {
+                        // There are no more interesting branches
+                        break;
+                    }
+                    jobStack.push(board);
+                    numGuessesSinceLastJumpBack = 0;
+                }
 
-                // Mark this candidate as attempted
-                attemptedCandidates[cellIndex] |= chosenValueMask;
+                const currentBoard = jobStack.pop();
 
-                // Create a new board with this candidate set
-                const newBoard = board.clone();
-                if (!newBoard.setAsGiven(cellIndex, chosenValue)) {
-                    // Puzzle is invalid with this candidate
-                    board.clearCellMask(cellIndex, chosenValueMask);
-                    removedCandidates = true;
+                const bruteForceResult = currentBoard.applyBruteForceLogic(jobStack.length === 0);
 
-                    newBoard.release();
+                if (bruteForceResult === LogicResult.INVALID) {
+                    // Puzzle is invalid
+                    currentBoard.release();
                     continue;
                 }
 
-                if (wantSolutionCounts) {
-                    // Determine how many solutions we still need to find for this candidate
-                    const candidateIndex = board.candidateIndex(cellIndex, chosenValue);
-                    const remainingSolutions = maxSolutionsPerCandidate - candidateCounts[candidateIndex];
-                    if (remainingSolutions <= 0) {
-                        // We've already found enough solutions for this candidate
-                        newBoard.release();
-                        continue;
-                    }
-
-                    // Find solutions for the new board
-                    const { result } = await newBoard.countSolutions(
-                        remainingSolutions,
-                        null,
-                        isCancelled,
-                        solutionsSeen,
-                        solutionBoard => {
-                            // Update all candidate counts for this solution
-                            for (let cellIndex = 0; cellIndex < totalCells; cellIndex++) {
-                                const cellMask = solutionBoard.cells[cellIndex] & allValues;
-                                const cellValue = minValue(cellMask);
-                                const cellCandidateIndex = solutionBoard.candidateIndex(cellIndex, cellValue);
-                                candidateCounts[cellCandidateIndex]++;
-
-                                if (candidateCounts[cellCandidateIndex] >= maxSolutionsPerCandidate) {
-                                    // We've found enough solutions for this candidate, so mark it as attempted
-                                    attemptedCandidates[cellIndex] |= cellMask;
-                                }
-                            }
-                        },
-                        false
-                    );
-
-                    if (result === 'cancelled partial count') {
-                        newBoard.release();
-                        return { result: 'cancelled' };
-                    }
-
-                    if (candidateCounts[candidateIndex] === 0) {
-                        // This candidate is impossible
-                        board.clearCellMask(cellIndex, chosenValueMask);
-                        removedCandidates = true;
-                    }
-                } else {
-                    // Find any solution
-                    const solutionResult = await newBoard.findSolution({ allowPreprocessing: false }, isCancelled);
-                    newBoard.release();
-
-                    if (solutionResult.result === 'no solution') {
-                        // This candidate is impossible
-                        board.clearCellMask(cellIndex, chosenValueMask);
-                        removedCandidates = true;
-                    } else if (solutionResult.result === 'cancelled') {
-                        return { result: 'cancelled' };
-                    } else {
-                        // Mark all candidates for this solution as attempted
-                        for (let cellIndex = 0; cellIndex < totalCells; cellIndex++) {
-                            attemptedCandidates[cellIndex] |= solutionResult.board.cells[cellIndex] & allValues;
-                        }
-                        solutionResult.board.release();
-                    }
-                }
-            }
-
-            if (removedCandidates) {
-                // We removed at least one candidate, so we need to re-apply logic
-                const bruteForceResult = board.applyBruteForceLogic(true);
-                if (bruteForceResult === LogicResult.INVALID) {
-                    // Puzzle is invalid
-                    board.release();
-                    return { result: 'no solution' };
-                }
-
                 if (bruteForceResult === LogicResult.COMPLETE) {
-                    const candidates = Array.from(board.cells).map(mask => mask & allValues);
-                    board.release();
+                    // Puzzle is complete, count the solution
+                    countSolution(currentBoard);
+                    currentBoard.release();
+                    continue;
+                }
 
-                    // Puzzle is now unique just from basic logic
-                    if (wantSolutionCounts) {
-                        return {
-                            result: 'true candidates with per-candidate solution count',
-                            candidates: candidates,
-                            counts: Array.from({ length: totalCandidates }, () => 1),
-                        };
+                // Before guessing, make sure this branch is interesting
+                if (!Board.isBranchInteresting(currentBoard, uninterestingCandidates)) {
+                    currentBoard.release();
+                    continue;
+                }
+
+                let unassignedIndex = currentBoard.findUnassignedLocation(uninterestingCandidates);
+                if (unassignedIndex === null) {
+                    unassignedIndex = currentBoard.findUnassignedLocation(null);
+                }
+                if (unassignedIndex === null) {
+                    // There should always be an unassigned location
+                    throw new Error('Internal error: no unassigned location');
+                }
+
+                const cellMask = currentBoard.cells[unassignedIndex];
+                const interestingCellMask = cellMask & ~uninterestingCandidates[unassignedIndex];
+                const chosenValue = interestingCellMask !== 0 ? minValue(interestingCellMask) : randomValue(cellMask);
+                numGuessesSinceLastJumpBack++;
+
+                // Queue up two versions of the board, one where the cell is set to the chosen value, and one where it's not
+
+                // Push the version where the cell is not set to the chosen value first, so that it's only used if the chosen value doesn't work
+                const newCellBits = cellMask & ~valueBit(chosenValue);
+                if (newCellBits !== 0) {
+                    const newBoard = currentBoard.clone();
+                    if (newBoard.clearValue(unassignedIndex, chosenValue)) {
+                        jobStack.push(newBoard);
                     }
+                }
 
-                    return {
-                        result: 'true candidates',
-                        candidates: candidates,
-                    };
+                // Push the version where the cell is set to the chosen value
+                {
+                    if (currentBoard.setAsGiven(unassignedIndex, chosenValue)) {
+                        jobStack.push(currentBoard);
+                    } else {
+                        currentBoard.release();
+                    }
                 }
             }
+
+            if (!haveSolution) {
+                return { result: 'no solution' };
+            }
+
+            const candidates = Array.from(trueCandidates).map(mask => mask & allValues);
+            if (wantSolutionCounts) {
+                return {
+                    result: 'true candidates with per-candidate solution count',
+                    candidates: candidates,
+                    counts: trueCandidatesCounts,
+                };
+            }
+
+            return {
+                result: 'true candidates',
+                candidates: candidates,
+            };
+        } finally {
+            this.cellsPool.release(trueCandidatesEntry);
+            if (trueCandidatesAtMaxCountEntry) {
+                this.cellsPool.release(trueCandidatesAtMaxCountEntry);
+            }
+            Board.releaseJobStack(jobStack);
         }
     }
 
