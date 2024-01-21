@@ -570,6 +570,7 @@ export class Board {
                     for (const implication of payload.implications) {
                         this.binaryImplications.addImplication(implication[0], implication[1]);
                     }
+                    this.binaryImplications.sortGraph();
                 }
                 if (payload.addConstraints && payload.addConstraints.length > 0) {
                     this.constraints.push(...payload.addConstraints);
@@ -687,7 +688,31 @@ export class Board {
             this.nakedSingles.push(cellIndex);
         }
 
+        // Check for binary implications
         let removedMask = origMask & ~cellMask;
+        while (removedMask !== 0) {
+            const value = minValue(removedMask);
+            removedMask &= ~valueBit(value);
+
+            const candidateIndex = this.candidateIndex(cellIndex, value);
+            const negConsequences = this.binaryImplications.getNegConsequences(~candidateIndex);
+            for (const negConsequence of negConsequences) {
+                const [cellIndex2, value2] = this.candidateToIndexAndValue(negConsequence);
+                if (!this.clearValue(cellIndex2, value2)) {
+                    return false;
+                }
+            }
+            const posConsequences = this.binaryImplications.getPosConsequences(~candidateIndex);
+            for (const posConsequence of posConsequences) {
+                const [cellIndex2, value2] = this.candidateToIndexAndValue(posConsequence);
+                if (!this.setAsGiven(cellIndex2, value2)) {
+                    return false;
+                }
+            }
+        }
+
+        // Check for constraint implications
+        removedMask = origMask & ~cellMask;
         while (removedMask !== 0) {
             const value = minValue(removedMask);
             removedMask &= ~valueBit(value);
@@ -875,6 +900,7 @@ export class Board {
         }
 
         let changed = false;
+        let ranDiscoverBinaryImplications = false;
         while (true) {
             // Just in case, check if the board is completed
             if (this.nonGivenCount === 0) {
@@ -1004,6 +1030,22 @@ export class Board {
             }
 
             if (!changedThisRound && initialNonGivenCount === this.nonGivenCount && this.nakedSingles.length === 0) {
+                if (isDepth0 && !ranDiscoverBinaryImplications) {
+                    ranDiscoverBinaryImplications = true;
+
+                    result = this.discoverBinaryImplications();
+                    if (result === LogicResult.INVALID) {
+                        return result;
+                    }
+
+                    if (result === LogicResult.CHANGED) {
+                        changedThisRound = true;
+                        changed = true;
+                        // Keep looking for logic until there is none
+                        continue;
+                    }
+                }
+
                 return changed ? LogicResult.CHANGED : LogicResult.UNCHANGED;
             }
         }
@@ -1361,6 +1403,187 @@ export class Board {
         return changed ? LogicResult.CHANGED : LogicResult.UNCHANGED;
     }
 
+    private discoverBinaryImplications() {
+        const { size, cells } = this;
+        const totalCells = size * size;
+
+        let addedImplications = false;
+        const invalidCandidates: CandidateIndex[] = [];
+        const alwaysTrueCandidates: CandidateIndex[] = [];
+        for (let cellIndex = 0; cellIndex < totalCells; cellIndex++) {
+            const cellMask = cells[cellIndex];
+            if (this.isGivenMask(cellMask)) {
+                continue;
+            }
+
+            // Find truth implications
+            for (let value = 1; value <= size; value++) {
+                if ((cellMask & valueBit(value)) === 0) {
+                    continue;
+                }
+                const candidateIndex = this.candidateIndex(cellIndex, value);
+
+                const newBoard = this.clone();
+                if (!newBoard.setAsGiven(cellIndex, value)) {
+                    invalidCandidates.push(candidateIndex);
+                    continue;
+                }
+
+                const bruteForceResult = newBoard.applyBruteForceLogic(false);
+                if (bruteForceResult === LogicResult.INVALID) {
+                    invalidCandidates.push(candidateIndex);
+                    continue;
+                }
+
+                if (bruteForceResult !== LogicResult.UNCHANGED) {
+                    if (this.addBinaryImplicationsFromTruth(candidateIndex, newBoard)) {
+                        addedImplications = true;
+                    }
+                }
+            }
+
+            // Find false implications
+            for (let value = 1; value <= size; value++) {
+                if ((cellMask & valueBit(value)) === 0) {
+                    continue;
+                }
+                const candidateIndex = this.candidateIndex(cellIndex, value);
+
+                const newBoard = this.clone();
+                if (!newBoard.clearValue(cellIndex, value)) {
+                    alwaysTrueCandidates.push(candidateIndex);
+                    continue;
+                }
+
+                const bruteForceResult = newBoard.applyBruteForceLogic(false);
+                if (bruteForceResult === LogicResult.INVALID) {
+                    alwaysTrueCandidates.push(candidateIndex);
+                    continue;
+                }
+
+                if (bruteForceResult !== LogicResult.UNCHANGED) {
+                    if (this.addBinaryImplicationsFromFalse(candidateIndex, newBoard)) {
+                        addedImplications = true;
+                    }
+                }
+            }
+        }
+
+        if (addedImplications) {
+            this.binaryImplications.sortGraph();
+        }
+
+        let changed = addedImplications;
+        for (const invalidCandidate of invalidCandidates) {
+            if (!this.clearCandidate(invalidCandidate)) {
+                return LogicResult.INVALID;
+            }
+            changed = true;
+        }
+
+        for (const alwaysTrueCandidate of alwaysTrueCandidates) {
+            const [cellIndex, value] = this.candidateToIndexAndValue(alwaysTrueCandidate);
+            if (!this.setAsGiven(cellIndex, value)) {
+                return LogicResult.INVALID;
+            }
+            changed = true;
+        }
+
+        return changed ? LogicResult.CHANGED : LogicResult.UNCHANGED;
+    }
+
+    private addBinaryImplicationsFromTruth(trueCandidateIndex: CandidateIndex, newBoard: Board) {
+        const { size, cells, givenBit } = this;
+        const { cells: newCells } = newBoard;
+        const totalCells = size * size;
+
+        let changed = false;
+        const trueCellIndex = this.cellIndexFromCandidate(trueCandidateIndex);
+        for (let cellIndex = 0; cellIndex < totalCells; cellIndex++) {
+            if (cellIndex === trueCellIndex) {
+                continue;
+            }
+
+            const cellMask0 = cells[cellIndex];
+            const cellMask1 = newCells[cellIndex];
+            if (cellMask0 === cellMask1) {
+                continue;
+            }
+
+            // At this point, cellMask0 is guaranteed to not be a given
+            // because if it was, then cellMask1 would be the same as cellMask0
+
+            if ((cellMask1 & givenBit) !== 0) {
+                // If the new mask is a given, then we can add a positive implication
+                const value1 = minValue(cellMask1);
+                const candidate1 = this.candidateIndex(cellIndex, value1);
+                if (this.binaryImplications.addImplication(trueCandidateIndex, candidate1)) {
+                    changed = true;
+                }
+            } else {
+                // Otherwise we check for negative implications
+                let eliminatedMask = cellMask0 & ~cellMask1;
+                while (eliminatedMask !== 0) {
+                    const value = minValue(eliminatedMask);
+                    eliminatedMask &= ~valueBit(value);
+
+                    const eliminatedCandidateIndex = this.candidateIndex(cellIndex, value);
+                    if (this.binaryImplications.addImplication(trueCandidateIndex, ~eliminatedCandidateIndex)) {
+                        changed = true;
+                    }
+                }
+            }
+        }
+        return changed;
+    }
+
+    private addBinaryImplicationsFromFalse(falseCandidateIndex: CandidateIndex, newBoard: Board) {
+        const { size, cells, givenBit } = this;
+        const { cells: newCells } = newBoard;
+        const totalCells = size * size;
+        const negatedFalseCandidateIndex = ~falseCandidateIndex;
+
+        let changed = false;
+        const falseCellIndex = this.cellIndexFromCandidate(falseCandidateIndex);
+        for (let cellIndex = 0; cellIndex < totalCells; cellIndex++) {
+            if (cellIndex === falseCellIndex) {
+                continue;
+            }
+
+            const cellMask0 = cells[cellIndex];
+            const cellMask1 = newCells[cellIndex];
+            if (cellMask0 === cellMask1) {
+                continue;
+            }
+
+            // At this point, cellMask0 is guaranteed to not be a given
+            // because if it was, then cellMask1 would be the same as cellMask0
+
+            if ((cellMask1 & givenBit) !== 0) {
+                // If the new mask is a given, then we can add a positive implication
+                const value1 = minValue(cellMask1);
+                const candidate1 = this.candidateIndex(cellIndex, value1);
+                if (this.binaryImplications.addImplication(negatedFalseCandidateIndex, candidate1)) {
+                    changed = true;
+                }
+            } else {
+                // Otherwise we check for negative implications
+                let eliminatedMask = cellMask0 & ~cellMask1;
+                while (eliminatedMask !== 0) {
+                    const value = minValue(eliminatedMask);
+                    eliminatedMask &= ~valueBit(value);
+
+                    const eliminatedCandidateIndex = this.candidateIndex(cellIndex, value);
+                    if (this.binaryImplications.addImplication(negatedFalseCandidateIndex, ~eliminatedCandidateIndex)) {
+                        changed = true;
+                    }
+                }
+            }
+        }
+
+        return changed;
+    }
+
     isGiven(cellIndex: CellIndex): boolean {
         return (this.cells[cellIndex] & this.givenBit) !== 0;
     }
@@ -1402,7 +1625,7 @@ export class Board {
         }
         this.nonGivenCount--;
 
-        // Apply any weak links
+        // Apply any binary implications
         const candidateIndex = this.candidateIndex(cellIndex, value);
         for (const otherCandidateIndex of this.binaryImplications.getNegConsequences(candidateIndex)) {
             const otherCellIndex = this.cellIndexFromCandidate(otherCandidateIndex);
@@ -1411,6 +1634,14 @@ export class Board {
             }
 
             if (!this.clearCandidate(otherCandidateIndex)) {
+                // Board is invalid
+                return false;
+            }
+        }
+        for (const otherCandidateIndex of this.binaryImplications.getPosConsequences(candidateIndex)) {
+            const otherCellIndex = this.cellIndexFromCandidate(otherCandidateIndex);
+            const otherValue = this.valueFromCandidate(otherCandidateIndex);
+            if (!this.setAsGiven(otherCellIndex, otherValue)) {
                 // Board is invalid
                 return false;
             }
