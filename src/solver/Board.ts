@@ -16,7 +16,6 @@ import {
     CellCoords,
     CellValue,
     CandidateIndex,
-    valuesList,
 } from './SolveUtility';
 import { NakedSingle } from './LogicalStep/NakedSingle';
 import { HiddenSingle } from './LogicalStep/HiddenSingle';
@@ -689,19 +688,12 @@ export class Board {
             this.nakedSingles.push(cellIndex);
         }
 
+        // Check for binary implications
         let removedMask = origMask & ~cellMask;
         while (removedMask !== 0) {
             const value = minValue(removedMask);
             removedMask &= ~valueBit(value);
 
-            for (const constraint of this.constraints) {
-                this.solveStats.constraintEliminationsEnforced++;
-                if (!constraint.enforceCandidateElim(this, cellIndex, value)) {
-                    return false;
-                }
-            }
-
-            // Check for binary implications
             const candidateIndex = this.candidateIndex(cellIndex, value);
             const negConsequences = this.binaryImplications.getNegConsequences(~candidateIndex);
             for (const negConsequence of negConsequences) {
@@ -714,6 +706,20 @@ export class Board {
             for (const posConsequence of posConsequences) {
                 const [cellIndex2, value2] = this.candidateToIndexAndValue(posConsequence);
                 if (!this.setAsGiven(cellIndex2, value2)) {
+                    return false;
+                }
+            }
+        }
+
+        // Check for constraint implications
+        removedMask = origMask & ~cellMask;
+        while (removedMask !== 0) {
+            const value = minValue(removedMask);
+            removedMask &= ~valueBit(value);
+
+            for (const constraint of this.constraints) {
+                this.solveStats.constraintEliminationsEnforced++;
+                if (!constraint.enforceCandidateElim(this, cellIndex, value)) {
                     return false;
                 }
             }
@@ -894,6 +900,7 @@ export class Board {
         }
 
         let changed = false;
+        let ranDiscoverBinaryImplications = false;
         while (true) {
             // Just in case, check if the board is completed
             if (this.nonGivenCount === 0) {
@@ -1023,7 +1030,9 @@ export class Board {
             }
 
             if (!changedThisRound && initialNonGivenCount === this.nonGivenCount && this.nakedSingles.length === 0) {
-                if (isDepth0) {
+                if (isDepth0 && !ranDiscoverBinaryImplications) {
+                    ranDiscoverBinaryImplications = true;
+
                     result = this.discoverBinaryImplications();
                     if (result === LogicResult.INVALID) {
                         return result;
@@ -1484,7 +1493,7 @@ export class Board {
     }
 
     private addBinaryImplicationsFromTruth(trueCandidateIndex: CandidateIndex, newBoard: Board) {
-        const { size, cells, allValues } = this;
+        const { size, cells, givenBit } = this;
         const { cells: newCells } = newBoard;
         const totalCells = size * size;
 
@@ -1495,21 +1504,33 @@ export class Board {
                 continue;
             }
 
-            const cellMask0 = cells[cellIndex] & allValues;
-            const cellMask1 = newCells[cellIndex] & allValues;
+            const cellMask0 = cells[cellIndex];
+            const cellMask1 = newCells[cellIndex];
             if (cellMask0 === cellMask1) {
                 continue;
             }
 
-            const eliminatedMask = cellMask0 & ~cellMask1;
-            if (eliminatedMask === 0) {
-                continue;
-            }
+            // At this point, cellMask0 is guaranteed to not be a given
+            // because if it was, then cellMask1 would be the same as cellMask0
 
-            for (const value of valuesList(eliminatedMask)) {
-                const eliminatedCandidateIndex = this.candidateIndex(cellIndex, value);
-                if (this.binaryImplications.addImplication(trueCandidateIndex, ~eliminatedCandidateIndex)) {
+            if ((cellMask1 & givenBit) !== 0) {
+                // If the new mask is a given, then we can add a positive implication
+                const value1 = minValue(cellMask1);
+                const candidate1 = this.candidateIndex(cellIndex, value1);
+                if (this.binaryImplications.addImplication(trueCandidateIndex, candidate1)) {
                     changed = true;
+                }
+            } else {
+                // Otherwise we check for negative implications
+                let eliminatedMask = cellMask0 & ~cellMask1;
+                while (eliminatedMask !== 0) {
+                    const value = minValue(eliminatedMask);
+                    eliminatedMask &= ~valueBit(value);
+
+                    const eliminatedCandidateIndex = this.candidateIndex(cellIndex, value);
+                    if (this.binaryImplications.addImplication(trueCandidateIndex, ~eliminatedCandidateIndex)) {
+                        changed = true;
+                    }
                 }
             }
         }
@@ -1520,6 +1541,7 @@ export class Board {
         const { size, cells, givenBit } = this;
         const { cells: newCells } = newBoard;
         const totalCells = size * size;
+        const negatedFalseCandidateIndex = ~falseCandidateIndex;
 
         let changed = false;
         const falseCellIndex = this.cellIndexFromCandidate(falseCandidateIndex);
@@ -1534,14 +1556,28 @@ export class Board {
                 continue;
             }
 
-            if ((cellMask0 & givenBit) !== 0 || (cellMask1 & givenBit) === 0) {
-                continue;
-            }
+            // At this point, cellMask0 is guaranteed to not be a given
+            // because if it was, then cellMask1 would be the same as cellMask0
 
-            const trueValue = minValue(cellMask1);
-            const trueCandidate = this.candidateIndex(cellIndex, trueValue);
-            if (this.binaryImplications.addImplication(~falseCandidateIndex, trueCandidate)) {
-                changed = true;
+            if ((cellMask1 & givenBit) !== 0) {
+                // If the new mask is a given, then we can add a positive implication
+                const value1 = minValue(cellMask1);
+                const candidate1 = this.candidateIndex(cellIndex, value1);
+                if (this.binaryImplications.addImplication(negatedFalseCandidateIndex, candidate1)) {
+                    changed = true;
+                }
+            } else {
+                // Otherwise we check for negative implications
+                let eliminatedMask = cellMask0 & ~cellMask1;
+                while (eliminatedMask !== 0) {
+                    const value = minValue(eliminatedMask);
+                    eliminatedMask &= ~valueBit(value);
+
+                    const eliminatedCandidateIndex = this.candidateIndex(cellIndex, value);
+                    if (this.binaryImplications.addImplication(negatedFalseCandidateIndex, ~eliminatedCandidateIndex)) {
+                        changed = true;
+                    }
+                }
             }
         }
 
@@ -1589,7 +1625,7 @@ export class Board {
         }
         this.nonGivenCount--;
 
-        // Apply any weak links
+        // Apply any binary implications
         const candidateIndex = this.candidateIndex(cellIndex, value);
         for (const otherCandidateIndex of this.binaryImplications.getNegConsequences(candidateIndex)) {
             const otherCellIndex = this.cellIndexFromCandidate(otherCandidateIndex);
@@ -1598,6 +1634,14 @@ export class Board {
             }
 
             if (!this.clearCandidate(otherCandidateIndex)) {
+                // Board is invalid
+                return false;
+            }
+        }
+        for (const otherCandidateIndex of this.binaryImplications.getPosConsequences(candidateIndex)) {
+            const otherCellIndex = this.cellIndexFromCandidate(otherCandidateIndex);
+            const otherValue = this.valueFromCandidate(otherCandidateIndex);
+            if (!this.setAsGiven(otherCellIndex, otherValue)) {
                 // Board is invalid
                 return false;
             }

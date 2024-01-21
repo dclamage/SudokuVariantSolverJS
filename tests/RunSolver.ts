@@ -165,6 +165,7 @@ export class WrappedSolver {
         let thisSolver = this.solver;
         setTimeout(() => thisSolver?.cancel(), timeoutMs);
         await this.solver.countSolutions({ board: puzzle.puzzle, options: { enableStats: true } });
+        thisSolver = null;
         const solveStats = this.solver.solveStats;
         const timeout = this.solveOutput.cancelled;
         this.solveOutput = new SolveOutput();
