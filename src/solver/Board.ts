@@ -29,6 +29,7 @@ import { TypedArrayPool, TypedArrayEntry } from './Memory/TypedArrayPool';
 import { Fish } from './LogicalStep/Fish';
 import { Constraint, ConstraintResult, LogicalDeduction } from './Constraint/Constraint';
 import { Skyscraper } from './LogicalStep/Skyscraper';
+import { SimpleContradiction } from './LogicalStep/SimpleContradiction';
 
 export type RegionType = string;
 export type Region = {
@@ -185,6 +186,7 @@ export enum LoopResult {
 
 export class Board {
     static JUMP_BACK_THRESHOLD: number = 100;
+    static JUMP_BACK_THRESHOLD_EXPONENT: number = 1.5;
 
     size: number;
     allValues: CellMask;
@@ -204,6 +206,8 @@ export class Board {
     constraintStateIsCloned: (undefined | true)[];
     memos: Map<string, unknown>;
     logicalSteps: LogicalStep[];
+    bruteForceExpensiveSteps: LogicalStep[];
+    needsExpensiveBruteForceSteps: boolean = false;
     solveStats: SolveStats;
 
     constructor(size: number | undefined = undefined) {
@@ -225,6 +229,16 @@ export class Board {
             this.constraintStateIsCloned = [];
             this.memos = new Map();
 
+            this.bruteForceExpensiveSteps = [
+                new ConstraintLogic(),
+                new CellForcing(),
+                new NakedTupleAndPointing(),
+                new Fish([2]),
+                new Skyscraper(),
+                new Fish([3]),
+                new SimpleContradiction(),
+            ];
+
             this.logicalSteps = [
                 //
                 new NakedSingle(),
@@ -243,6 +257,7 @@ export class Board {
                     this.logicalSteps.push(new Skyscraper());
                 }
             }
+            this.logicalSteps.push(new SimpleContradiction());
 
             this.solveStats = new SolveStats();
         }
@@ -274,6 +289,7 @@ export class Board {
         this.constraintStateIsCloned = [];
         clone.memos = this.memos;
         clone.logicalSteps = this.logicalSteps;
+        clone.bruteForceExpensiveSteps = this.bruteForceExpensiveSteps;
         clone.solveStats = this.solveStats;
         return clone;
     }
@@ -303,6 +319,7 @@ export class Board {
         clone.constraintsFinalized = this.constraintsFinalized;
         clone.memos = new Map(); // Don't inherit memos
         clone.logicalSteps = this.logicalSteps;
+        clone.bruteForceExpensiveSteps = this.bruteForceExpensiveSteps;
         clone.solveStats = this.solveStats;
         return clone;
     }
@@ -895,6 +912,9 @@ export class Board {
     }
 
     applyBruteForceLogic(isDepth0: boolean) {
+        const doExpensiveSteps = this.needsExpensiveBruteForceSteps;
+        this.needsExpensiveBruteForceSteps = false;
+
         if (isDepth0) {
             this.solveStats.preprocessingPasses++;
         } else {
@@ -934,88 +954,105 @@ export class Board {
                 continue;
             }
 
-            if (isDepth0) {
-                // Temporary hack: At depth 0, run cell forcing
-                // We need this as more and more constraints are becoming weaklinks based which is super weak without the support encoding.
-                // TODO: When we have LUT based cell forcing, see if this is fast enough to run at all levels of the solve
-                result = new CellForcing().step(this, null);
-                if (result === LogicResult.INVALID || result === LogicResult.COMPLETE) {
-                    return result;
-                }
-
-                if (result === LogicResult.CHANGED) {
-                    changedThisRound = true;
-                    changed = true;
-                    // Keep looking for logic until there is none
-                    continue;
-                }
-            }
-
-            // If we get here, then there are no more singles to find
-            // Allow constraints to apply their logic
-            if (!isDepth0) {
-                for (const constraint of this.constraints) {
-                    const result = constraint.bruteForceStep(this);
-                    this.solveStats.bruteForceSteps++;
-                    if (result === ConstraintResult.INVALID) {
-                        return LogicResult.INVALID;
+            if (doExpensiveSteps) {
+                // Look for expensive brute force steps
+                for (const step of this.bruteForceExpensiveSteps) {
+                    result = step.step(this, null);
+                    if (result === LogicResult.INVALID || result === LogicResult.COMPLETE) {
+                        return result;
                     }
-                    if (result === ConstraintResult.CHANGED) {
+
+                    if (result === LogicResult.CHANGED) {
                         changedThisRound = true;
                         changed = true;
-                        break;
+                        // Keep looking for logic until there is none
+                        continue;
                     }
                 }
             } else {
-                for (const constraint of this.constraints.slice()) {
-                    const result = constraint.preprocessingStep(this);
-                    this.solveStats.preprocessingSteps++;
-                    const payload = typeof result === 'object' ? result : null;
-                    const constraintResult = typeof result === 'object' ? result.result : result;
-                    if (constraintResult === ConstraintResult.INVALID) {
-                        return LogicResult.INVALID;
+                if (isDepth0) {
+                    // Temporary hack: At depth 0, run cell forcing
+                    // We need this as more and more constraints are becoming weaklinks based which is super weak without the support encoding.
+                    // TODO: When we have LUT based cell forcing, see if this is fast enough to run at all levels of the solve
+                    result = new CellForcing().step(this, null);
+                    if (result === LogicResult.INVALID || result === LogicResult.COMPLETE) {
+                        return result;
                     }
-                    if (constraintResult === ConstraintResult.CHANGED) {
+
+                    if (result === LogicResult.CHANGED) {
                         changedThisRound = true;
                         changed = true;
-                    }
-                    if (payload) {
-                        if (payload.addConstraints && payload.addConstraints.length > 0) {
-                            for (const constraint of payload.addConstraints) {
-                                this.constraints.push(constraint);
-                                this.initSingleConstraint(constraint);
-                            }
-                            changedThisRound = true;
-                            changed = true;
-                        }
-                        if (payload.deleteConstraints && payload.deleteConstraints.length > 0) {
-                            this.constraints = this.constraints.filter(constraint => !payload.deleteConstraints.includes(constraint));
-                        }
-                        if (payload.weakLinks && payload.weakLinks.length > 0) {
-                            for (const [index1, index2] of payload.weakLinks) {
-                                this.addWeakLink(index1, index2);
-                            }
-                            this.binaryImplications.sortGraph();
-                            changedThisRound = true;
-                            changed = true;
-                        }
-                        if (payload.implications && payload.implications.length > 0) {
-                            for (const [index1, index2] of payload.implications) {
-                                this.binaryImplications.addImplication(index1, index2);
-                            }
-                            changedThisRound = true;
-                            changed = true;
-                        }
-                    }
-                    if (changedThisRound) {
-                        break;
+                        // Keep looking for logic until there is none
+                        continue;
                     }
                 }
-            }
 
-            if (changedThisRound || initialNonGivenCount !== this.nonGivenCount || this.nakedSingles.length !== 0) {
-                // Keep looking for logic until there is none
-                continue;
+                // If we get here, then there are no more singles to find
+                // Allow constraints to apply their logic
+                if (!isDepth0) {
+                    for (const constraint of this.constraints) {
+                        const result = constraint.bruteForceStep(this);
+                        this.solveStats.bruteForceSteps++;
+                        if (result === ConstraintResult.INVALID) {
+                            return LogicResult.INVALID;
+                        }
+                        if (result === ConstraintResult.CHANGED) {
+                            changedThisRound = true;
+                            changed = true;
+                            break;
+                        }
+                    }
+                } else {
+                    for (const constraint of this.constraints.slice()) {
+                        const result = constraint.preprocessingStep(this);
+                        this.solveStats.preprocessingSteps++;
+                        const payload = typeof result === 'object' ? result : null;
+                        const constraintResult = typeof result === 'object' ? result.result : result;
+                        if (constraintResult === ConstraintResult.INVALID) {
+                            return LogicResult.INVALID;
+                        }
+                        if (constraintResult === ConstraintResult.CHANGED) {
+                            changedThisRound = true;
+                            changed = true;
+                        }
+                        if (payload) {
+                            if (payload.addConstraints && payload.addConstraints.length > 0) {
+                                for (const constraint of payload.addConstraints) {
+                                    this.constraints.push(constraint);
+                                    this.initSingleConstraint(constraint);
+                                }
+                                changedThisRound = true;
+                                changed = true;
+                            }
+                            if (payload.deleteConstraints && payload.deleteConstraints.length > 0) {
+                                this.constraints = this.constraints.filter(constraint => !payload.deleteConstraints.includes(constraint));
+                            }
+                            if (payload.weakLinks && payload.weakLinks.length > 0) {
+                                for (const [index1, index2] of payload.weakLinks) {
+                                    this.addWeakLink(index1, index2);
+                                }
+                                this.binaryImplications.sortGraph();
+                                changedThisRound = true;
+                                changed = true;
+                            }
+                            if (payload.implications && payload.implications.length > 0) {
+                                for (const [index1, index2] of payload.implications) {
+                                    this.binaryImplications.addImplication(index1, index2);
+                                }
+                                changedThisRound = true;
+                                changed = true;
+                            }
+                        }
+                        if (changedThisRound) {
+                            break;
+                        }
+                    }
+                }
+
+                if (changedThisRound || initialNonGivenCount !== this.nonGivenCount || this.nakedSingles.length !== 0) {
+                    // Keep looking for logic until there is none
+                    continue;
+                }
             }
 
             // Look for pairs (fast brute-force method)
@@ -1748,6 +1785,7 @@ export class Board {
         let result: SolveResultCancelled | SolveResultBoard | SolveResultNoSolution = { result: 'no solution' };
 
         let numGuessesSinceLastJumpBack = 0;
+        let jumpBackThresholdMultiplier = 1;
         while (jobStack.length > 0) {
             if (isCancelled) {
                 if (Date.now() - lastCancelCheckTime > 100) {
@@ -1763,14 +1801,23 @@ export class Board {
                 }
             }
 
-            if (numGuessesSinceLastJumpBack > Board.JUMP_BACK_THRESHOLD) {
+            if (numGuessesSinceLastJumpBack > Board.JUMP_BACK_THRESHOLD * jumpBackThresholdMultiplier) {
                 // Jump out of this branch (but leave it in the job stack)
                 // Take the first element and put it at the end
                 jobStack.push(jobStack.shift());
+                for (const board of jobStack) {
+                    board.needsExpensiveBruteForceSteps = true;
+                }
                 numGuessesSinceLastJumpBack = 0;
+                jumpBackThresholdMultiplier *= Board.JUMP_BACK_THRESHOLD_EXPONENT;
             }
 
             const currentBoard = jobStack.pop();
+
+            if (jobStack.length === 0) {
+                numGuessesSinceLastJumpBack = 0;
+                jumpBackThresholdMultiplier = 1;
+            }
 
             const bruteForceResult = currentBoard.applyBruteForceLogic(allowPreprocessing && jobStack.length === 0);
 
@@ -1790,11 +1837,7 @@ export class Board {
 
             const unassignedIndex = currentBoard.findUnassignedLocation();
             if (unassignedIndex === null) {
-                // Puzzle is complete, return the solution
-                Board.releaseJobStack(jobStack);
-                // The caller is responsible for releasing the board
-                result = { result: 'board', board: currentBoard };
-                break;
+                throw new Error('Internal error: no unassigned location');
             }
 
             const cellMask = currentBoard.cells[unassignedIndex];
@@ -1846,7 +1889,6 @@ export class Board {
         maxSolutions: number,
         reportProgress: ((numSolutions: number) => void) | null | undefined,
         isCancelled: (() => boolean) | null | undefined,
-        solutionsSeen: Set<string> | null | undefined = null,
         solutionEvent: ((board: Board) => void) | null | undefined = null,
         allowPreprocessing: boolean = true,
         enableStats: boolean = false
@@ -1887,6 +1929,7 @@ export class Board {
         let result: SolveResultCancelledPartialSolutionCount | SolveResultSolutionCount = undefined;
 
         let numGuessesSinceLastJumpBack = 0;
+        let jumpBackThresholdMultiplier = 1;
         while (jobStack.length > 0) {
             if (wantReportProgress && Date.now() - lastReportTime > 100) {
                 // Give the event loop a chance to receive new messages
@@ -1906,14 +1949,23 @@ export class Board {
                 lastReportTime = Date.now();
             }
 
-            if (numGuessesSinceLastJumpBack > Board.JUMP_BACK_THRESHOLD) {
+            if (numGuessesSinceLastJumpBack > Board.JUMP_BACK_THRESHOLD * jumpBackThresholdMultiplier) {
                 // Jump out of this branch (but leave it in the job stack)
                 // Take the first element and put it at the end
                 jobStack.push(jobStack.shift());
+                for (const board of jobStack) {
+                    board.needsExpensiveBruteForceSteps = true;
+                }
                 numGuessesSinceLastJumpBack = 0;
+                jumpBackThresholdMultiplier *= Board.JUMP_BACK_THRESHOLD_EXPONENT;
             }
 
             const currentBoard = jobStack.pop();
+
+            if (jobStack.length === 0) {
+                numGuessesSinceLastJumpBack = 0;
+                jumpBackThresholdMultiplier = 1;
+            }
 
             const bruteForceResult = currentBoard.applyBruteForceLogic(allowPreprocessing && jobStack.length === 0);
 
@@ -1925,43 +1977,10 @@ export class Board {
 
             if (bruteForceResult === LogicResult.COMPLETE) {
                 // Puzzle is complete, count the solution
-                if (solutionsSeen) {
-                    const solution = currentBoard.solutionString();
-                    if (!solutionsSeen.has(solution)) {
-                        solutionsSeen.add(solution);
-
-                        if (solutionEvent) {
-                            solutionEvent(currentBoard);
-                        }
-
-                        numSolutions++;
-                        if (maxSolutions > 0 && numSolutions === maxSolutions) {
-                            Board.releaseJobStack(jobStack);
-                            currentBoard.release();
-                            result = { result: 'count', count: numSolutions };
-                            break;
-                        }
-                    }
-                } else {
-                    if (solutionEvent) {
-                        solutionEvent(currentBoard);
-                    }
-
-                    numSolutions++;
-                    if (maxSolutions > 0 && numSolutions === maxSolutions) {
-                        Board.releaseJobStack(jobStack);
-                        currentBoard.release();
-                        result = { result: 'count', count: numSolutions };
-                        break;
-                    }
+                if (solutionEvent) {
+                    solutionEvent(currentBoard);
                 }
-                currentBoard.release();
-                continue;
-            }
 
-            const unassignedIndex = currentBoard.findUnassignedLocation();
-            if (unassignedIndex === null) {
-                // Puzzle is complete, return the solution
                 numSolutions++;
                 if (maxSolutions > 0 && numSolutions === maxSolutions) {
                     Board.releaseJobStack(jobStack);
@@ -1970,7 +1989,15 @@ export class Board {
                     break;
                 }
                 currentBoard.release();
+
+                numGuessesSinceLastJumpBack = 0;
+                jumpBackThresholdMultiplier = Math.max(1, jumpBackThresholdMultiplier / Board.JUMP_BACK_THRESHOLD_EXPONENT);
                 continue;
+            }
+
+            const unassignedIndex = currentBoard.findUnassignedLocation();
+            if (unassignedIndex === null) {
+                throw new Error('Internal error: no unassigned location');
             }
 
             const cellMask = currentBoard.cells[unassignedIndex];
@@ -2034,6 +2061,22 @@ export class Board {
         return false;
     }
 
+    private static branchHasInterestingGiven(board: Board, uninterestingCandidates: Uint16Array | Uint32Array) {
+        const { size, cells, allValues, givenBit } = board;
+        const totalCells = size * size;
+
+        for (let cellIndex = 0; cellIndex < totalCells; cellIndex++) {
+            const cellMask = cells[cellIndex];
+            if ((cellMask & givenBit) !== 0) {
+                const interestingMask = ~uninterestingCandidates[cellIndex] & allValues;
+                if ((cellMask & interestingMask) !== 0) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     async calcTrueCandidates(
         maxSolutionsPerCandidate: number,
         isCancelled: (() => boolean) | null | undefined,
@@ -2056,34 +2099,9 @@ export class Board {
         const uninterestingCandidates = wantSolutionCounts ? trueCandidatesAtMaxCount : trueCandidates;
         let haveSolution = false;
 
-        const countSolution = (currentBoard: Board) => {
-            if (wantSolutionCounts) {
-                for (let cellIndex = 0; cellIndex < totalCells; cellIndex++) {
-                    let currentBoardMask = currentBoard.cells[cellIndex] & allValues;
-                    trueCandidates[cellIndex] |= currentBoardMask;
-
-                    while (currentBoardMask !== 0) {
-                        const value = minValue(currentBoardMask);
-                        const valueMask = valueBit(value);
-                        currentBoardMask &= ~valueMask;
-
-                        const candidateIndex = currentBoard.candidateIndex(cellIndex, value);
-                        trueCandidatesCounts[candidateIndex]++;
-                        if (trueCandidatesCounts[candidateIndex] === maxSolutionsPerCandidate) {
-                            trueCandidatesAtMaxCount[cellIndex] |= valueMask;
-                        }
-                    }
-                }
-            } else {
-                for (let cellIndex = 0; cellIndex < totalCells; cellIndex++) {
-                    trueCandidates[cellIndex] |= currentBoard.cells[cellIndex] & allValues;
-                }
-            }
-            haveSolution = true;
-        };
-
+        let numGuessesSinceLastJumpBack = 0;
+        let jumpBackThresholdMultiplier = 1;
         try {
-            let numGuessesSinceLastJumpBack = 0;
             while (jobStack.length > 0) {
                 if (wantReportProgress && Date.now() - lastReportTime > 100) {
                     // Give the event loop a chance to receive new messages
@@ -2102,23 +2120,23 @@ export class Board {
                     lastReportTime = Date.now();
                 }
 
-                if (numGuessesSinceLastJumpBack > Board.JUMP_BACK_THRESHOLD) {
+                if (numGuessesSinceLastJumpBack > Board.JUMP_BACK_THRESHOLD * jumpBackThresholdMultiplier) {
                     // Jump out of this branch (but leave it in the job stack)
                     // Take the first element and put it at the end
-                    let board = jobStack.shift();
-                    while (board && !Board.isBranchInteresting(board, uninterestingCandidates)) {
-                        board.release();
-                        board = jobStack.shift();
-                    }
-                    if (!board) {
-                        // There are no more interesting branches
-                        break;
-                    }
-                    jobStack.push(board);
+                    jobStack.push(jobStack.shift());
                     numGuessesSinceLastJumpBack = 0;
+                    jumpBackThresholdMultiplier *= Board.JUMP_BACK_THRESHOLD_EXPONENT;
                 }
 
                 const currentBoard = jobStack.pop();
+                if (!Board.isBranchInteresting(currentBoard, uninterestingCandidates)) {
+                    currentBoard.release();
+                    continue;
+                }
+                if (jobStack.length === 0) {
+                    numGuessesSinceLastJumpBack = 0;
+                    jumpBackThresholdMultiplier = 1;
+                }
 
                 const bruteForceResult = currentBoard.applyBruteForceLogic(jobStack.length === 0);
 
@@ -2130,7 +2148,32 @@ export class Board {
 
                 if (bruteForceResult === LogicResult.COMPLETE) {
                     // Puzzle is complete, count the solution
-                    countSolution(currentBoard);
+                    if (wantSolutionCounts) {
+                        for (let cellIndex = 0; cellIndex < totalCells; cellIndex++) {
+                            let currentBoardMask = currentBoard.cells[cellIndex] & allValues;
+                            trueCandidates[cellIndex] |= currentBoardMask;
+
+                            while (currentBoardMask !== 0) {
+                                const value = minValue(currentBoardMask);
+                                const valueMask = valueBit(value);
+                                currentBoardMask &= ~valueMask;
+
+                                const candidateIndex = currentBoard.candidateIndex(cellIndex, value);
+                                trueCandidatesCounts[candidateIndex]++;
+                                if (trueCandidatesCounts[candidateIndex] === maxSolutionsPerCandidate) {
+                                    trueCandidatesAtMaxCount[cellIndex] |= valueMask;
+                                }
+                            }
+                        }
+                    } else {
+                        for (let cellIndex = 0; cellIndex < totalCells; cellIndex++) {
+                            trueCandidates[cellIndex] |= currentBoard.cells[cellIndex] & allValues;
+                        }
+                    }
+                    haveSolution = true;
+                    numGuessesSinceLastJumpBack = 0;
+                    jumpBackThresholdMultiplier = Math.max(1, jumpBackThresholdMultiplier / Board.JUMP_BACK_THRESHOLD_EXPONENT);
+
                     currentBoard.release();
                     continue;
                 }
@@ -2141,7 +2184,10 @@ export class Board {
                     continue;
                 }
 
-                let unassignedIndex = currentBoard.findUnassignedLocation(uninterestingCandidates);
+                // If one of the givens is interesting, then we should just shoot for any solution rather than
+                // restricting ourselves only to the interesting candidates
+                const hasInterestingGiven = Board.branchHasInterestingGiven(currentBoard, uninterestingCandidates);
+                let unassignedIndex = !hasInterestingGiven ? currentBoard.findUnassignedLocation(uninterestingCandidates) : null;
                 if (unassignedIndex === null) {
                     unassignedIndex = currentBoard.findUnassignedLocation(null);
                 }

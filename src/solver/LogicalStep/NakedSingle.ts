@@ -8,7 +8,7 @@ export class NakedSingle extends LogicalStep {
         super('Naked Single');
     }
 
-    step(board: Board, desc: string[]): LogicResult {
+    step(board: Board, desc: string[] | null = null): LogicResult {
         if (board.nakedSingles.length === 0) {
             return LogicResult.UNCHANGED;
         }

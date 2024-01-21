@@ -16,7 +16,7 @@ export class LogicalStep {
         return this.name;
     }
 
-    step(board: Board, desc: string[]): LogicResult {
+    step(board: Board, desc: string[] | null = null): LogicResult {
         return LogicResult.UNCHANGED;
     }
 }

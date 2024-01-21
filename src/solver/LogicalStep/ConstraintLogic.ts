@@ -8,7 +8,7 @@ export class ConstraintLogic extends LogicalStep {
         super('Constraint Logic');
     }
 
-    step(board: Board, desc: string[]): LogicResult {
+    step(board: Board, desc: string[] | null = null): LogicResult {
         let invalid = false;
         const applyObvious = (constraint: Constraint): LoopResult => {
             const deductions = Constraint.flattenDeductions(constraint.obviousLogicalStep(board));
@@ -43,25 +43,32 @@ export class ConstraintLogic extends LogicalStep {
                         // It was a DeletionOnly deduction
                         continue;
                     }
-                    const explanationBase = `[${constraint.toSpecificString()}]: ${deduction.explanation}${
-                        deduction.explanation.length > 0 ? ' => ' : ''
-                    }`;
-                    const singlesDescribed = deduction.singles && deduction.singles.length > 0 ? board.describeCandidates(deduction.singles) : '';
-                    const elimsDescribed =
-                        deduction.eliminations && deduction.eliminations.length > 0 ? board.describeElims(deduction.eliminations) : '';
-                    const deductionsDescribed =
-                        singlesDescribed.length > 0 && elimsDescribed.length > 0
-                            ? `${explanationBase}${singlesDescribed};${elimsDescribed}`
-                            : singlesDescribed.length > 0
-                              ? `${explanationBase}${singlesDescribed}`
-                              : elimsDescribed.length > 0
-                                ? `${explanationBase}${elimsDescribed}`
-                                : '';
-                    if (deductionsDescribed.length > 0) {
-                        desc.push(deductionsDescribed);
+
+                    if (desc) {
+                        const explanationBase = `[${constraint.toSpecificString()}]: ${deduction.explanation}${
+                            deduction.explanation.length > 0 ? ' => ' : ''
+                        }`;
+                        const singlesDescribed = deduction.singles && deduction.singles.length > 0 ? board.describeCandidates(deduction.singles) : '';
+                        const elimsDescribed =
+                            deduction.eliminations && deduction.eliminations.length > 0 ? board.describeElims(deduction.eliminations) : '';
+                        const deductionsDescribed =
+                            singlesDescribed.length > 0 && elimsDescribed.length > 0
+                                ? `${explanationBase}${singlesDescribed};${elimsDescribed}`
+                                : singlesDescribed.length > 0
+                                  ? `${explanationBase}${singlesDescribed}`
+                                  : elimsDescribed.length > 0
+                                    ? `${explanationBase}${elimsDescribed}`
+                                    : '';
+                        if (deductionsDescribed.length > 0) {
+                            desc.push(deductionsDescribed);
+                            changed = true;
+                            return LoopResult.ABORT_LOOP;
+                        }
+                    } else if ((deduction.singles && deduction.singles.length > 0) || (deduction.eliminations && deduction.eliminations.length > 0)) {
                         changed = true;
                         return LoopResult.ABORT_LOOP;
                     }
+
                     // There was a change but it wasn't visible on the board, look for another deduction
                     hadInvisibleChange = true;
                     continue;

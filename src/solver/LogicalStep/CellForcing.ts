@@ -8,7 +8,7 @@ export class CellForcing extends LogicalStep {
         super('Cell Forcing');
     }
 
-    step(board: Board, desc: string[]): LogicResult {
+    step(board: Board, desc: string[] | null = null): LogicResult {
         const { size, allValues, cells } = board;
         const numCells = size * size;
         // TODO: There should be preprocessing to restrict cell masks based on weak links,

@@ -8,7 +8,7 @@ export class NakedTupleAndPointing extends LogicalStep {
         super('Naked Tuple and Pointing');
     }
 
-    step(board: Board, desc: string[]) {
+    step(board: Board, desc: string[] | null = null) {
         const { size, cells } = board;
         for (let tupleSize = 2; tupleSize < size; tupleSize++) {
             for (const region of board.regions) {

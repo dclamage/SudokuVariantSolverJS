@@ -11,7 +11,7 @@ export class Fish extends LogicalStep {
         this._enabledFish = enabledFish;
     }
 
-    step(board: Board, desc: string[]) {
+    step(board: Board, desc: string[] | null = null) {
         const { size, cells } = board;
 
         // Construct a transformed lookup of which values are in which rows/cols

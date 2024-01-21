@@ -8,7 +8,7 @@ export class Skyscraper extends LogicalStep {
         super('Skyscraper');
     }
 
-    step(board: Board, desc: string[]): LogicResult {
+    step(board: Board, desc: string[] | null = null): LogicResult {
         for (let value = 1; value <= board.size; value++) {
             const valueMask = valueBit(value);
 
@@ -44,23 +44,25 @@ export class Skyscraper extends LogicalStep {
                             const elims = board.calcElimsForCandidateIndices([candidate0, candidate1]);
                             const result = board.performElims(elims);
                             if (result !== LogicResult.UNCHANGED) {
-                                const sharedCol = ctz(rowMask0 & rowMask1);
-                                const sharedCandidate0 =
-                                    swapRowCol === 0
-                                        ? board.candidateIndexRC(rows[0].row, sharedCol, value)
-                                        : board.candidateIndexRC(sharedCol, rows[0].row, value);
-                                const sharedCandidate1 =
-                                    swapRowCol === 0
-                                        ? board.candidateIndexRC(rows[1].row, sharedCol, value)
-                                        : board.candidateIndexRC(sharedCol, rows[1].row, value);
-                                desc.push(
-                                    `Skyscraper ${board.describeCandidates([
-                                        sharedCandidate0,
-                                        sharedCandidate1,
-                                        candidate0,
-                                        candidate1,
-                                    ])} => ${board.describeElims(elims)}`
-                                );
+                                if (desc) {
+                                    const sharedCol = ctz(rowMask0 & rowMask1);
+                                    const sharedCandidate0 =
+                                        swapRowCol === 0
+                                            ? board.candidateIndexRC(rows[0].row, sharedCol, value)
+                                            : board.candidateIndexRC(sharedCol, rows[0].row, value);
+                                    const sharedCandidate1 =
+                                        swapRowCol === 0
+                                            ? board.candidateIndexRC(rows[1].row, sharedCol, value)
+                                            : board.candidateIndexRC(sharedCol, rows[1].row, value);
+                                    desc.push(
+                                        `Skyscraper ${board.describeCandidates([
+                                            sharedCandidate0,
+                                            sharedCandidate1,
+                                            candidate0,
+                                            candidate1,
+                                        ])} => ${board.describeElims(elims)}`
+                                    );
+                                }
                                 return result;
                             }
                         }

@@ -8,7 +8,7 @@ export class HiddenSingle extends LogicalStep {
         super('Hidden Single');
     }
 
-    step(board: Board, desc: string[]) {
+    step(board: Board, desc: string[] | null = null) {
         const { size, givenBit, cells, allValues } = board;
         for (const region of board.regions) {
             const regionCells = region.cells;
@@ -46,11 +46,15 @@ export class HiddenSingle extends LogicalStep {
                 if (newCellMask !== 0 && newCellMask != cellMask) {
                     const cellValue = minValue(newCellMask);
                     if (!board.setAsGiven(cellIndex, cellValue)) {
-                        desc.push(`Hidden Single in ${region.name}: ${cellName(cellIndex, size)} cannot be set to ${cellValue}.`);
+                        if (desc) {
+                            desc.push(`Hidden Single in ${region.name}: ${cellName(cellIndex, size)} cannot be set to ${cellValue}.`);
+                        }
                         return LogicResult.INVALID;
                     }
 
-                    desc.push(`Hidden Single in ${region.name}: ${cellName(cellIndex, size)} = ${cellValue}.`);
+                    if (desc) {
+                        desc.push(`Hidden Single in ${region.name}: ${cellName(cellIndex, size)} = ${cellValue}.`);
+                    }
                     return LogicResult.CHANGED;
                 }
             }

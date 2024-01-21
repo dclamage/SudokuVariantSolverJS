@@ -96,7 +96,6 @@ class SudokuVariantSolver {
                 },
                 () => this.eventCanceled,
                 undefined,
-                undefined,
                 data.options?.allowPreprocessing,
                 data.options?.enableStats
             );
