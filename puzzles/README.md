@@ -8,6 +8,13 @@ puzzles.json contains puzzles that are used to test changes to brute force. This
 
 When querying for puzzles in the puzzles.json files, `generatedCategories` is what you want to use, as it would include categories such as `thermometer` that were extracted from the puzzle format.
 
+Here's one way you can regenerate generated categories:
+
+```sh
+npx tsx tests/TestPuzzles.ts --printAll < puzzles/puzzles.json > puzzles/puzzles2.json &&
+  mv puzzles/puzzles2.json puzzles/puzzles.json
+```
+
 ## "Bug coverage" categories for regression testing
 
 These are added to puzzles when they've detected a bug in a past version of the solver. Adding these categories ensures that they will always be included in puzzles-ci.json to make sure we don't re-introduce the same bug.
