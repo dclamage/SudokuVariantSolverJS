@@ -5,11 +5,15 @@
         "license": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
         "puzzle": "N4IgzglgXgpiBcBOANCALhNAbO8QEEA7DAWgCUBDDAewAIBhagNxgCcKBzOVCgVzQAW1VghCVCHMAGsQqDqwgATBAG0VwAL7JN2rTv17D2kEwpZeuAOxyILQgjSsLGgLrJ1Rg7u9fNbjz6eQT4mZhYIAGw2dg5OMK7uvsFJuv4p6UFpydmBWSGm5rgATNEw9vCOzoHVBnkZNYZpoYUIKCActmWxVfUZLm4ghDAcVJ2qIOw0IAOTENSqoADGMFhYYONkAMz0AKyyYtsR03ogy6vr8CoH9AAs+1u7x8ZnaxtF9EeoZACMH09LK1elzEO3oiHuNzB/1OgIuVzIoPBXwiUJcJxecJBfy+oMs0IxG0hAA4IfQ8WiBmBqOYaOUVN9kFEbsgdsgichNsgUCVrOySqyUNYmRzkAzOYLRcgSszWeyojzJTKuSKouzZYzkNZOSUGShmczxRqGezrKyFWa2cqGcLOVFjSKlQqUHqRSUorzJTs0UA===",
         "solution": "164583927825976431397124586271459368586732194439618752752891643618345279943267815",
+        "categories": [
+            "negative.ratio"
+        ],
         "comments": "",
         "puzzleSolution": "164583927825976431397124586271459368586732194439618752752891643618345279943267815",
         "generatedCategories": [
             "gridsize9x9",
             "negative",
+            "negative.ratio",
             "ratio"
         ]
     },
@@ -19,11 +23,15 @@
         "license": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
         "puzzle": "N4IgzglgXgpiBcBOANCALhNAbO8QEEA7DAWgA0A1AAgGEB7ANxgCcBDAczlVYFc0ALOswQgASq0LswAaxCp2zCABMEAbVXAAvsi07tug/qM6QDVlh64AjPIhNCCNM0uaAusg3HDen99BmLXAAmW3tHZxg3Dz8vWN9Tc0sEADZQmAd4Jxd3T184mJMApPgAdjSMrMicgprY6vyGvPq8ltrm2tajdsa29xBCGHZWDCY1EAAPBhA+ybVQAGMYLCwwMdEAZhoguTEAFi3p1CLcEDIQfRBF5dX4VT2adZ3Rfe2+45EKc5MrlbX93ae+wArIcEoEPl8FktfrcxECaCUnvDkqD3ngzhcfjc7qISginsl8W9EidPpjodixHiUahcTQQcTwXgyX0wHQLBg6BlVGUQqkUAAOZC7ZBA5DrZA2IVimwS1JlFAikIilASmxikJlIWpGXC5AhCWC5Dy8XIIVlXWpJXIFAoVLK5Ba03q42Om1mvU2EJiiUOsX851uoWyj280WuxWuTRAA==",
         "solution": "726984531851367942493152786514239867387516429962478315679841253245693178138725694",
+        "categories": [
+            "negative.xv"
+        ],
         "comments": "",
         "puzzleSolution": "726984531851367942493152786514239867387516429962478315679841253245693178138725694",
         "generatedCategories": [
             "gridsize9x9",
             "negative",
+            "negative.xv",
             "xv"
         ]
     },
@@ -96,6 +104,18 @@
             "gridsize9x9",
             "killercage",
             "palindrome"
+        ]
+    },
+    {
+        "title": "August 21, 2023: Classic",
+        "author": "clover!",
+        "license": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
+        "puzzle": "N4IgzglgXgpiBcBOANCALhNAbO8QEEBXAc0LDQAIAmARmWoAYqBmeCgYSwEMxIBjEKi6E0ACwD2AJwQg+WcQDcYkgISCQkwjjAw0MgHJSAtlywUwhACbiA1oQqbtFLgAcXWAJ4A6CvgB2lhRiXGgA5GAUmGqoxJIQlggA2omgxBBKfgAKMH58EFgAslySNmAIflpYAL7Iqek52bn5RSVl8BVY1bUgCqaEuADsMfV+CGiaMMMZjXmFxaXllTWgvVj9CAAcUzljE9tZObMtC+1L3avr8ABs+7v9+zPN820dXXXTh0+ti53LIGkfJpzb6nX7dAENT7Ak6vP4Qg5A44vJYAXWQKX+I0e0ORYPekMRzx+bx6fVwN0xGTuk0pBKORNBJPh2KRxLhWKhrMZ7MB9JBsPBHMJ/LO+IRfJhotp4q+kt+aIxF1wzFu8HG92lLIZApWZIQABZVeqaczOdqpUqEABWI17TVmkV4+3CuVMoUS3Fu3myz1/S3wOjS6kPB2unl0n1swXenFshW6ta4Ki2jWml2+6MR2PczMy7M650eqNirWOkn+lVBtV2tNFnMl0MZhvp4uFyPc+OkxMIQPw4Nt/NS2vtgvDwdOsdc0fukdDmfjr1ZqdzmPLp3+5NV40hlsd9HNuvT1fmifztflvXwQ1bmtnk+LvPn8OP+/P0th3Pvptdy6VvvV1M7zLKpO0nV9P0bVt/S2G9AOPYCIN3I8l3Ag9Z3XS8KX/bcByfc5LxtWCTSAj8E0ua9sNveCw1AkjvzAhC0IXN9IPrXDUPYxif0GFNiOo+i6NbBiaP3TjSLEgT+KEwS2P9QjKLglCuP9FAiJ3Q8LUvGCFL4pTxOEyS9N9FE0RASwIDALgACMcEseQ0gEeBElkcQ/HGLhzL4DBXLKUzjT4LgAniEIYDAcQXG8vw2kSUywrWSKkhQZMhi2G46BVQ0bS2Ogbgy5AbWTFAhjygrkCK5AcuQLZky2TKKuQFVyrS/KGrK5AhhuQ1quQG4hhQQ0apa9L2ra7LWuTG4bTqlVKtqkbCuQQ0bmSlqUC2GaUSqIA",
+        "solution": "927861345816345297345297168284513976153976482679428513798132654531684729462759831",
+        "comments": "",
+        "puzzleSolution": "927861345816345297345297168284513976153976482679428513798132654531684729462759831",
+        "generatedCategories": [
+            "gridsize9x9"
         ]
     },
     {
@@ -347,19 +367,6 @@
         ]
     },
     {
-        "title": "November 13, 2023: Arrow",
-        "author": "clover!",
-        "license": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
-        "puzzle": "N4IgzglgXgpiBcBOANCALhNAbO8QDkB7ANxgFsAjGAJwAIBGAZmVoCYAGVx+WgQWuqEA7iFQBDAK5oAFoWoIQAYywkaAQlEhqEnGBhoFRamTFZaYCQBNCAawm1tu2mIAOLrAE8AdLQAiEAHNMMGcVADsA5wFhELIJMDRzCTJaNEJU6RhaYlMJLIgwjKyxNDQxRUzLWkUIamUYH00A6ghLBABtdtAg0jCABRgwmqwAWTFqGzAEMJ0sAF9kbohegaGIUfHJ6dmFpZXB4bGJqfgZrHnFkB7B1cPNk7OLvZuD9aOt053L6/7XjePtuddldli81v8Po9gT9bm97oCniD9uD3g8dgBdZBdJFgu4Az5A76g34o+EExEwv6ohHQ4mwiFownPEl4yFfZn06nk2nI1mMil0qlkqFE3lw/FQzHYymkiXsnEs8VspkKznC+Uyvk00W4pX8nm6hnajlCuUqzV642q03K+ZS0A5LB5BD0VA/BBobQwN2C2W24GO53wAAcPt6Hq9YcNXJFDtyuAAbFGwhG8sm1WbEYHcAAWZOp73Wv36y7ZhAAVnz8E9aaLWu5pfjCAA7FWa4WLUaG3GnbgUAqC+mbSWe0HmAPq5G65buyAy/BWG2p52YxisSbi1aV+rzb767Hp12D9vMwbFUeNXuZ8erxfd2K73b13Omwul7WT/7G72EOP3ZOP1vVcVXnVsJ3bIdN1ned+3/CDD2ArNX1DcDlyAnckJ/eAk1QwCH0QgNXzzXCO3Q09vyDSsSMg/d5XnV1qIQjC5ntJjyI3Wj72jZidXPAjeIzL8OOvS98J44THzPQT9VYz8RzYoSFPkuStzIxSVNnDSbzE9ilJpWS1OUwzVJ09TjM08ztO43StNE6yzNMmTMRAcZBBEeBsSwAoYBOToQAAJRzABhctNH8xgQrC1hIvRZzFBgc5fIC4LQvRYEvLCHyOnaZKgoTMKIvy1B/Oi/LYtQeLEo6XKyvS7zfJywKgubArmqitryqUBKsCSpqWrSy4MqyjzGuinNWvG4rgvGzrKp66qSqCma6syhqAuixhWs2qags22but6jaQAG0AhrWxbWFay6dsu/aqo89agtulbhr8/yE12sLm0+4rg0+u75oe97/pe86PsmgLvoh/y/pmuKDoW8HjtB7KAo+0Liu+jGAr+1L4fuxr0eRwb6tRmG8q+inio+sr8cBxq/tqknVrJv6WsxtrqY6unerZ4nTtJkacaC4NKdFrnRYB3mReR5zLAgMAxAoHBLBUIJFGqxRCDCT0xHlxQMG1qZnPbRQxDCeXLBKHzCBcQ2wl85ywEIJ17Y6Zg80rJMUFDRdXVbb3kFDVtXUXD3kErEPkDD5BPeQQPQ1dUMkzj1sUGYRc45QGP/aD+Po+QZg07zlOI+QV1I9jkvC/Lguffz5hQ+QFBK7zbPa9b6vGDSoA",
-        "solution": "345698217698712345712345698186457932459231786237986451574863129863129574921574863",
-        "comments": "",
-        "puzzleSolution": "345698217698712345712345698186457932459231786237986451574863129863129574921574863",
-        "generatedCategories": [
-            "arrow",
-            "gridsize9x9"
-        ]
-    },
-    {
         "title": "Oct. 26, 2023: Run-On Renbans",
         "author": "clover!",
         "license": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
@@ -455,6 +462,24 @@
             "quadruple",
             "ratio",
             "thermometer"
+        ]
+    },
+    {
+        "title": "Third-Degree Murder",
+        "author": "jeremydover & Raumplaner",
+        "license": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
+        "puzzle": "N4IgzglgXgpiBcBOANCALhNAbO8QBUALCAJwBMBaAERgHMSYYACAWQFdyYSRUBDNtIQD23PACsuMALYBPMkIBuXJgDImAJX5SADll4A7LjxAk2OMDDQIQAORFTeWJgGU28gNZsmp8017bdGQA6AB19MIBRfTQSIW0IAGMmLAhDMHgmAEF9GSYLNCYhADMmQQZmCwBHNhhoiEcmBJgsLDA/LCF9Wj99JlqYuMTk1OYpNjAChM60XlS/ZKEAdyYACgBGZAAmZABmAEpkJikIMjIcVYAWZABWZAA2A56yJmJaQlWAdmQADmREPaYZAgtEwQSyvX6sXiSRShkKJRwXUETE2R14uX0Qkm01mvTQiyEgOBmDaRViUlKhAqvCkzA6i0Ox1O5xEL2B7xIBncYKoxLQbQcuQY2hgvAKnXmsOYEBKjnpMGeACNcliqSRvGYYGBQuF9ABpCAtZQJXi0LUZXkg/lMOYms1tE36TEFYWigoGZ5jCZ5NgUtCEwTMfS+xXKMDCRa9OaBphsALKHBFbEkQzq4qU5h2mBBYz0E4IADaBeAAF9kKXy2WK9Wq7XKwBdZDFus1ytt1ulxvN9st3s9rsdvuDhtN4dj3sDodT/uj6fjkfd+fjyc91fLxsgSGDBJSwugKVgQsFkDqC4AYU2xlPZ7WIHr9arIAPR5P1zPFyv54/qGv1zvD/LJ8RkPeAi1fM87ivO4IKgs8/3vR9n1A491B2M8divNDvxPTZ33/RDgJfdQ1hvK9cNvH9cMvH8SIwmiL3wwCkLA4i8Pov9KLgxj90I5CTxIj4yLPQSEKY3iWJI74rxIxAhNk0SeLSIi0Mgn80MEn9zxEgDFK1Ii3ykn831kzSz3knSgKUvj1GgwyT2g8yCKsliPjPOz1G+Nyr08kyT0QLyf38jST087SnL06zXOC9RXNUkKYIUyyIpYzy6L89DuKSkCXLYk9XLSmyMsS5iUOg6jwPK9Q3wo+zSIQjd3ENHASCzPcQCaFpspw3LUIytS8I3BRHBqaw1ikx8OtaQsTxUzDhM/ebBuG3AQDWS8JuaKbQJPL8Fo48CPyWrARrwNaQA2zrpqqmCf2g/bCsgo6TtW8bAMmrqYpuvL5p/TzHtQIbjpWs6Lq20q+u+grXMOgHltG17QHeq7UqvfyMKe4Hb1Bj6yqvVzLwx0aAAZzrezaPvPGrrwJ2GgesWTsauyTpLMuS71p561gwxntsK9yHPZkBAc5rGycu3mSKp8ihJpoW4dOj8eZQgShJEjmVvGjdd1A3TspQ89Ksp/9UCEAQpTPawAGIADFrbPM9MkyYxFhOQQECJoI1muO5NluEAySEKQz06CZOVSKw8CiAZoSYAAZEZSd1/Set20z4I3U3sBGC28Btu2Had1AXbIN34A9r2fb9gOg5DmJcQjkAo6hIZ48MROsuTuKHtg9OTbN7Ordt+3Hed13CHdz3vd91Bq+D/RQ/r6wm+3OOE/CvWZoh3rsPUXDDoz/vDBzkA8+HwuQGL0vy6nqvyTnhfw6X6Jm6SVu4HXojJaEqWGPogqSIJgfLOR9B75xHkXMeE8K7T39nfWuYdohP2ji3NeYlnLKx6iRe6uFe4gEzubUBZ9R4l3HmXSelcZ5wPnnXR+kdn4rzfu3Eq/EfrdW0n3YBMBj6nwLsQq+5CYGz3gYvOhyDX6oKTtZZm9FfK71ZveDhBDc5D14RAkhUCb6UMDvfGhiDREv1Xm3D+1lZr9WilpY2eDD5cMIaoi+kCyHQNvto4RtDG70Jjow4xLEDJXmMgtcyiiB7KLAefS+pDr4UNgS46hCCG7L08RIju1lbKwUCVYzh3CVHgPseoxxmjok11iSI9xYjDHvzQclFCrl3KeVqazQKAV0rRVCpY/BwST7ZLCQ4yJgiqEPz0aUgxXjKkb0+tFWK3kEpAKUZ00JfCIkCOcUUgZ8SPEoKMaMoiKNGnoxmR0nhOTwkaKiUI4pbiEkbIqZInKO98qwT2UEkBISiFqP4U4rRKzdFrLKSMm54NKpvkBaRW6dV9nPLma83J7yClnNWUg4Za8NxgCEMdDAnRCw7D+MgDYXxth3BuMgK4vwvhXG2CgW4vwsUEo2L8W4BKsUbCuF8FA+Ldg/CJcgPFOLCUoGZYS2l2LtjUp5eSwlDKOWksJVS+42KmVbC5XKzlwrFUErpQqglXxfhXFuCgDYOwHxAA",
+        "solution": "391726548742958361856314792638472159475189236129563874583691427914237685267845913",
+        "categories": [
+            "bugcoverage1"
+        ],
+        "comments": "",
+        "puzzleSolution": "391726548742958361856314792638472159475189236129563874583691427914237685267845913",
+        "generatedCategories": [
+            "bugcoverage1",
+            "entropicline",
+            "gridsize9x9",
+            "killercage"
         ]
     },
     {
