@@ -615,7 +615,7 @@ export class Board {
                 return false;
             }
         }
-        this.binaryImplications.preprocess();
+        this.binaryImplications.preprocess(this);
         return true;
     }
 
@@ -809,7 +809,7 @@ export class Board {
                 for (let value = 1; value <= this.size; value++) {
                     const candidate0 = this.candidateIndex(cell0, value);
                     const candidate1 = this.candidateIndex(cell1, value);
-                    if (!this.isWeakLink(candidate0, candidate1)) {
+                    if (!this.isWeakLink(candidate0, candidate1) && hasValue(this.cells[cell0] & this.cells[cell1], value)) {
                         return false;
                     }
                 }
@@ -1056,7 +1056,7 @@ export class Board {
 
                     if (result === LogicResult.CHANGED) {
                         // Recompute cell forcing
-                        this.binaryImplications.preprocess();
+                        this.binaryImplications.preprocess(this);
                         changedThisRound = true;
                         changed = true;
                         // Keep looking for logic until there is none

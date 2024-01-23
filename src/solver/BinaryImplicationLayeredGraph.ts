@@ -1,3 +1,4 @@
+import { Board } from './Board';
 import {
     appendInts,
     minValue,
@@ -7,6 +8,7 @@ import {
     sequenceFilterOutUpdateDefaultCompare,
     sequenceHasNonemptyIntersectionDefaultCompare,
     valueBit,
+    hasValue,
 } from './SolveUtility';
 
 // Table of contents
@@ -216,6 +218,7 @@ export class BinaryImplicationLayeredGraph {
     graph: BinaryImplicationGraph;
     parentGraphs: BinaryImplicationGraph[];
     parentLayer: BinaryImplicationLayeredGraph | undefined;
+    prunedLiterals: Set<Literal>;
 
     // undefined is only for `subboardClone`, users must provide actual values for both arguments.
     constructor(numVariables: number | undefined, exactlyOneClausesForForcingLuts: Literal[][] | undefined) {
@@ -229,6 +232,7 @@ export class BinaryImplicationLayeredGraph {
             this.graph = undefined;
             this.parentGraphs = undefined;
             this.parentLayer = undefined;
+            this.prunedLiterals = undefined;
         } else {
             this.numVariables = numVariables;
             this.memo = new Map();
@@ -245,6 +249,7 @@ export class BinaryImplicationLayeredGraph {
             this.graph = new BinaryImplicationGraph(this.numVariables);
             this.parentGraphs = [];
             this.parentLayer = undefined;
+            this.prunedLiterals = new Set();
 
             // TODO: Add intra-clause links, for now they don't matter since we don't do transitive reduction/closure
             // e.g. if we have a cell clause for r1c1: 1r1c1 + 2r1c1 + 3r1c1 + ... + 9r1c1 = 1
@@ -280,7 +285,35 @@ export class BinaryImplicationLayeredGraph {
         }
     }
 
-    preprocess() {
+    preprocess(board: Board) {
+        // Prune all impossible candidates if we are the root board
+        if (this.parentLayer === undefined) {
+            for (let cellIndex = 0; cellIndex < board.size * board.size; cellIndex++) {
+                for (let value = 1; value <= board.size; value++) {
+                    const candidate = board.candidateIndex(cellIndex, value);
+                    if (!this.prunedLiterals.has(candidate) && !hasValue(board.cells[cellIndex], value)) {
+                        this.prunedLiterals.add(candidate);
+                        for (const implicant of this.getPosConsequences(candidate)) {
+                            this.graph.unsafeRemoveImplication(candidate, implicant);
+                        }
+                        for (const implicant of this.getNegConsequences(candidate)) {
+                            this.graph.unsafeRemoveImplication(candidate, ~implicant);
+                        }
+                    }
+                    if (!this.prunedLiterals.has(~candidate) && board.cells[cellIndex] === (valueBit(value) | board.givenBit)) {
+                        this.prunedLiterals.add(~candidate);
+                        for (const implicant of this.getPosConsequences(~candidate)) {
+                            this.graph.unsafeRemoveImplication(~candidate, implicant);
+                        }
+                        for (const implicant of this.getNegConsequences(~candidate)) {
+                            this.graph.unsafeRemoveImplication(~candidate, ~implicant);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Recompute cell forcing LUTs
         for (let clauseId = 0; clauseId < this.forcingLutExactlyOneClauses.length; clauseId++) {
             const startingVariable = this.forcingLutExactlyOneClauseIdToStartingPseudovariable[clauseId];
             const clause = this.forcingLutExactlyOneClauses[clauseId];
