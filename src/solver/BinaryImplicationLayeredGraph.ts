@@ -1,8 +1,6 @@
 import { Board } from './Board';
 import {
     appendInts,
-    minValue,
-    maxValue,
     popcount,
     removeDuplicates,
     sequenceFilterOutUpdateDefaultCompare,
@@ -353,6 +351,7 @@ export class BinaryImplicationLayeredGraph {
                         sequenceFilterOutUpdateDefaultCompare(firstPos, restPos, intersection);
                         if (intersection.length > 0) {
                             this.graph.pospos[startingVariable + mask] = intersection;
+                            hadNonzeroIntersection = true;
                         }
                     }
                     if (restNeg !== undefined) {
@@ -361,6 +360,7 @@ export class BinaryImplicationLayeredGraph {
                         sequenceFilterOutUpdateDefaultCompare(firstNeg, restNeg, intersection);
                         if (intersection.length > 0) {
                             this.graph.posneg[startingVariable + mask] = intersection;
+                            hadNonzeroIntersection = true;
                         }
                     }
                 }

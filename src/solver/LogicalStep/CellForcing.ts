@@ -1,6 +1,6 @@
 import { Board } from '../Board';
 import { LogicResult } from '../Enums/LogicResult';
-import { CandidateIndex, cellName, maskToString, popcount, valueBit, valuesList } from '../SolveUtility';
+import { cellName, maskToString, popcount, valueBit } from '../SolveUtility';
 import { LogicalStep } from './LogicalStep';
 
 export class CellForcing extends LogicalStep {
