@@ -50,11 +50,9 @@ puzzles-ci.json contains puzzles that are used for `npm test`. This file contain
 # First get stats for all the puzzles
 npx tsx tests/TestPuzzles.ts --printStats --timeout 20000 < puzzles/puzzles.json > stats.json
 # Breakdown:
-# - save input in a variable named $input
-# - get list of all categories and store in a list named $categories
-# - using reduce, loop over each category, and pick the fastest puzzle in that category. this builds up a list of puzzles
-# - deduplicate puzzles
-jq '. as $input | (map(.generatedCategories[]) | sort | unique) as $categories | reduce $categories[] as $category ([];. + [$input | sort_by(.solveElapsedTimeMs) | map(select(.generatedCategories | contains([$category])))[0]]) | sort_by(.title) | unique_by(.title)' stats.json > puzzles/puzzles-ci.json
+# - sort input by increasing runtime and increasing # of categories
+# - greedily pick the first puzzle which has a previously unseen category
+jq '. as $input | reduce ($input | sort_by(.generatedCategories | length | -.) | sort_by(.solveElapsedTimeMs / 20 | floor) | .[]) as $puzzle ({puzzles: [], categoriesSoFar: []}; . as $prevIter | ($prevIter.categoriesSoFar + $puzzle.generatedCategories | unique) as $newCategories | {puzzles: ($prevIter.puzzles + if ($newCategories | length) > ($prevIter.categoriesSoFar | length) then [$puzzle] else [] end), categoriesSoFar: $newCategories}) | .puzzles | sort_by(.title)' stats.json > puzzles/puzzles-ci.json
 # Regenerate the json so the stats are removed
 npx tsx tests/TestPuzzles.ts --printAll < puzzles/puzzles-ci.json > puzzles/puzzles-ci2.json; mv puzzles/puzzles-ci2.json puzzles/puzzles-ci.json
 ```

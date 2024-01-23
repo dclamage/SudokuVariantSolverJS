@@ -107,18 +107,6 @@
         ]
     },
     {
-        "title": "August 21, 2023: Classic",
-        "author": "clover!",
-        "license": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
-        "puzzle": "N4IgzglgXgpiBcBOANCALhNAbO8QEEBXAc0LDQAIAmARmWoAYqBmeCgYSwEMxIBjEKi6E0ACwD2AJwQg+WcQDcYkgISCQkwjjAw0MgHJSAtlywUwhACbiA1oQqbtFLgAcXWAJ4A6CvgB2lhRiXGgA5GAUmGqoxJIQlggA2omgxBBKfgAKMH58EFgAslySNmAIflpYAL7Iqek52bn5RSVl8BVY1bUgCqaEuADsMfV+CGiaMMMZjXmFxaXllTWgvVj9CAAcUzljE9tZObMtC+1L3avr8ABs+7v9+zPN820dXXXTh0+ti53LIGkfJpzb6nX7dAENT7Ak6vP4Qg5A44vJYAXWQKX+I0e0ORYPekMRzx+bx6fVwN0xGTuk0pBKORNBJPh2KRxLhWKhrMZ7MB9JBsPBHMJ/LO+IRfJhotp4q+kt+aIxF1wzFu8HG92lLIZApWZIQABZVeqaczOdqpUqEABWI17TVmkV4+3CuVMoUS3Fu3myz1/S3wOjS6kPB2unl0n1swXenFshW6ta4Ki2jWml2+6MR2PczMy7M650eqNirWOkn+lVBtV2tNFnMl0MZhvp4uFyPc+OkxMIQPw4Nt/NS2vtgvDwdOsdc0fukdDmfjr1ZqdzmPLp3+5NV40hlsd9HNuvT1fmifztflvXwQ1bmtnk+LvPn8OP+/P0th3Pvptdy6VvvV1M7zLKpO0nV9P0bVt/S2G9AOPYCIN3I8l3Ag9Z3XS8KX/bcByfc5LxtWCTSAj8E0ua9sNveCw1AkjvzAhC0IXN9IPrXDUPYxif0GFNiOo+i6NbBiaP3TjSLEgT+KEwS2P9QjKLglCuP9FAiJ3Q8LUvGCFL4pTxOEyS9N9FE0RASwIDALgACMcEseQ0gEeBElkcQ/HGLhzL4DBXLKUzjT4LgAniEIYDAcQXG8vw2kSUywrWSKkhQZMhi2G46BVQ0bS2Ogbgy5AbWTFAhjygrkCK5AcuQLZky2TKKuQFVyrS/KGrK5AhhuQ1quQG4hhQQ0apa9L2ra7LWuTG4bTqlVKtqkbCuQQ0bmSlqUC2GaUSqIA",
-        "solution": "927861345816345297345297168284513976153976482679428513798132654531684729462759831",
-        "comments": "",
-        "puzzleSolution": "927861345816345297345297168284513976153976482679428513798132654531684729462759831",
-        "generatedCategories": [
-            "gridsize9x9"
-        ]
-    },
-    {
         "title": "August 24, 2023: Antiking",
         "author": "clover!",
         "license": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
@@ -367,19 +355,6 @@
             "even",
             "gridsize9x9",
             "odd"
-        ]
-    },
-    {
-        "title": "Oct. 26, 2023: Run-On Renbans",
-        "author": "clover!",
-        "license": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
-        "puzzle": "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",
-        "solution": "695147832317892456248563971123978645879456123564321789951284367436715298782639514",
-        "comments": "Normal sudoku rules apply. Along each line, every group of three contiguous digits must form a set of consecutive integers, in any order. Digits may repeat along lines, but must not repeat within any set of three contiguous digits.\n\nFor instance, the line 35465765 is valid, because all sets of three contiguous digits along the line (354, 546, 465, 657, 576, and 765) form sets of consecutive digits.\n\nThe line 123243 is not valid, because 232 is not a set of consecutive digits. The line 123546 is also not valid, because 235 is not a set of consecutive digits.",
-        "puzzleSolution": "695147832317892456248563971123978645879456123564321789951284367436715298782639514",
-        "generatedCategories": [
-            "gridsize9x9",
-            "renban"
         ]
     },
     {
