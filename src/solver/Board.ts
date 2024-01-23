@@ -201,7 +201,6 @@ export class Board {
     binaryImplications: BinaryImplicationLayeredGraph;
     regions: Region[];
     constraints: Constraint[];
-    constraintsFinalized: boolean;
     constraintStates: Cloneable[];
     constraintStateIsCloned: (undefined | true)[];
     memos: Map<string, unknown>;
@@ -224,7 +223,6 @@ export class Board {
             this.binaryImplications = new BinaryImplicationLayeredGraph(size * size * size);
             this.regions = [];
             this.constraints = [];
-            this.constraintsFinalized = false;
             this.constraintStates = [];
             this.constraintStateIsCloned = [];
             this.memos = new Map();
@@ -282,7 +280,6 @@ export class Board {
         clone.binaryImplications = this.binaryImplications;
         clone.regions = this.regions;
         clone.constraints = this.constraints.map(constraint => constraint.clone()); // Clone constraints that need backtracking state
-        clone.constraintsFinalized = this.constraintsFinalized;
         clone.constraintStates = this.constraintStates.slice();
         clone.constraintStateIsCloned = [];
         // We can't mutate `this` state either as there may be a clone which references it
@@ -316,7 +313,6 @@ export class Board {
         clone.regions = this.regions.slice(); // Deep copy
         clone.constraints = []; // Don't inherit constraints
         clone.constraintStates = [];
-        clone.constraintsFinalized = this.constraintsFinalized;
         clone.memos = new Map(); // Don't inherit memos
         clone.logicalSteps = this.logicalSteps;
         clone.bruteForceExpensiveSteps = this.bruteForceExpensiveSteps;
@@ -609,7 +605,6 @@ export class Board {
                 return false;
             }
         }
-        this.constraintsFinalized = true;
         return true;
     }
 
@@ -1476,6 +1471,7 @@ export class Board {
 
                 if (bruteForceResult !== LogicResult.UNCHANGED) {
                     if (this.addBinaryImplicationsFromTruth(candidateIndex, newBoard)) {
+                        this.binaryImplications.sortGraph();
                         addedImplications = true;
                     }
                 }
@@ -1502,14 +1498,11 @@ export class Board {
 
                 if (bruteForceResult !== LogicResult.UNCHANGED) {
                     if (this.addBinaryImplicationsFromFalse(candidateIndex, newBoard)) {
+                        this.binaryImplications.sortGraph();
                         addedImplications = true;
                     }
                 }
             }
-        }
-
-        if (addedImplications) {
-            this.binaryImplications.sortGraph();
         }
 
         let changed = addedImplications;
@@ -1754,6 +1747,7 @@ export class Board {
         const jobStack = [this.clone()];
         let lastCancelCheckTime = Date.now();
 
+        let shouldSaveFirstPreprocessingStats = enableStats;
         if (enableStats) {
             this.solveStats.solveStartTimeMs = Date.now();
 
@@ -1768,18 +1762,6 @@ export class Board {
                 this.solveStats.preSolveNegPosImplications +
                 this.solveStats.preSolvePosNegImplications +
                 this.solveStats.preSolvePosPosImplications;
-            this.applyBruteForceLogic(allowPreprocessing);
-            [
-                this.solveStats.postInitialPreprocessingNegNegImplications,
-                this.solveStats.postInitialPreprocessingNegPosImplications,
-                this.solveStats.postInitialPreprocessingPosNegImplications,
-                this.solveStats.postInitialPreprocessingPosPosImplications,
-            ] = this.binaryImplications.countImplicationsByType();
-            this.solveStats.postInitialPreprocessingTotalImplications =
-                this.solveStats.postInitialPreprocessingNegNegImplications +
-                this.solveStats.postInitialPreprocessingNegPosImplications +
-                this.solveStats.postInitialPreprocessingPosNegImplications +
-                this.solveStats.postInitialPreprocessingPosPosImplications;
         }
 
         let result: SolveResultCancelled | SolveResultBoard | SolveResultNoSolution = { result: 'no solution' };
@@ -1820,6 +1802,20 @@ export class Board {
             }
 
             const bruteForceResult = currentBoard.applyBruteForceLogic(allowPreprocessing && jobStack.length === 0);
+            if (shouldSaveFirstPreprocessingStats) {
+                shouldSaveFirstPreprocessingStats = false;
+                [
+                    this.solveStats.postInitialPreprocessingNegNegImplications,
+                    this.solveStats.postInitialPreprocessingNegPosImplications,
+                    this.solveStats.postInitialPreprocessingPosNegImplications,
+                    this.solveStats.postInitialPreprocessingPosPosImplications,
+                ] = this.binaryImplications.countImplicationsByType();
+                this.solveStats.postInitialPreprocessingTotalImplications =
+                    this.solveStats.postInitialPreprocessingNegNegImplications +
+                    this.solveStats.postInitialPreprocessingNegPosImplications +
+                    this.solveStats.postInitialPreprocessingPosNegImplications +
+                    this.solveStats.postInitialPreprocessingPosPosImplications;
+            }
 
             if (bruteForceResult === LogicResult.INVALID) {
                 // Puzzle is invalid
@@ -1898,6 +1894,7 @@ export class Board {
         let lastReportTime = Date.now();
         const wantReportProgress = reportProgress || isCancelled;
 
+        let shouldSaveFirstPreprocessingStats = enableStats;
         if (enableStats) {
             this.solveStats.solveStartTimeMs = Date.now();
 
@@ -1912,18 +1909,6 @@ export class Board {
                 this.solveStats.preSolveNegPosImplications +
                 this.solveStats.preSolvePosNegImplications +
                 this.solveStats.preSolvePosPosImplications;
-            this.applyBruteForceLogic(allowPreprocessing);
-            [
-                this.solveStats.postInitialPreprocessingNegNegImplications,
-                this.solveStats.postInitialPreprocessingNegPosImplications,
-                this.solveStats.postInitialPreprocessingPosNegImplications,
-                this.solveStats.postInitialPreprocessingPosPosImplications,
-            ] = this.binaryImplications.countImplicationsByType();
-            this.solveStats.postInitialPreprocessingTotalImplications =
-                this.solveStats.postInitialPreprocessingNegNegImplications +
-                this.solveStats.postInitialPreprocessingNegPosImplications +
-                this.solveStats.postInitialPreprocessingPosNegImplications +
-                this.solveStats.postInitialPreprocessingPosPosImplications;
         }
 
         let result: SolveResultCancelledPartialSolutionCount | SolveResultSolutionCount = undefined;
@@ -1968,6 +1953,20 @@ export class Board {
             }
 
             const bruteForceResult = currentBoard.applyBruteForceLogic(allowPreprocessing && jobStack.length === 0);
+            if (shouldSaveFirstPreprocessingStats) {
+                shouldSaveFirstPreprocessingStats = false;
+                [
+                    this.solveStats.postInitialPreprocessingNegNegImplications,
+                    this.solveStats.postInitialPreprocessingNegPosImplications,
+                    this.solveStats.postInitialPreprocessingPosNegImplications,
+                    this.solveStats.postInitialPreprocessingPosPosImplications,
+                ] = this.binaryImplications.countImplicationsByType();
+                this.solveStats.postInitialPreprocessingTotalImplications =
+                    this.solveStats.postInitialPreprocessingNegNegImplications +
+                    this.solveStats.postInitialPreprocessingNegPosImplications +
+                    this.solveStats.postInitialPreprocessingPosNegImplications +
+                    this.solveStats.postInitialPreprocessingPosPosImplications;
+            }
 
             if (bruteForceResult === LogicResult.INVALID) {
                 // Puzzle is invalid
