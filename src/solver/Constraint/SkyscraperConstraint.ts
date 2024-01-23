@@ -34,6 +34,7 @@ export class SkyscraperConstraint extends Constraint {
     cells: CellIndex[];
     cellsLookup: Set<CellIndex>;
     memoPrefix: string;
+    bruteForceMemoPrefix: string;
 
     constructor(board: Board, params: SkyscraperConstraintParams) {
         const firstCellIndex = board.cellIndex(params.directionalCoords.row, params.directionalCoords.col);
@@ -51,6 +52,7 @@ export class SkyscraperConstraint extends Constraint {
         this.cellsLookup = new Set(this.cells);
 
         this.memoPrefix = `Skyscraper|${this.clue}|${this.cellStart}`;
+        this.bruteForceMemoPrefix = `SkyscraperBruteForce|${this.clue}`;
     }
 
     init(board: Board): InitResult {
@@ -234,6 +236,93 @@ export class SkyscraperConstraint extends Constraint {
         }
 
         return [];
+    }
+
+    preprocessingStep(board: Board): ConstraintResult {
+        return this.bruteForceStep(board);
+    }
+
+    bruteForceStep(board: Board): ConstraintResult {
+        let memoKey = this.bruteForceMemoPrefix;
+        const unsetCellIndexes: number[] = [];
+        const curVals: CellMask[] = [];
+        let unsetMask = board.allValues;
+        for (let cellIndex = 0; cellIndex < this.cells.length; cellIndex++) {
+            const cell = this.cells[cellIndex];
+            const cellMask = board.cells[cell];
+            memoKey += '|';
+            if (board.isGivenMask(cellMask)) {
+                memoKey += cellMask.toString(16);
+                unsetMask &= ~cellMask;
+                curVals.push(minValue(cellMask));
+            } else {
+                unsetCellIndexes.push(cellIndex);
+                curVals.push(0);
+            }
+        }
+        if (unsetCellIndexes.length === 0) {
+            return ConstraintResult.UNCHANGED;
+        }
+
+        let keepMasks: CellMask[];
+        const memo = board.getMemo(memoKey) as LogicStepMemo;
+        if (memo) {
+            keepMasks = memo.keepMasks;
+            if (keepMasks === null) {
+                return ConstraintResult.INVALID;
+            }
+        } else {
+            const unsetVals: number[] = valuesList(unsetMask);
+
+            let haveValidPerm = false;
+            keepMasks = [];
+            const numUnsetCells = unsetCellIndexes.length;
+            for (const perm of permutations(unsetVals)) {
+                for (let unsetCellIndex = 0; unsetCellIndex < numUnsetCells; ++unsetCellIndex) {
+                    const cellIndex = unsetCellIndexes[unsetCellIndex];
+                    curVals[cellIndex] = perm[unsetCellIndex];
+                }
+                if (SkyscraperConstraint.seenCount(curVals) !== this.clue) {
+                    continue;
+                }
+
+                let needCheck = false;
+                for (let cellIndex = 0; cellIndex < this.cells.length; ++cellIndex) {
+                    if ((keepMasks[cellIndex] & valueBit(curVals[cellIndex])) === 0) {
+                        needCheck = true;
+                        break;
+                    }
+                }
+                if (!needCheck) {
+                    continue;
+                }
+
+                for (let cellIndex = 0; cellIndex < this.cells.length; ++cellIndex) {
+                    keepMasks[cellIndex] |= valueBit(curVals[cellIndex]);
+                }
+                haveValidPerm = true;
+            }
+
+            if (!haveValidPerm) {
+                board.storeMemo(memoKey, { keepMasks: null });
+                return ConstraintResult.INVALID;
+            } else {
+                board.storeMemo(memoKey, { keepMasks });
+            }
+        }
+
+        let changed = ConstraintResult.UNCHANGED;
+        for (let cellIndex = 0; cellIndex < this.cells.length; ++cellIndex) {
+            const result = board.keepCellMask(this.cells[cellIndex], keepMasks[cellIndex]);
+            if (result === ConstraintResult.INVALID) {
+                return ConstraintResult.INVALID;
+            }
+            if (result === ConstraintResult.CHANGED) {
+                changed = ConstraintResult.CHANGED;
+            }
+        }
+
+        return changed;
     }
 
     static seenCount(values: CellValue[]): number {
