@@ -4,7 +4,7 @@ import { CheckFailure, runChecksOnPuzzles, serializeCheckFailure, solveChecks } 
 
 describe('Test puzzles', () => {
     // Path relative to project root
-    const puzzlesPath = 'puzzles/puzzles.json';
+    const puzzlesPath = 'puzzles/puzzles-ci.json';
     const puzzles: Puzzle[] = parsePuzzlesJson(fs.readFileSync(puzzlesPath, 'utf-8'));
     let failures: Map<string, CheckFailure[]> = undefined;
     let timeouts: Puzzle[] = undefined;
