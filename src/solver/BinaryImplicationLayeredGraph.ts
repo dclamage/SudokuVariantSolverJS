@@ -7,6 +7,7 @@ import {
     sequenceHasNonemptyIntersectionDefaultCompare,
     valueBit,
     hasValue,
+    sequenceIntersectionDefaultCompare,
 } from './SolveUtility';
 
 // Table of contents
@@ -338,26 +339,86 @@ export class BinaryImplicationLayeredGraph {
                 masksByPopcount[popcount(mask)].push(mask);
             }
 
-            for (const masks of masksByPopcount.slice(2)) {
+            {
+                const masks = masksByPopcount[2];
+
                 let hadNonzeroIntersection = false;
                 for (const mask of masks) {
                     const firstMask = mask & -mask;
                     const restMask = mask & (mask - 1);
+                    const firstPos = this.graph.pospos[startingVariable + firstMask];
+                    const firstNeg = this.graph.posneg[startingVariable + firstMask];
                     const restPos = this.graph.pospos[startingVariable + restMask];
                     const restNeg = this.graph.posneg[startingVariable + restMask];
-                    if (restPos !== undefined) {
-                        const firstPos = this.getPosConsequences(startingVariable + firstMask);
-                        const intersection: Variable[] = [];
-                        sequenceFilterOutUpdateDefaultCompare(firstPos, restPos, intersection);
+                    if (firstPos !== undefined && restPos !== undefined) {
+                        const intersection = sequenceIntersectionDefaultCompare(firstPos, restPos);
                         if (intersection.length > 0) {
                             this.graph.pospos[startingVariable + mask] = intersection;
                             hadNonzeroIntersection = true;
                         }
                     }
-                    if (restNeg !== undefined) {
-                        const firstNeg = this.getNegConsequences(startingVariable + firstMask);
-                        const intersection: Variable[] = [];
-                        sequenceFilterOutUpdateDefaultCompare(firstNeg, restNeg, intersection);
+                    if (firstNeg !== undefined && restNeg !== undefined) {
+                        const intersection = sequenceIntersectionDefaultCompare(firstNeg, restNeg);
+                        if (intersection.length > 0) {
+                            this.graph.posneg[startingVariable + mask] = intersection;
+                            hadNonzeroIntersection = true;
+                        }
+                    }
+                }
+
+                if (!hadNonzeroIntersection) continue;
+            }
+
+            {
+                const masks = masksByPopcount[3];
+
+                let hadNonzeroIntersection = false;
+                for (const mask of masks) {
+                    const firstMask = mask & -mask;
+                    const restMask = mask & (mask - 1);
+                    const firstPos = this.graph.pospos[startingVariable + firstMask];
+                    const firstNeg = this.graph.posneg[startingVariable + firstMask];
+                    const restPos = this.graph.pospos[startingVariable + restMask];
+                    const restNeg = this.graph.posneg[startingVariable + restMask];
+                    if (firstPos !== undefined && restPos !== undefined) {
+                        const intersection = sequenceIntersectionDefaultCompare(firstPos, restPos);
+                        if (intersection.length > 0) {
+                            this.graph.pospos[startingVariable + mask] = intersection;
+                            hadNonzeroIntersection = true;
+                        }
+                    }
+                    if (firstNeg !== undefined && restNeg !== undefined) {
+                        const intersection = sequenceIntersectionDefaultCompare(firstNeg, restNeg);
+                        if (intersection.length > 0) {
+                            this.graph.posneg[startingVariable + mask] = intersection;
+                            hadNonzeroIntersection = true;
+                        }
+                    }
+                }
+
+                if (!hadNonzeroIntersection) continue;
+            }
+
+            for (const masks of masksByPopcount.slice(4)) {
+                let hadNonzeroIntersection = false;
+                for (const mask of masks) {
+                    let firstMask = mask & -mask;
+                    let restMask = mask & (mask - 1);
+                    firstMask |= restMask & -restMask;
+                    restMask &= restMask - 1;
+                    const firstPos = this.graph.pospos[startingVariable + firstMask];
+                    const firstNeg = this.graph.posneg[startingVariable + firstMask];
+                    const restPos = this.graph.pospos[startingVariable + restMask];
+                    const restNeg = this.graph.posneg[startingVariable + restMask];
+                    if (firstPos !== undefined && restPos !== undefined) {
+                        const intersection = sequenceIntersectionDefaultCompare(firstPos, restPos);
+                        if (intersection.length > 0) {
+                            this.graph.pospos[startingVariable + mask] = intersection;
+                            hadNonzeroIntersection = true;
+                        }
+                    }
+                    if (firstNeg !== undefined && restNeg !== undefined) {
+                        const intersection = sequenceIntersectionDefaultCompare(firstNeg, restNeg);
                         if (intersection.length > 0) {
                             this.graph.posneg[startingVariable + mask] = intersection;
                             hadNonzeroIntersection = true;
