@@ -1161,5 +1161,47 @@
             "skyscraper"
         ]
     },
+    {
+        "title": "4SquareX",
+        "author": "Fraπ",
+        "license": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
+        "puzzle": "N4IgzglgXgpiBcBOANCALhNAbO8QBYBlARwFcBDAJxgA0RVzS0ALAe0oRADFLzAB4HogA5pQgATBAG1JwAL7JQAN3JZSuFMIiKYAOwRpKa+XIXGQy1bgCMqIVt37DMYy9OmAushmuTSlWoQNO209eAMjNz9LBAAmW3tQ8OdIl09vSPN/XDjNEMcI3x9M6PgADni8sKcfWTTfYoCyiocqgpqUhQbcAGZmxOqPLyjG3tyWpPbCjvqLRoB2PvznOrNZ3AWx/rbporWEfEXW5LkVjL34A82lydWshAA2Q4mU06nh3Eero927pCeBt61IY3TrnACs/22M1+Ni+zxOnhAYgg5CErB0KgA1EtUMjUeiVABaHEgGAADwMVBgdnRUlAAGMYFgsGApCAAEoxADCMUEnK53T53PwfO6PNFAolItQ7Pw4plcsFCq5IvcZkZzNZ8EkHO59yFXLmBtKEv1MrFRvNXJNyrNHLllvt1pAas6GpZbPZ93lHO9St9Kr5cx97OD/tDgZlpRD0fD0dV6qZHu1AbtXsNfO9No5wbTwcdEez7OjaejBejJrViLArFUGFp2vKKAhBxsC16cUejxsvRQ5TiBwWEIWBziEN6jybyBsB3KjwWY+nyF7y+QcRsU4OEPnyGHyBQNkeHeQs/3u5Pa+QC0PyHKvR7t+QjwOKCHl87V9XEKnM7VQA==",
+        "solution": "895417326613982475742536891486725139321894567579163248954271683138649752267358914",
+        "comments": "",
+        "puzzleSolution": "895417326613982475742536891486725139321894567579163248954271683138649752267358914",
+        "generatedCategories": [
+            "diagonal+",
+            "diagonal-",
+            "extraregion",
+            "gridsize9x9"
+        ]
+    },
+    {
+        "title": "Outcast's Labyrinth",
+        "author": "Fraπ",
+        "license": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
+        "puzzle": "N4IgzglgXgpiBcBOANCALhNAbO8QHkBXNAYwEMw0ByMAAgBkyAjATwCcIA7NACxFTLEeAezYIQAMTZlAA8D8QAcw4ATBAG01oAG5kshXAEZUCiFpicEaNvoC+yYHYf2QbGCeEX4ABke/nr908jEB09XAAmY1NzS2sYRxc3CA8EAwSA5KDUUP0EFEVozytbAF1kTT9QDJT4cPSkmrr/Bs9IkN1c+AA2KLMiuPrAhABmQcyRsZrh7I7cAHZemPhi+Oah+DSyzXawkcX+2zXx2snWmd3a/djDqpaEJtv1h8Sn04mjmrSPoJstx+OfN8EID/o0EjlcD0Cn1rqsnNpZggAKxXZYDIHwUYYr6gzyjP4vY5It7wFE7TptEwwtE3Qk1Yn2SokrG4vbk3BkqlLFbM37lVmkkldEkMhEXSmFWGVdl5VE8jFzEkADmVfIqjIxoqZCvOnSVcvRAsVzghCAW0O5Az+It1hgNtOqnlFdKd4MRpPtcJJxvhMvg+otB3iBNN3U90tD5q5QaFsYxKo18N+ZRAZG4EAA1lwFLDUGBhHoMDU1EYevqUQsACzISLTFCRFDTatl5BGBYo6YoyL6lBV5A9IzVhal5Cd5AofXdmvj5B9kcd2fIatd5A90et/vIBc9FBGKdDmeD9conoLKct4fTscoSslGxAA===",
+        "solution": "168574239293468175352897461471635982829741653745289316536912847914356728687123594",
+        "comments": "",
+        "puzzleSolution": "168574239293468175352897461471635982829741653745289316536912847914356728687123594",
+        "generatedCategories": [
+            "antiking",
+            "gridsize9x9"
+        ]
+    },
+    {
+        "title": "Random Neighing Generation",
+        "author": "Fraπ",
+        "license": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
+        "puzzle": "N4IgzglgXgpiBcBOANCALhNAbO8QCUBDAOwBMB7AWwAIA5GCAcwAsJjHqBxGYmAJ0IZyxEKkIBXNM3J8EIAGIDAA8CiQjPhFIIA2ttAA3QlnG4AjKkYR9PBGj4mAvsmBODRkwgDMFqzfh3HZ1dgoNCXAF1kPRCXMJBDY1wAJh9rEX97GBjXePdcAFZUvwCsoMjosOznXMSEFDVfdJKqiKjY9paYmo94cwa020zg8o64hJ7vfuKhsbyEQqmmmdHWirda+AB2IqXAlc6ytpbu3AAOHcG9g9X2k68LjKvZjYA2B+bKypHrrvGC9+WOT+CG2i0uWXCkRAJAwAGtiExmGhwahSBAwAArchsNDqcjiAAOYBR4HIxiE6W05hS3gALMhCm9tucUMzkChqcg6QzkG96YzkGyOcgaVzkPzeYLkCzkJzhaKJUzpZKhbKRWKJQLVZzuQqeUqZeZDeruVrwg4gA==",
+        "solution": "123456789789123456456789123345678912912345678678912345567891234234567891891234567",
+        "comments": "",
+        "puzzleSolution": "123456789789123456456789123345678912912345678678912345567891234234567891891234567",
+        "generatedCategories": [
+            "antiknight",
+            "disjointgroups",
+            "gridsize9x9"
+        ]
+    },
     {}
 ]
