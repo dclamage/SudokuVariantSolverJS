@@ -747,12 +747,6 @@ export class Board {
         return true;
     }
 
-    setCellMask(cellIndex: CellIndex, cellMask: CellMask) {
-        const origMask = this.cells[cellIndex] & this.allValues;
-        this.cells[cellIndex] = cellMask;
-        return this.enforceNewMask(cellIndex, origMask);
-    }
-
     keepCellMask(cellIndex: CellIndex, cellMask: CellMask) {
         const origMask = this.cells[cellIndex] & this.allValues;
         const newMask = origMask & cellMask;

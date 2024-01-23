@@ -223,7 +223,7 @@ export class SumGroup {
         for (let i = 0; i < this.cells.length; i++) {
             const cell = this.cells[i];
             const mask: CellMask = board.cells[cell];
-            resultMasks[i] = mask;
+            resultMasks[i] = mask & board.allValues;
         }
 
         // Check if the excluded value must be included
@@ -350,7 +350,7 @@ export class SumGroup {
     applySumResult(board: Board, resultMasks: CellMask[]): boolean {
         for (let cellIndex = 0; cellIndex < this.cells.length; cellIndex++) {
             const cell = this.cells[cellIndex];
-            if (!board.setCellMask(cell, resultMasks[cellIndex])) {
+            if (board.keepCellMask(cell, resultMasks[cellIndex]) === ConstraintResult.INVALID) {
                 return false;
             }
         }
