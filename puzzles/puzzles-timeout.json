@@ -1,20 +1,21 @@
 [
-	{
-		"title": "Solver needs SET",
-		"author": "TopAutism",
-		"license": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
-		"puzzle": "N4IgzglgXgpiBcBOANCALhNAbO8QGUB7LANxgCcACAOxhgBMxL8BRAFRFQEMBXNAC0LkEINoQAOAQT4QwAW04hyPHGBhoRABSxcAxjEoBGALSJKhavsow9/ShGrWy5AJ6VyhAO6Uu1epV1iHjlqADoAHWoAEQgAc0wmT0x+Bx9KY3TMrnIbSnpCGkI0dxhxGzRkHz9KMGDKNAKBA2pggCMKe0cm+olKHAAzNAjouISfegArPRhqYoa0wHvSHxyAizVdGTJQxVjyCHoEAG1D4ABfZDOL89Ac+IsEAAZrpRg76kfn24h7+CeLl7eH3+Xx+fxur2+71+pwAusgTgDIQhDJ8IT8UcC0VCMZdcajAfAcYj0fikYTYfDwQSAEykn60zE0ulQhlUsms4ks67cq5wk483GchAAZmZIrF8FFjLJUrZP1lQslFIRIKhABYJRrpT8tXirtr1ZqjXy5VCAKwSi0GhBW002y0O/V4k0CiUANndnut8A93t9dp9yoDAHYJaHveG9YLVQhI4q4zH4KGTYqABwS9PezMB7NpjOu3lwkAAawgWBw5F0XFiuAR+nLYCOIAASoYAMKGRSttvUrvUjsgIskLhYHi4ECGXvPetYRvwQ4t9vBrvt1N9tvLocjsciScgacwBtN5vBgeoE89rupgdb0fjvcHo/zlun5fn09r8/XzeoYd33dTv8M5zguzbXsKXaIJe55QRBt47nghhro+s7Hv2EHnsK0EtlhcG/tu97IUBh6oc+zb9ogXZYZ+OFtpR8GEfuxFPqB16UTBbY0c2UH0fh/6IURoDAcearYc2okYS2ZptnhIB/ghE6CSAwlkdJnbnm6Z4tppvYMQBTFCSRIEtqJXGiexUl0YOfEKUhBnKUZx7SW+2kbl2mlrnpiGAYZLEtv2apUW2gWYW2ZrWXJBG7kpKmge24Xnu2brrslXkTj5Dl+eJwVdqJCWWYFaV2ShxnNtJyUaWF7ltqlNn3hlsUvlV741VerVFQ1jlkdeIUtlBvXcVVRXIUW9AQP0/QUDM+hHL5pGgVhLnNtRg4lceWEWdl9FrWRp7qa5nYwjtoGnpJF66cdBXVYVl1la156ialt39r257oatzHzS215cd+q1FmAQQYD8hzBsg1LIG6yBqsgwrIKmyAoIYyBmrDkPIGDCMw8jEOoygMMI3DyMoKjUNgxDZPg2jWMo4jyA49DdNg6jRPowjSO01DEOY2jBO87TxMY1TUPI6j7PoxDcMw8zdMM2DUN88KR1AA==",
-		"solution": "726438915367841259483195672672384591249753168915627834834519726158962347591276483",
-		"categories": [
-			"set"
-		],
-		"comments": "",
-		"puzzleSolution": "726438915367841259483195672672384591249753168915627834834519726158962347591276483",
-		"generatedCategories": [
-			"difference",
-			"gridsize9x9",
-			"killercage",
-			"set"
-		]
-	}
+    {
+        "title": "Solver needs SET",
+        "author": "TopAutism",
+        "license": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
+        "puzzle": "N4IgzglgXgpiBcBOANCALhNAbO8QGUB7LANxgCcACAOxhgBMxL8BRAFRFQEMBXNAC0LkEINoQAOAQT4QwAW04hyPHGBhoRABSxcAxjEoBGALSJKhavsow9/ShGrWy5AJ6VyhAO6Uu1epV1iHjlqADoAHWoAEQgAc0wmT0x+Bx9KY3TMrnIbSnpCGkI0dxhxGzRkHz9KMGDKNAKBA2pggCMKe0cm+olKHAAzNAjouISfegArPRhqYoa0wHvSHxyAizVdGTJQxVjyCHoEAG1D4ABfZDOL89Ac+IsEAAZrpRg76kfn24h7+CeLl7eH3+Xx+fxur2+71+pwAusgTgDIQhDJ8IT8UcC0VCMZdcajAfAcYj0fikYTYfDwQSAEykn60zE0ulQhlUsms4ks67cq5wk483GchAAZmZIrF8FFjLJUrZP1lQslFIRIKhABYJRrpT8tXirtr1ZqjXy5VCAKwSi0GhBW002y0O/V4k0CiUANndnut8A93t9dp9yoDAHYJaHveG9YLVQhI4q4zH4KGTYqABwS9PezMB7NpjOu3lwkAAawgWBw5F0XFiuAR+nLYCOIAASoYAMKGRSttvUrvUjsgIskLhYHi4ECGXvPetYRvwQ4t9vBrvt1N9tvLocjsciScgacwBtN5vBgeoE89rupgdb0fjvcHo/zlun5fn09r8/XzeoYd33dTv8M5zguzbXsKXaIJe55QRBt47nghhro+s7Hv2EHnsK0EtlhcG/tu97IUBh6oc+zb9ogXZYZ+OFtpR8GEfuxFPqB16UTBbY0c2UH0fh/6IURoDAcearYc2okYS2ZptnhIB/ghE6CSAwlkdJnbnm6Z4tppvYMQBTFCSRIEtqJXGiexUl0YOfEKUhBnKUZx7SW+2kbl2mlrnpiGAYZLEtv2apUW2gWYW2ZrWXJBG7kpKmge24Xnu2brrslXkTj5Dl+eJwVdqJCWWYFaV2ShxnNtJyUaWF7ltqlNn3hlsUvlV741VerVFQ1jlkdeIUtlBvXcVVRXIUW9AQP0/QUDM+hHL5pGgVhLnNtRg4lceWEWdl9FrWRp7qa5nYwjtoGnpJF66cdBXVYVl1la156ialt39r257oatzHzS215cd+q1FmAQQYD8hzBsg1LIG6yBqsgwrIKmyAoIYyBmrDkPIGDCMw8jEOoygMMI3DyMoKjUNgxDZPg2jWMo4jyA49DdNg6jRPowjSO01DEOY2jBO87TxMY1TUPI6j7PoxDcMw8zdMM2DUN88KR1AA==",
+        "solution": "726438915367841259483195672672384591249753168915627834834519726158962347591276483",
+        "categories": [
+            "set"
+        ],
+        "comments": "",
+        "puzzleSolution": "726438915367841259483195672672384591249753168915627834834519726158962347591276483",
+        "generatedCategories": [
+            "difference",
+            "gridsize9x9",
+            "killercage",
+            "set"
+        ]
+    },
+    {}
 ]

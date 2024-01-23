@@ -56,6 +56,7 @@ export class Puzzle {
         'successMessage',
         'truecandidatesoptions',
         'disabledlogic',
+        'circle',
         'line',
         'text',
     ];
