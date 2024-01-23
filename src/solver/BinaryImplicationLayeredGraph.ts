@@ -1,4 +1,14 @@
-import { appendInts, removeDuplicates, sequenceFilterOutUpdateDefaultCompare, sequenceHasNonemptyIntersectionDefaultCompare } from './SolveUtility';
+import { Board } from './Board';
+import {
+    appendInts,
+    popcount,
+    removeDuplicates,
+    sequenceFilterOutUpdateDefaultCompare,
+    sequenceHasNonemptyIntersectionDefaultCompare,
+    valueBit,
+    hasValue,
+    sequenceIntersectionDefaultCompare,
+} from './SolveUtility';
 
 // Table of contents
 
@@ -108,18 +118,21 @@ class BinaryImplicationGraph {
             backward = this.implicationsIndex[+(~lit2 >= 0) * 2 + +(~lit1 >= 0)][toVariable(lit2)] = [];
         }
         const var1 = toVariable(lit1);
+
         forward.push(var2);
-        backward.push(var1);
         const forwardUnsorted = this.unsortedArrFor(lit1, lit2);
-        const backwardUnsorted = this.unsortedArrFor(~lit2, ~lit1);
         if (!forwardUnsorted[lit1]) {
             forwardUnsorted[lit1] = 1;
             this.unsorted.push(forward);
         }
+
+        backward.push(var1);
+        const backwardUnsorted = this.unsortedArrFor(~lit2, ~lit1);
         if (!backwardUnsorted[lit1]) {
             backwardUnsorted[lit1] = 1;
             this.unsorted.push(backward);
         }
+
         return true;
     }
 
@@ -193,36 +206,64 @@ export class BinaryImplicationLayeredGraph {
 
     numVariables: number;
     // TODO: Improve memoization so it uses literal update timestamping
-    memo: Map<BinaryImplicationLayeredGraph, Map<string, Variable[]>>;
+    memo: Map<BinaryImplicationLayeredGraph, Map<string, readonly Variable[]>>;
+    // Clause forcing data
+    numTotalVariables: number;
+    forcingLutExactlyOneClauses: Literal[][];
+    forcingLutExactlyOneClauseIdToStartingPseudovariable: Variable[];
 
     // Mutable data (at least during preprocessing)
 
     graph: BinaryImplicationGraph;
     parentGraphs: BinaryImplicationGraph[];
-    parentLayer: BinaryImplicationLayeredGraph;
+    parentLayer: BinaryImplicationLayeredGraph | undefined;
+    prunedLiterals: Set<Literal>;
 
     // undefined is only for `subboardClone`, users must provide actual values for both arguments.
-    constructor(numVariables: number | undefined) {
-        if (numVariables === undefined) {
+    constructor(numVariables: number | undefined, exactlyOneClausesForForcingLuts: Literal[][] | undefined) {
+        if (numVariables === undefined || exactlyOneClausesForForcingLuts === undefined) {
             // For cloning, assign the members in the same order so the hidden class is the same, but set them all to undefined so we don't create garbage.
             this.numVariables = undefined;
             this.memo = undefined;
+            this.numTotalVariables = undefined;
+            this.forcingLutExactlyOneClauses = undefined;
+            this.forcingLutExactlyOneClauseIdToStartingPseudovariable = undefined;
             this.graph = undefined;
             this.parentGraphs = undefined;
             this.parentLayer = undefined;
+            this.prunedLiterals = undefined;
         } else {
             this.numVariables = numVariables;
             this.memo = new Map();
             this.memo.set(this, new Map());
-            this.graph = new BinaryImplicationGraph(numVariables);
+
+            this.numTotalVariables = numVariables;
+            this.forcingLutExactlyOneClauses = exactlyOneClausesForForcingLuts.map(clause => clause.slice());
+            this.forcingLutExactlyOneClauseIdToStartingPseudovariable = [];
+            for (let clauseId = 0; clauseId < exactlyOneClausesForForcingLuts.length; clauseId++) {
+                this.forcingLutExactlyOneClauseIdToStartingPseudovariable.push(this.numTotalVariables);
+                this.numTotalVariables += 1 << exactlyOneClausesForForcingLuts[clauseId].length;
+            }
+
+            this.graph = new BinaryImplicationGraph(this.numVariables);
             this.parentGraphs = [];
             this.parentLayer = undefined;
+            this.prunedLiterals = new Set();
+
+            // TODO: Add intra-clause links, for now they don't matter since we don't do transitive reduction/closure
+            // e.g. if we have a cell clause for r1c1: 1r1c1 + 2r1c1 + 3r1c1 + ... + 9r1c1 = 1
+            // then ~1r1c1 = 23456789r1c1
+            //      ~12r1c1 (neither 1 nor 2 can be in r1c1) = 3456789r1c1 (either 3 or 4 or 5 ... or 9 is in r1c1)
+            //      ~13579r1c1 = 2468r1c1
+            // also 1r1c1 -> 12r1c1
+            //      12r1c1 -> 123r1c1
+            // and finally 1r1c1 (a singleton clause variable) = 1r1c1 (the actual variable)
         }
     }
 
     // Clones the graph and adds a new layer corresponding to the new subboard.
     subboardClone(): this {
-        const clone = Object.assign(new BinaryImplicationLayeredGraph(undefined), this);
+        const clone = Object.assign(new BinaryImplicationLayeredGraph(undefined, undefined), this);
 
         clone.memo.set(clone, new Map());
 
@@ -243,6 +284,157 @@ export class BinaryImplicationLayeredGraph {
         }
     }
 
+    preprocess(board: Board) {
+        // Prune all impossible candidates if we are the root board
+        if (this.parentLayer === undefined) {
+            for (let cellIndex = 0; cellIndex < board.size * board.size; cellIndex++) {
+                for (let value = 1; value <= board.size; value++) {
+                    const candidate = board.candidateIndex(cellIndex, value);
+                    if (!this.prunedLiterals.has(candidate) && !hasValue(board.cells[cellIndex], value)) {
+                        this.prunedLiterals.add(candidate);
+                        for (const implicant of this.getPosConsequences(candidate)) {
+                            this.graph.unsafeRemoveImplication(candidate, implicant);
+                        }
+                        for (const implicant of this.getNegConsequences(candidate)) {
+                            this.graph.unsafeRemoveImplication(candidate, ~implicant);
+                        }
+                    }
+                    if (!this.prunedLiterals.has(~candidate) && board.cells[cellIndex] === (valueBit(value) | board.givenBit)) {
+                        this.prunedLiterals.add(~candidate);
+                        for (const implicant of this.getPosConsequences(~candidate)) {
+                            this.graph.unsafeRemoveImplication(~candidate, implicant);
+                        }
+                        for (const implicant of this.getNegConsequences(~candidate)) {
+                            this.graph.unsafeRemoveImplication(~candidate, ~implicant);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Recompute cell forcing LUTs
+        for (let clauseId = 0; clauseId < this.forcingLutExactlyOneClauses.length; clauseId++) {
+            const startingVariable = this.forcingLutExactlyOneClauseIdToStartingPseudovariable[clauseId];
+            const clause = this.forcingLutExactlyOneClauses[clauseId];
+
+            const numMasks = 1 << clause.length;
+
+            // Initialize 1-hot masks
+            for (let i = 0; i < clause.length; i++) {
+                const mask = 1 << i;
+                const lit = clause[i];
+                const posImplicants = this.getPosConsequences(lit);
+                const negImplicants = this.getNegConsequences(lit);
+                if (posImplicants.length > 0) {
+                    this.graph.pospos[startingVariable + mask] = posImplicants;
+                }
+                if (negImplicants.length > 0) {
+                    this.graph.posneg[startingVariable + mask] = negImplicants;
+                }
+            }
+
+            // Clause subsets of size 2 and above
+            const masksByPopcount = Array.from({ length: clause.length + 1 }, () => []);
+            for (let mask = 1; mask < numMasks; mask++) {
+                masksByPopcount[popcount(mask)].push(mask);
+            }
+
+            {
+                const masks = masksByPopcount[2];
+
+                let hadNonzeroIntersection = false;
+                for (const mask of masks) {
+                    const firstMask = mask & -mask;
+                    const restMask = mask & (mask - 1);
+                    const firstPos = this.graph.pospos[startingVariable + firstMask];
+                    const firstNeg = this.graph.posneg[startingVariable + firstMask];
+                    const restPos = this.graph.pospos[startingVariable + restMask];
+                    const restNeg = this.graph.posneg[startingVariable + restMask];
+                    if (firstPos !== undefined && restPos !== undefined) {
+                        const intersection = sequenceIntersectionDefaultCompare(firstPos, restPos);
+                        if (intersection.length > 0) {
+                            this.graph.pospos[startingVariable + mask] = intersection;
+                            hadNonzeroIntersection = true;
+                        }
+                    }
+                    if (firstNeg !== undefined && restNeg !== undefined) {
+                        const intersection = sequenceIntersectionDefaultCompare(firstNeg, restNeg);
+                        if (intersection.length > 0) {
+                            this.graph.posneg[startingVariable + mask] = intersection;
+                            hadNonzeroIntersection = true;
+                        }
+                    }
+                }
+
+                if (!hadNonzeroIntersection) continue;
+            }
+
+            {
+                const masks = masksByPopcount[3];
+
+                let hadNonzeroIntersection = false;
+                for (const mask of masks) {
+                    const firstMask = mask & -mask;
+                    const restMask = mask & (mask - 1);
+                    const firstPos = this.graph.pospos[startingVariable + firstMask];
+                    const firstNeg = this.graph.posneg[startingVariable + firstMask];
+                    const restPos = this.graph.pospos[startingVariable + restMask];
+                    const restNeg = this.graph.posneg[startingVariable + restMask];
+                    if (firstPos !== undefined && restPos !== undefined) {
+                        const intersection = sequenceIntersectionDefaultCompare(firstPos, restPos);
+                        if (intersection.length > 0) {
+                            this.graph.pospos[startingVariable + mask] = intersection;
+                            hadNonzeroIntersection = true;
+                        }
+                    }
+                    if (firstNeg !== undefined && restNeg !== undefined) {
+                        const intersection = sequenceIntersectionDefaultCompare(firstNeg, restNeg);
+                        if (intersection.length > 0) {
+                            this.graph.posneg[startingVariable + mask] = intersection;
+                            hadNonzeroIntersection = true;
+                        }
+                    }
+                }
+
+                if (!hadNonzeroIntersection) continue;
+            }
+
+            for (const masks of masksByPopcount.slice(4)) {
+                let hadNonzeroIntersection = false;
+                for (const mask of masks) {
+                    let firstMask = mask & -mask;
+                    let restMask = mask & (mask - 1);
+                    firstMask |= restMask & -restMask;
+                    restMask &= restMask - 1;
+                    const firstPos = this.graph.pospos[startingVariable + firstMask];
+                    const firstNeg = this.graph.posneg[startingVariable + firstMask];
+                    const restPos = this.graph.pospos[startingVariable + restMask];
+                    const restNeg = this.graph.posneg[startingVariable + restMask];
+                    if (firstPos !== undefined && restPos !== undefined) {
+                        const intersection = sequenceIntersectionDefaultCompare(firstPos, restPos);
+                        if (intersection.length > 0) {
+                            this.graph.pospos[startingVariable + mask] = intersection;
+                            hadNonzeroIntersection = true;
+                        }
+                    }
+                    if (firstNeg !== undefined && restNeg !== undefined) {
+                        const intersection = sequenceIntersectionDefaultCompare(firstNeg, restNeg);
+                        if (intersection.length > 0) {
+                            this.graph.posneg[startingVariable + mask] = intersection;
+                            hadNonzeroIntersection = true;
+                        }
+                    }
+                }
+
+                if (!hadNonzeroIntersection) break;
+            }
+        }
+    }
+
+    clauseIdAndMaskToVariable(clauseId: number, mask: number): Variable {
+        return this.forcingLutExactlyOneClauseIdToStartingPseudovariable[clauseId] + mask;
+    }
+
     // Use bitwise invert (~x) to turn a variable into a negative literal.
     // All variables represent their positive literals.
     // Add methods return true if something was added
@@ -260,7 +452,7 @@ export class BinaryImplicationLayeredGraph {
 
     transferImplicationToParent(lit1: Literal, lit2: Literal): boolean {
         if (this.graph.unsafeRemoveImplication(lit1, lit2)) {
-            this.parentLayer.addImplication(lit1, lit2);
+            this.parentLayer!.addImplication(lit1, lit2);
             return true;
         }
         return false;
@@ -308,7 +500,7 @@ export class BinaryImplicationLayeredGraph {
         return this.memo.get(this).get(key);
     }
 
-    storeMemo(key: string, value: Variable[]) {
+    storeMemo(key: string, value: readonly Variable[]) {
         this.memo.get(this).set(key, value);
     }
 
@@ -318,10 +510,9 @@ export class BinaryImplicationLayeredGraph {
     }
 
     getCommonPosConsequencesHelper(lits: Literal[]): readonly Variable[] {
-        // Base casee
+        // Base case
         if (lits.length === 1) {
-            // TODO: Remove all the removeDuplicate once the BIG is properly deduplicated and sorted
-            return removeDuplicates(this.getPosConsequences(lits[0]).sort((a, b) => a - b));
+            return this.getPosConsequences(lits[0]);
         }
         lits.push(1); // key for "pos consequences"
         const memoKey = appendInts(lits);
@@ -332,11 +523,15 @@ export class BinaryImplicationLayeredGraph {
         }
         // Inductive case
         const [firstLit, ...restLits] = lits;
-        const consequents = this.getPosConsequences(firstLit);
-        removeDuplicates(consequents.sort((a, b) => a - b));
+        const restConsequents = this.getCommonPosConsequencesHelper(restLits);
+        if (restConsequents.length === 0) {
+            this.storeMemo(memoKey, restConsequents);
+            return restConsequents;
+        }
+        const firstConsequents = this.getPosConsequences(firstLit);
         const intersection: Variable[] = [];
-        sequenceFilterOutUpdateDefaultCompare(consequents, this.getCommonPosConsequencesHelper(restLits), intersection);
-        this.storeMemo(memoKey, removeDuplicates(intersection.sort((a, b) => a - b)));
+        sequenceFilterOutUpdateDefaultCompare(firstConsequents, restConsequents, intersection);
+        this.storeMemo(memoKey, intersection);
         return intersection;
     }
 
@@ -346,10 +541,10 @@ export class BinaryImplicationLayeredGraph {
     }
 
     getCommonNegConsequencesHelper(lits: Literal[]): readonly Variable[] {
-        // Base casee
+        // Base case
         if (lits.length === 1) {
             // TODO: Remove all the removeDuplicate once the BIG is properly deduplicated and sorted
-            return removeDuplicates(this.getNegConsequences(lits[0]).sort((a, b) => a - b));
+            return this.getNegConsequences(lits[0]);
         }
         lits.push(0); // key for "neg consequences"
         const memoKey = appendInts(lits);
@@ -360,11 +555,15 @@ export class BinaryImplicationLayeredGraph {
         }
         // Inductive case
         const [firstLit, ...restLits] = lits;
-        const consequents = this.getNegConsequences(firstLit);
-        removeDuplicates(consequents.sort((a, b) => a - b));
+        const restConsequents = this.getCommonNegConsequencesHelper(restLits);
+        if (restConsequents.length === 0) {
+            this.storeMemo(memoKey, restConsequents);
+            return restConsequents;
+        }
+        const firstConsequents = this.getNegConsequences(firstLit);
         const intersection: Variable[] = [];
-        sequenceFilterOutUpdateDefaultCompare(consequents, this.getCommonNegConsequencesHelper(restLits), intersection);
-        this.storeMemo(memoKey, removeDuplicates(intersection.sort((a, b) => a - b)));
+        sequenceFilterOutUpdateDefaultCompare(firstConsequents, restConsequents, intersection);
+        this.storeMemo(memoKey, intersection);
         return intersection;
     }
 
