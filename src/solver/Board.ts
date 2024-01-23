@@ -900,7 +900,7 @@ export class Board {
         return groups;
     }
 
-    applyBruteForceLogic(isDepth0: boolean) {
+    applyBruteForceLogic(isDepth0: boolean, isInitialPreprocessing: boolean) {
         const doExpensiveSteps = this.needsExpensiveBruteForceSteps;
         this.needsExpensiveBruteForceSteps = false;
 
@@ -1058,7 +1058,7 @@ export class Board {
             }
 
             if (!changedThisRound && initialNonGivenCount === this.nonGivenCount && this.nakedSingles.length === 0) {
-                if (isDepth0 && !ranDiscoverBinaryImplications) {
+                if (isInitialPreprocessing && !ranDiscoverBinaryImplications) {
                     ranDiscoverBinaryImplications = true;
 
                     result = this.discoverBinaryImplications();
@@ -1457,7 +1457,7 @@ export class Board {
                     continue;
                 }
 
-                const bruteForceResult = newBoard.applyBruteForceLogic(false);
+                const bruteForceResult = newBoard.applyBruteForceLogic(false, false);
                 if (bruteForceResult === LogicResult.INVALID) {
                     invalidCandidates.push(candidateIndex);
                     continue;
@@ -1472,31 +1472,34 @@ export class Board {
             }
 
             // Find false implications
-            for (let value = 1; value <= size; value++) {
-                if ((cellMask & valueBit(value)) === 0) {
-                    continue;
-                }
-                const candidateIndex = this.candidateIndex(cellIndex, value);
+            // Disable this for now, since it seems most puzzles don't benefit from this at all.
+            // If we do want to reenable this, use TreeLook so we share propagations with a true implication
+            // https://www.cs.utexas.edu/~marijn/publications/NHBR.pdf
+            // for (let value = 1; value <= size; value++) {
+            //     if ((cellMask & valueBit(value)) === 0) {
+            //         continue;
+            //     }
+            //     const candidateIndex = this.candidateIndex(cellIndex, value);
 
-                const newBoard = this.clone();
-                if (!newBoard.clearValue(cellIndex, value)) {
-                    alwaysTrueCandidates.push(candidateIndex);
-                    continue;
-                }
+            //     const newBoard = this.clone();
+            //     if (!newBoard.clearValue(cellIndex, value)) {
+            //         alwaysTrueCandidates.push(candidateIndex);
+            //         continue;
+            //     }
 
-                const bruteForceResult = newBoard.applyBruteForceLogic(false);
-                if (bruteForceResult === LogicResult.INVALID) {
-                    alwaysTrueCandidates.push(candidateIndex);
-                    continue;
-                }
+            //     const bruteForceResult = newBoard.applyBruteForceLogic(false, false);
+            //     if (bruteForceResult === LogicResult.INVALID) {
+            //         alwaysTrueCandidates.push(candidateIndex);
+            //         continue;
+            //     }
 
-                if (bruteForceResult !== LogicResult.UNCHANGED) {
-                    if (this.addBinaryImplicationsFromFalse(candidateIndex, newBoard)) {
-                        this.binaryImplications.sortGraph();
-                        addedImplications = true;
-                    }
-                }
-            }
+            //     if (bruteForceResult !== LogicResult.UNCHANGED) {
+            //         if (this.addBinaryImplicationsFromFalse(candidateIndex, newBoard)) {
+            //             this.binaryImplications.sortGraph();
+            //             addedImplications = true;
+            //         }
+            //     }
+            // }
         }
 
         let changed = addedImplications;
@@ -1741,7 +1744,7 @@ export class Board {
         const jobStack = [this.clone()];
         let lastCancelCheckTime = Date.now();
 
-        let shouldSaveFirstPreprocessingStats = enableStats;
+        let isInitialPreprocessing = true;
         if (enableStats) {
             this.solveStats.solveStartTimeMs = Date.now();
 
@@ -1795,9 +1798,8 @@ export class Board {
                 jumpBackThresholdMultiplier = 1;
             }
 
-            const bruteForceResult = currentBoard.applyBruteForceLogic(allowPreprocessing && jobStack.length === 0);
-            if (shouldSaveFirstPreprocessingStats) {
-                shouldSaveFirstPreprocessingStats = false;
+            const bruteForceResult = currentBoard.applyBruteForceLogic(allowPreprocessing && jobStack.length === 0, isInitialPreprocessing);
+            if (isInitialPreprocessing && enableStats) {
                 [
                     this.solveStats.postInitialPreprocessingNegNegImplications,
                     this.solveStats.postInitialPreprocessingNegPosImplications,
@@ -1810,6 +1812,7 @@ export class Board {
                     this.solveStats.postInitialPreprocessingPosNegImplications +
                     this.solveStats.postInitialPreprocessingPosPosImplications;
             }
+            isInitialPreprocessing = false;
 
             if (bruteForceResult === LogicResult.INVALID) {
                 // Puzzle is invalid
@@ -1888,7 +1891,7 @@ export class Board {
         let lastReportTime = Date.now();
         const wantReportProgress = reportProgress || isCancelled;
 
-        let shouldSaveFirstPreprocessingStats = enableStats;
+        let isInitialPreprocessing = true;
         if (enableStats) {
             this.solveStats.solveStartTimeMs = Date.now();
 
@@ -1946,9 +1949,8 @@ export class Board {
                 jumpBackThresholdMultiplier = 1;
             }
 
-            const bruteForceResult = currentBoard.applyBruteForceLogic(allowPreprocessing && jobStack.length === 0);
-            if (shouldSaveFirstPreprocessingStats) {
-                shouldSaveFirstPreprocessingStats = false;
+            const bruteForceResult = currentBoard.applyBruteForceLogic(allowPreprocessing && jobStack.length === 0, isInitialPreprocessing);
+            if (isInitialPreprocessing && enableStats) {
                 [
                     this.solveStats.postInitialPreprocessingNegNegImplications,
                     this.solveStats.postInitialPreprocessingNegPosImplications,
@@ -1961,6 +1963,7 @@ export class Board {
                     this.solveStats.postInitialPreprocessingPosNegImplications +
                     this.solveStats.postInitialPreprocessingPosPosImplications;
             }
+            isInitialPreprocessing = false;
 
             if (bruteForceResult === LogicResult.INVALID) {
                 // Puzzle is invalid
@@ -2095,6 +2098,7 @@ export class Board {
         const jobStack = [this.clone()];
         let lastReportTime = Date.now();
         const wantReportProgress = reportProgress || isCancelled;
+        let isInitialPreprocessing = true;
 
         const trueCandidatesEntry = this.cellsPool.get();
         const trueCandidates = trueCandidatesEntry.array;
@@ -2146,7 +2150,8 @@ export class Board {
                     jumpBackThresholdMultiplier = 1;
                 }
 
-                const bruteForceResult = currentBoard.applyBruteForceLogic(jobStack.length === 0);
+                const bruteForceResult = currentBoard.applyBruteForceLogic(jobStack.length === 0, isInitialPreprocessing);
+                isInitialPreprocessing = false;
 
                 if (bruteForceResult === LogicResult.INVALID) {
                     // Puzzle is invalid
