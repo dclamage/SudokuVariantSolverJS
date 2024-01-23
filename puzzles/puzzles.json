@@ -685,23 +685,23 @@
         "puzzle": "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",
         "solution": "794256831281739564563148729432675918976814253158923647827461395349582176615397482",
         "comments": "",
-        "puzzleSolution": "794256831281739564563148729432675918976814253158923647827461395349582176615397482",
         "generatedCategories": [
-            "even",
-            "thermometer",
-            "palindrome",
-            "renban",
-            "regionsumline",
-            "killercage",
-            "difference",
-            "ratio",
             "arrow",
             "betweenline",
-            "minimum",
+            "difference",
+            "even",
+            "gridsize9x9",
+            "killercage",
             "maximum",
-            "xv",
+            "minimum",
+            "palindrome",
             "quadruple",
-            "whispers"
+            "ratio",
+            "regionsumline",
+            "renban",
+            "thermometer",
+            "whispers",
+            "xv"
         ]
     },
     {
@@ -713,6 +713,8 @@
         "comments": "",
         "puzzleSolution": "752681934841539762396724815563498271418267593927153486184375629275916348639842157",
         "generatedCategories": [
+            "cage",
+            "gridsize9x9",
             "rowindexer"
         ]
     },
@@ -725,7 +727,9 @@
         "comments": "",
         "puzzleSolution": "158927634632541987974386251897654312361278549425139876213765498786493125549812763",
         "generatedCategories": [
-            "columnindexer"
+            "cage",
+            "columnindexer",
+            "gridsize9x9"
         ]
     },
     {
@@ -737,7 +741,9 @@
         "comments": "",
         "puzzleSolution": "536724189817693254249185673124967538793852416685341927962578341358416792471239865",
         "generatedCategories": [
-            "boxindexer"
+            "boxindexer",
+            "cage",
+            "gridsize9x9"
         ]
     },
     {
@@ -749,9 +755,11 @@
         "comments": "",
         "puzzleSolution": "782394561569281734314657289421563897873419625956728143197832456235146978648975312",
         "generatedCategories": [
+            "circle",
+            "doublearrow",
+            "gridsize9x9",
             "modularline",
-            "nabner",
-            "doublearrow"
+            "nabner"
         ]
     },
     {
@@ -763,8 +771,9 @@
         "comments": "",
         "puzzleSolution": "726984531851367942493152786514239867387516429962478315679841253245693178138725694",
         "generatedCategories": [
-            "xv",
-            "negative.xv"
+            "gridsize9x9",
+            "negative",
+            "xv"
         ]
     },
     {
@@ -776,8 +785,9 @@
         "comments": "",
         "puzzleSolution": "164583927825976431397124586271459368586732194439618752752891643618345279943267815",
         "generatedCategories": [
-            "ratio",
-            "negative.ratio"
+            "gridsize9x9",
+            "negative",
+            "ratio"
         ]
     },
     {
@@ -789,8 +799,10 @@
         "comments": "",
         "puzzleSolution": "159624378847513269326978415931285647274396851685147923468759132513862794792431586",
         "generatedCategories": [
-            "minimum",
-            "maximum"
+            "gridsize9x9",
+            "maximum",
+            "minimum"
         ]
-    }
+    },
+    {}
 ]
