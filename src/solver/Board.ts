@@ -101,12 +101,16 @@ export class SolveStats {
     preSolvePosNegImplications: number;
     preSolvePosPosImplications: number;
     preSolveTotalImplications: number;
+    preSolveCandidates: number;
+    preSolveGivens: number;
     // After the first preprocessing, how many implications of each type there were (each implication is counted twice, as it includes the contrapositive)
     postInitialPreprocessingNegNegImplications: number;
     postInitialPreprocessingNegPosImplications: number;
     postInitialPreprocessingPosNegImplications: number;
     postInitialPreprocessingPosPosImplications: number;
     postInitialPreprocessingTotalImplications: number;
+    postInitialPreprocessingCandidates: number;
+    postInitialPreprocessingGivens: number;
     // After the solve, how many implications of each type there were (each implication is counted twice, as it includes the contrapositive)
     postSolveNegNegImplications: number;
     postSolveNegPosImplications: number;
@@ -145,11 +149,15 @@ export class SolveStats {
         this.preSolvePosNegImplications = 0;
         this.preSolvePosPosImplications = 0;
         this.preSolveTotalImplications = 0;
+        this.preSolveCandidates = 0;
+        this.preSolveGivens = 0;
         this.postInitialPreprocessingNegNegImplications = 0;
         this.postInitialPreprocessingNegPosImplications = 0;
         this.postInitialPreprocessingPosNegImplications = 0;
         this.postInitialPreprocessingPosPosImplications = 0;
         this.postInitialPreprocessingTotalImplications = 0;
+        this.postInitialPreprocessingCandidates = 0;
+        this.postInitialPreprocessingGivens = 0;
         this.postSolveNegNegImplications = 0;
         this.postSolveNegPosImplications = 0;
         this.postSolvePosNegImplications = 0;
@@ -1781,6 +1789,14 @@ export class Board {
                 this.solveStats.preSolveNegPosImplications +
                 this.solveStats.preSolvePosNegImplications +
                 this.solveStats.preSolvePosPosImplications;
+            this.solveStats.preSolveCandidates = 0;
+            this.solveStats.preSolveGivens = 0;
+            for (const cellMask of this.cells) {
+                if (this.isGivenMask(cellMask)) {
+                    this.solveStats.preSolveGivens++;
+                }
+                this.solveStats.preSolveCandidates += popcount(cellMask & this.allValues);
+            }
         }
 
         let result: SolveResultCancelled | SolveResultBoard | SolveResultNoSolution = { result: 'no solution' };
@@ -1833,6 +1849,14 @@ export class Board {
                     this.solveStats.postInitialPreprocessingNegPosImplications +
                     this.solveStats.postInitialPreprocessingPosNegImplications +
                     this.solveStats.postInitialPreprocessingPosPosImplications;
+                this.solveStats.postInitialPreprocessingCandidates = 0;
+                this.solveStats.postInitialPreprocessingGivens = 0;
+                for (const cellMask of currentBoard.cells) {
+                    if (this.isGivenMask(cellMask)) {
+                        this.solveStats.postInitialPreprocessingGivens++;
+                    }
+                    this.solveStats.postInitialPreprocessingCandidates += popcount(cellMask & this.allValues);
+                }
             }
             isInitialPreprocessing = false;
 
@@ -1928,6 +1952,14 @@ export class Board {
                 this.solveStats.preSolveNegPosImplications +
                 this.solveStats.preSolvePosNegImplications +
                 this.solveStats.preSolvePosPosImplications;
+            this.solveStats.preSolveCandidates = 0;
+            this.solveStats.preSolveGivens = 0;
+            for (const cellMask of this.cells) {
+                if (this.isGivenMask(cellMask)) {
+                    this.solveStats.preSolveGivens++;
+                }
+                this.solveStats.preSolveCandidates += popcount(cellMask & this.allValues);
+            }
         }
 
         let result: SolveResultCancelledPartialSolutionCount | SolveResultSolutionCount = undefined;
@@ -1984,6 +2016,14 @@ export class Board {
                     this.solveStats.postInitialPreprocessingNegPosImplications +
                     this.solveStats.postInitialPreprocessingPosNegImplications +
                     this.solveStats.postInitialPreprocessingPosPosImplications;
+                this.solveStats.postInitialPreprocessingCandidates = 0;
+                this.solveStats.postInitialPreprocessingGivens = 0;
+                for (const cellMask of currentBoard.cells) {
+                    if (this.isGivenMask(cellMask)) {
+                        this.solveStats.postInitialPreprocessingGivens++;
+                    }
+                    this.solveStats.postInitialPreprocessingCandidates += popcount(cellMask & this.allValues);
+                }
             }
             isInitialPreprocessing = false;
 
