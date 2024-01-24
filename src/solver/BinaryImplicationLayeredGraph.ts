@@ -278,7 +278,7 @@ export class BinaryImplicationLayeredGraph {
             this.pruneImpossibleCandidates(board);
         }
 
-        this.recomputeClauseForcingLUTs();
+        // this.recomputeClauseForcingLUTs();
     }
 
     private pruneImpossibleCandidates(board: Board) {
@@ -427,7 +427,8 @@ export class BinaryImplicationLayeredGraph {
     }
 
     clauseIdAndMaskToVariable(clauseId: number, mask: number): Variable {
-        return this.forcingLutExactlyOneClauseIdToStartingPseudovariable[clauseId] + mask;
+        throw new Error('Clause forcing is disabled');
+        // return this.forcingLutExactlyOneClauseIdToStartingPseudovariable[clauseId] + mask;
     }
 
     // Use bitwise invert (~x) to turn a variable into a negative literal.
