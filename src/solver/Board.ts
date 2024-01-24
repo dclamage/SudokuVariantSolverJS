@@ -1490,6 +1490,11 @@ export class Board {
         const { size, cells } = this;
 
         let changed = false;
+        // Exit the function when we found eliminations -- it's possible we can find naked/hidden singles now.
+        // While exiting the function after we find any implications could potentially lead to improving cell forcing
+        // which could then lead to more eliminations on the main board, this is heuristically quite rare,
+        // so we don't exit early in that case.
+        let foundEliminations = false;
         // const alwaysTrueCandidates: CandidateIndex[] = [];
         while (cellsToProbe.length > 0) {
             const cellIndex = cellsToProbe.pop();
@@ -1510,6 +1515,7 @@ export class Board {
                     if (!this.clearValue(cellIndex, value)) {
                         return LogicResult.INVALID;
                     }
+                    foundEliminations = true;
                     changed = true;
                     continue;
                 }
@@ -1519,6 +1525,7 @@ export class Board {
                     if (!this.clearValue(cellIndex, value)) {
                         return LogicResult.INVALID;
                     }
+                    foundEliminations = true;
                     changed = true;
                     continue;
                 }
@@ -1531,7 +1538,7 @@ export class Board {
                 }
             }
 
-            if (changed) {
+            if (foundEliminations) {
                 return LogicResult.CHANGED;
             }
 
@@ -1575,7 +1582,7 @@ export class Board {
         //     changed = true;
         // }
 
-        return LogicResult.UNCHANGED;
+        return changed ? LogicResult.CHANGED : LogicResult.UNCHANGED;
     }
 
     private addBinaryImplicationsFromTruth(trueCandidateIndex: CandidateIndex, newBoard: Board) {
