@@ -4,10 +4,12 @@ import {
     popcount,
     removeDuplicates,
     sequenceFilterOutUpdateDefaultCompare,
-    sequenceHasNonemptyIntersectionDefaultCompare,
     valueBit,
     hasValue,
     sequenceIntersectionDefaultCompare,
+    sequenceExtend,
+    sequenceHasNonemptyIntersectionDefaultCompare,
+    sequenceIntersectionUpdateDefaultCompare,
 } from './SolveUtility';
 
 // Table of contents
@@ -24,6 +26,9 @@ import {
 type Variable = number;
 // Either a Variable x or its bitwise inversion ~x
 type Literal = number;
+
+// Used to track when cached results are invalidated
+type Timestamp = number;
 
 function toVariable(lit: Literal): Variable {
     return lit ^ -+(lit < 0);
@@ -43,50 +48,60 @@ class BinaryImplicationGraph {
     // In this order: negneg, negpos, posneg, pospos
     implicationsIndex: [BinaryImplicationTable, BinaryImplicationTable, BinaryImplicationTable, BinaryImplicationTable];
 
-    posposunsorted: BooleanArray;
-    posnegunsorted: BooleanArray;
-    negposunsorted: BooleanArray;
-    negnegunsorted: BooleanArray;
+    posposUnsorted: BooleanArray;
+    posnegUnsorted: BooleanArray;
+    negposUnsorted: BooleanArray;
+    negnegUnsorted: BooleanArray;
     // In this order: negneg, negpos, posneg, pospos
     unsortedIndex: [BooleanArray, BooleanArray, BooleanArray, BooleanArray];
 
     unsorted: Variable[][];
 
-    constructor(numVariables: number) {
+    posposTimestamp: Timestamp[];
+    posnegTimestamp: Timestamp[];
+    negposTimestamp: Timestamp[];
+    negnegTimestamp: Timestamp[];
+    timestampIndex: [Timestamp[], Timestamp[], Timestamp[], Timestamp[]];
+
+    nextUpdateTimestamp: [Timestamp];
+
+    constructor(numVariables: number, nextUpdateTimestamp: [Timestamp]) {
         this.pospos = new Array(numVariables);
         this.posneg = new Array(numVariables);
         this.negpos = new Array(numVariables);
         this.negneg = new Array(numVariables);
         this.implicationsIndex = [this.negneg, this.negpos, this.posneg, this.pospos];
-        this.posposunsorted = new Uint8Array(numVariables);
-        this.posnegunsorted = new Uint8Array(numVariables);
-        this.negposunsorted = new Uint8Array(numVariables);
-        this.negnegunsorted = new Uint8Array(numVariables);
-        this.unsortedIndex = [this.negnegunsorted, this.negposunsorted, this.posnegunsorted, this.posposunsorted];
+
+        this.posposUnsorted = new Uint8Array(numVariables);
+        this.posnegUnsorted = new Uint8Array(numVariables);
+        this.negposUnsorted = new Uint8Array(numVariables);
+        this.negnegUnsorted = new Uint8Array(numVariables);
+        this.unsortedIndex = [this.negnegUnsorted, this.negposUnsorted, this.posnegUnsorted, this.posposUnsorted];
         this.unsorted = [];
+
+        this.posposTimestamp = new Array(numVariables);
+        this.posnegTimestamp = new Array(numVariables);
+        this.negposTimestamp = new Array(numVariables);
+        this.negnegTimestamp = new Array(numVariables);
+        this.timestampIndex = [this.negnegTimestamp, this.negposTimestamp, this.posnegTimestamp, this.posposTimestamp];
+
+        this.nextUpdateTimestamp = nextUpdateTimestamp;
     }
 
-    allocateVariables(numNewVariables: number) {
-        const newposposunsorted = new Uint8Array(this.posposunsorted.length + numNewVariables);
-        newposposunsorted.set(this.posposunsorted);
-        this.posposunsorted = newposposunsorted;
-        const newposnegunsorted = new Uint8Array(this.posnegunsorted.length + numNewVariables);
-        newposnegunsorted.set(this.posnegunsorted);
-        this.posnegunsorted = newposnegunsorted;
-        const newnegposunsorted = new Uint8Array(this.negposunsorted.length + numNewVariables);
-        newnegposunsorted.set(this.negposunsorted);
-        this.negposunsorted = newnegposunsorted;
-        const newnegnegunsorted = new Uint8Array(this.negnegunsorted.length + numNewVariables);
-        newnegnegunsorted.set(this.negnegunsorted);
-        this.negnegunsorted = newnegnegunsorted;
+    implicationsTableFor(lit1: Literal, lit2: Literal) {
+        return this.implicationsIndex[+(lit1 >= 0) * 2 + +(lit2 >= 0)];
     }
 
     implicationsArrFor(lit1: Literal, lit2: Literal) {
-        return this.implicationsIndex[+(lit1 >= 0) * 2 + +(lit2 >= 0)][toVariable(lit1)];
+        return this.implicationsTableFor(lit1, lit2)[toVariable(lit1)];
     }
 
     unsortedArrFor(lit1: Literal, lit2: Literal) {
         return this.unsortedIndex[+(lit1 >= 0) * 2 + +(lit2 >= 0)];
+    }
+
+    timestampArrFor(lit1: Literal, lit2: Literal) {
+        return this.timestampIndex[+(lit1 >= 0) * 2 + +(lit2 >= 0)];
     }
 
     sortGraph() {
@@ -95,10 +110,11 @@ class BinaryImplicationGraph {
             removeDuplicates(arr);
         }
         this.unsorted.length = 0;
-        this.negnegunsorted.fill(0);
-        this.negposunsorted.fill(0);
-        this.posnegunsorted.fill(0);
-        this.posposunsorted.fill(0);
+        this.negnegUnsorted.fill(0);
+        this.negposUnsorted.fill(0);
+        this.posnegUnsorted.fill(0);
+        this.posposUnsorted.fill(0);
+        this.nextUpdateTimestamp[0]++;
     }
 
     // Use bitwise invert (~x) to turn a variable into a negative literal.
@@ -111,11 +127,11 @@ class BinaryImplicationGraph {
             return false;
         }
         if (forward === undefined) {
-            forward = this.implicationsIndex[+(lit1 >= 0) * 2 + +(lit2 >= 0)][toVariable(lit1)] = [];
+            forward = this.implicationsTableFor(lit1, lit2)[toVariable(lit1)] = [];
         }
         let backward = this.implicationsArrFor(~lit2, ~lit1);
         if (backward === undefined) {
-            backward = this.implicationsIndex[+(~lit2 >= 0) * 2 + +(~lit1 >= 0)][toVariable(lit2)] = [];
+            backward = this.implicationsTableFor(~lit2, ~lit1)[toVariable(lit2)] = [];
         }
         const var1 = toVariable(lit1);
 
@@ -124,6 +140,7 @@ class BinaryImplicationGraph {
         if (!forwardUnsorted[lit1]) {
             forwardUnsorted[lit1] = 1;
             this.unsorted.push(forward);
+            this.timestampArrFor(lit1, lit2)[toVariable(lit1)] = this.nextUpdateTimestamp[0];
         }
 
         backward.push(var1);
@@ -131,6 +148,7 @@ class BinaryImplicationGraph {
         if (!backwardUnsorted[lit1]) {
             backwardUnsorted[lit1] = 1;
             this.unsorted.push(backward);
+            this.timestampArrFor(~lit2, ~lit1)[toVariable(lit2)] = this.nextUpdateTimestamp[0];
         }
 
         return true;
@@ -158,46 +176,18 @@ class BinaryImplicationGraph {
         return this.implicationsArrFor(lit1, lit2)?.includes(toVariable(lit2));
     }
 
-    getPosConsequences(lit: Literal, consequentsOutput: Variable[]) {
-        const consequents = this.implicationsArrFor(lit, 0);
-        if (consequents) {
-            for (const consequent of consequents) {
-                consequentsOutput.push(consequent);
-            }
-        }
+    getPosConsequences(lit: Literal): readonly Variable[] {
+        return this.implicationsArrFor(lit, 0) ?? [];
+    }
+    getNegConsequences(lit: Literal): readonly Variable[] {
+        return this.implicationsArrFor(lit, ~0) ?? [];
     }
 
-    getNegConsequences(lit: Literal, consequentsOutput: Variable[]) {
-        const consequents = this.implicationsArrFor(lit, ~0);
-        if (consequents) {
-            for (const consequent of consequents) {
-                consequentsOutput.push(consequent);
-            }
-        }
+    getPosLastUpdateTimestamp(lit: Literal): Timestamp {
+        return this.timestampArrFor(lit, 0)[toVariable(lit)] ?? 0;
     }
-
-    filterOutPosConsequences(lit: Literal, consequentsInout: Variable[], filteredOut: Variable[]) {
-        const consequents = this.implicationsArrFor(lit, 0);
-        if (consequents) {
-            sequenceFilterOutUpdateDefaultCompare(consequentsInout, consequents, filteredOut);
-        }
-    }
-
-    filterOutNegConsequences(lit: Literal, consequentsInout: Variable[], filteredOut: Variable[]) {
-        const consequents = this.implicationsArrFor(lit, ~0);
-        if (consequents) {
-            sequenceFilterOutUpdateDefaultCompare(consequentsInout, consequents, filteredOut);
-        }
-    }
-
-    hasAnyCommonPosConsequences(lit: Literal, consequents: Variable[]): boolean {
-        const litConsequents = this.implicationsArrFor(lit, 0);
-        return litConsequents && sequenceHasNonemptyIntersectionDefaultCompare(consequents, litConsequents);
-    }
-
-    hasAnyCommonNegConsequences(lit: Literal, consequents: Variable[]): boolean {
-        const litConsequents = this.implicationsArrFor(lit, ~0);
-        return litConsequents && sequenceHasNonemptyIntersectionDefaultCompare(consequents, litConsequents);
+    getNegLastUpdateTimestamp(lit: Literal): Timestamp {
+        return this.timestampArrFor(lit, ~0)[toVariable(lit)] ?? 0;
     }
 }
 
@@ -205,8 +195,7 @@ export class BinaryImplicationLayeredGraph {
     // Static data
 
     numVariables: number;
-    // TODO: Improve memoization so it uses literal update timestamping
-    memo: Map<BinaryImplicationLayeredGraph, Map<string, readonly Variable[]>>;
+    newMemo: Map<string, { lastUpdateTimestamp: Timestamp; variables: readonly Variable[] }>;
     // Clause forcing data
     numTotalVariables: number;
     forcingLutExactlyOneClauses: Literal[][];
@@ -214,6 +203,7 @@ export class BinaryImplicationLayeredGraph {
 
     // Mutable data (at least during preprocessing)
 
+    nextUpdateTimestamp: [Timestamp]; // Store in a list since we want this to be shared by all graphs
     graph: BinaryImplicationGraph;
     parentGraphs: BinaryImplicationGraph[];
     parentLayer: BinaryImplicationLayeredGraph | undefined;
@@ -224,18 +214,18 @@ export class BinaryImplicationLayeredGraph {
         if (numVariables === undefined || exactlyOneClausesForForcingLuts === undefined) {
             // For cloning, assign the members in the same order so the hidden class is the same, but set them all to undefined so we don't create garbage.
             this.numVariables = undefined;
-            this.memo = undefined;
+            this.newMemo = undefined;
             this.numTotalVariables = undefined;
             this.forcingLutExactlyOneClauses = undefined;
             this.forcingLutExactlyOneClauseIdToStartingPseudovariable = undefined;
+            this.nextUpdateTimestamp = undefined;
             this.graph = undefined;
             this.parentGraphs = undefined;
             this.parentLayer = undefined;
             this.prunedLiterals = undefined;
         } else {
             this.numVariables = numVariables;
-            this.memo = new Map();
-            this.memo.set(this, new Map());
+            this.newMemo = new Map();
 
             this.numTotalVariables = numVariables;
             this.forcingLutExactlyOneClauses = exactlyOneClausesForForcingLuts.map(clause => clause.slice());
@@ -245,7 +235,8 @@ export class BinaryImplicationLayeredGraph {
                 this.numTotalVariables += 1 << exactlyOneClausesForForcingLuts[clauseId].length;
             }
 
-            this.graph = new BinaryImplicationGraph(this.numVariables);
+            this.nextUpdateTimestamp = [1];
+            this.graph = new BinaryImplicationGraph(this.numVariables, this.nextUpdateTimestamp);
             this.parentGraphs = [];
             this.parentLayer = undefined;
             this.prunedLiterals = new Set();
@@ -265,9 +256,7 @@ export class BinaryImplicationLayeredGraph {
     subboardClone(): this {
         const clone = Object.assign(new BinaryImplicationLayeredGraph(undefined, undefined), this);
 
-        clone.memo.set(clone, new Map());
-
-        clone.graph = new BinaryImplicationGraph(this.numVariables);
+        clone.graph = new BinaryImplicationGraph(this.numVariables, this.nextUpdateTimestamp);
 
         clone.parentGraphs = this.parentGraphs.slice();
         clone.parentGraphs.push(this.graph);
@@ -285,34 +274,40 @@ export class BinaryImplicationLayeredGraph {
     }
 
     preprocess(board: Board) {
-        // Prune all impossible candidates if we are the root board
         if (this.parentLayer === undefined) {
-            for (let cellIndex = 0; cellIndex < board.size * board.size; cellIndex++) {
-                for (let value = 1; value <= board.size; value++) {
-                    const candidate = board.candidateIndex(cellIndex, value);
-                    if (!this.prunedLiterals.has(candidate) && !hasValue(board.cells[cellIndex], value)) {
-                        this.prunedLiterals.add(candidate);
-                        for (const implicant of this.getPosConsequences(candidate)) {
-                            this.graph.unsafeRemoveImplication(candidate, implicant);
-                        }
-                        for (const implicant of this.getNegConsequences(candidate)) {
-                            this.graph.unsafeRemoveImplication(candidate, ~implicant);
-                        }
+            this.pruneImpossibleCandidates(board);
+        }
+
+        this.recomputeClauseForcingLUTs();
+    }
+
+    private pruneImpossibleCandidates(board: Board) {
+        for (let cellIndex = 0; cellIndex < board.size * board.size; cellIndex++) {
+            for (let value = 1; value <= board.size; value++) {
+                const candidate = board.candidateIndex(cellIndex, value);
+                if (!this.prunedLiterals.has(candidate) && !hasValue(board.cells[cellIndex], value)) {
+                    this.prunedLiterals.add(candidate);
+                    for (const implicant of this.getPosConsequences(candidate)) {
+                        this.graph.unsafeRemoveImplication(candidate, implicant);
                     }
-                    if (!this.prunedLiterals.has(~candidate) && board.cells[cellIndex] === (valueBit(value) | board.givenBit)) {
-                        this.prunedLiterals.add(~candidate);
-                        for (const implicant of this.getPosConsequences(~candidate)) {
-                            this.graph.unsafeRemoveImplication(~candidate, implicant);
-                        }
-                        for (const implicant of this.getNegConsequences(~candidate)) {
-                            this.graph.unsafeRemoveImplication(~candidate, ~implicant);
-                        }
+                    for (const implicant of this.getNegConsequences(candidate)) {
+                        this.graph.unsafeRemoveImplication(candidate, ~implicant);
+                    }
+                }
+                if (!this.prunedLiterals.has(~candidate) && board.cells[cellIndex] === (valueBit(value) | board.givenBit)) {
+                    this.prunedLiterals.add(~candidate);
+                    for (const implicant of this.getPosConsequences(~candidate)) {
+                        this.graph.unsafeRemoveImplication(~candidate, implicant);
+                    }
+                    for (const implicant of this.getNegConsequences(~candidate)) {
+                        this.graph.unsafeRemoveImplication(~candidate, ~implicant);
                     }
                 }
             }
         }
+    }
 
-        // Recompute cell forcing LUTs
+    private recomputeClauseForcingLUTs() {
         for (let clauseId = 0; clauseId < this.forcingLutExactlyOneClauses.length; clauseId++) {
             const startingVariable = this.forcingLutExactlyOneClauseIdToStartingPseudovariable[clauseId];
             const clause = this.forcingLutExactlyOneClauses[clauseId];
@@ -440,22 +435,10 @@ export class BinaryImplicationLayeredGraph {
     // Add methods return true if something was added
 
     addImplication(lit1: Literal, lit2: Literal): boolean {
-        // TODO: Improve memoization so it uses literal update timestamping
-        for (const bigMemoEntry of this.memo) {
-            bigMemoEntry[1].clear();
-        }
         if (this.hasParentImplication(lit1, lit2)) {
             return false;
         }
         return this.graph.addImplication(lit1, lit2);
-    }
-
-    transferImplicationToParent(lit1: Literal, lit2: Literal): boolean {
-        if (this.graph.unsafeRemoveImplication(lit1, lit2)) {
-            this.parentLayer!.addImplication(lit1, lit2);
-            return true;
-        }
-        return false;
     }
 
     hasImplication(lit1: Literal, lit2: Literal): boolean {
@@ -467,41 +450,65 @@ export class BinaryImplicationLayeredGraph {
     }
 
     getPosConsequences(lit: Literal): Variable[] {
-        const posConsequents: Variable[] = [];
+        const posConsequents = this.graph.getPosConsequences(lit).slice();
         for (const big of this.parentGraphs) {
-            big.getPosConsequences(lit, posConsequents);
+            sequenceExtend(posConsequents, big.getPosConsequences(lit));
         }
-        this.graph.getPosConsequences(lit, posConsequents);
         return posConsequents;
     }
 
     getNegConsequences(lit: Literal): Variable[] {
-        const negConsequents: Variable[] = [];
+        const negConsequents = this.graph.getNegConsequences(lit).slice();
         for (const big of this.parentGraphs) {
-            big.getNegConsequences(lit, negConsequents);
+            sequenceExtend(negConsequents, big.getNegConsequences(lit));
         }
-        this.graph.getNegConsequences(lit, negConsequents);
         return negConsequents;
     }
 
-    getTopLayerPosConsequences(lit: Literal): Variable[] {
-        const posConsequents: Variable[] = [];
-        this.graph.getPosConsequences(lit, posConsequents);
+    getPosConsequencesSorted(lit: Literal): Variable[] {
+        const posConsequents = this.graph.getPosConsequences(lit).slice();
+        const oldLength = posConsequents.length;
+        for (const big of this.parentGraphs) {
+            sequenceExtend(posConsequents, big.getPosConsequences(lit));
+        }
+        if (oldLength !== posConsequents.length) removeDuplicates(posConsequents.sort((a, b) => a - b));
         return posConsequents;
     }
 
-    getTopLayerNegConsequences(lit: Literal): Variable[] {
-        const negConsequents: Variable[] = [];
-        this.graph.getNegConsequences(lit, negConsequents);
+    getNegConsequencesSorted(lit: Literal): Variable[] {
+        const negConsequents = this.graph.getNegConsequences(lit).slice();
+        const oldLength = negConsequents.length;
+        for (const big of this.parentGraphs) {
+            sequenceExtend(negConsequents, big.getNegConsequences(lit));
+        }
+        if (oldLength !== negConsequents.length) removeDuplicates(negConsequents.sort((a, b) => a - b));
         return negConsequents;
     }
 
-    getMemo(key: string): readonly Variable[] {
-        return this.memo.get(this).get(key);
+    getTopLayerPosConsequences(lit: Literal): readonly Variable[] {
+        return this.graph.getPosConsequences(lit);
     }
 
-    storeMemo(key: string, value: readonly Variable[]) {
-        this.memo.get(this).set(key, value);
+    getTopLayerNegConsequences(lit: Literal): readonly Variable[] {
+        return this.graph.getNegConsequences(lit);
+    }
+
+    getPosLastUpdateTimestamp(lit: Literal): Timestamp {
+        let timestamp = this.graph.getPosLastUpdateTimestamp(lit);
+        for (const big of this.parentGraphs) {
+            const otherTimestamp = big.getPosLastUpdateTimestamp(lit);
+            timestamp = timestamp < otherTimestamp ? otherTimestamp : timestamp;
+        }
+        return timestamp;
+    }
+
+    getNegLastUpdateTimestamp(lit: Literal): Timestamp {
+        let timestamp = this.graph.getNegLastUpdateTimestamp(lit);
+        for (const big of this.parentGraphs) {
+            const otherTimestamp = big.getNegLastUpdateTimestamp(lit);
+            timestamp = timestamp < otherTimestamp ? otherTimestamp : timestamp;
+        }
+        return timestamp;
     }
 
     getCommonPosConsequences(lits: Literal[]): readonly Variable[] {
@@ -512,27 +519,31 @@ export class BinaryImplicationLayeredGraph {
     getCommonPosConsequencesHelper(lits: Literal[]): readonly Variable[] {
         // Base case
         if (lits.length === 1) {
-            return this.getPosConsequences(lits[0]);
+            return this.getPosConsequencesSorted(lits[0]);
         }
         lits.push(1); // key for "pos consequences"
         const memoKey = appendInts(lits);
         lits.pop();
-        const memoResult = this.getMemo(memoKey);
-        if (memoResult !== undefined) {
-            return memoResult;
+        let lastUpdateTimestamp = 0;
+        for (const lit of lits) {
+            const litTimestamp = this.getPosLastUpdateTimestamp(lit);
+            lastUpdateTimestamp = lastUpdateTimestamp < litTimestamp ? litTimestamp : lastUpdateTimestamp;
+        }
+        const memoResult = this.newMemo.get(memoKey);
+        if (memoResult !== undefined && memoResult.lastUpdateTimestamp === lastUpdateTimestamp) {
+            return memoResult.variables;
         }
         // Inductive case
         const [firstLit, ...restLits] = lits;
         const restConsequents = this.getCommonPosConsequencesHelper(restLits);
         if (restConsequents.length === 0) {
-            this.storeMemo(memoKey, restConsequents);
+            this.newMemo.set(memoKey, { lastUpdateTimestamp: lastUpdateTimestamp, variables: restConsequents });
             return restConsequents;
         }
         const firstConsequents = this.getPosConsequences(firstLit);
-        const intersection: Variable[] = [];
-        sequenceFilterOutUpdateDefaultCompare(firstConsequents, restConsequents, intersection);
-        this.storeMemo(memoKey, intersection);
-        return intersection;
+        sequenceIntersectionUpdateDefaultCompare(firstConsequents, restConsequents);
+        this.newMemo.set(memoKey, { lastUpdateTimestamp: lastUpdateTimestamp, variables: firstConsequents });
+        return firstConsequents;
     }
 
     getCommonNegConsequences(lits: Literal[]): readonly Variable[] {
@@ -543,68 +554,71 @@ export class BinaryImplicationLayeredGraph {
     getCommonNegConsequencesHelper(lits: Literal[]): readonly Variable[] {
         // Base case
         if (lits.length === 1) {
-            // TODO: Remove all the removeDuplicate once the BIG is properly deduplicated and sorted
-            return this.getNegConsequences(lits[0]);
+            return this.getNegConsequencesSorted(lits[0]);
         }
         lits.push(0); // key for "neg consequences"
         const memoKey = appendInts(lits);
         lits.pop();
-        const memoResult = this.getMemo(memoKey);
-        if (memoResult !== undefined) {
-            return memoResult;
+        let lastUpdateTimestamp = 0;
+        for (const lit of lits) {
+            const litTimestamp = this.getPosLastUpdateTimestamp(lit);
+            lastUpdateTimestamp = lastUpdateTimestamp < litTimestamp ? litTimestamp : lastUpdateTimestamp;
+        }
+        const memoResult = this.newMemo.get(memoKey);
+        if (memoResult !== undefined && memoResult.lastUpdateTimestamp === lastUpdateTimestamp) {
+            return memoResult.variables;
         }
         // Inductive case
         const [firstLit, ...restLits] = lits;
         const restConsequents = this.getCommonNegConsequencesHelper(restLits);
         if (restConsequents.length === 0) {
-            this.storeMemo(memoKey, restConsequents);
+            this.newMemo.set(memoKey, { lastUpdateTimestamp: lastUpdateTimestamp, variables: restConsequents });
             return restConsequents;
         }
         const firstConsequents = this.getNegConsequences(firstLit);
-        const intersection: Variable[] = [];
-        sequenceFilterOutUpdateDefaultCompare(firstConsequents, restConsequents, intersection);
-        this.storeMemo(memoKey, intersection);
-        return intersection;
+        sequenceIntersectionUpdateDefaultCompare(firstConsequents, restConsequents);
+        this.newMemo.set(memoKey, { lastUpdateTimestamp: lastUpdateTimestamp, variables: firstConsequents });
+        return firstConsequents;
     }
 
     filterOutPosConsequences(lit: Literal, posConsequentsInout: Variable[], filteredOut: Variable[]) {
         for (const big of this.parentGraphs) {
-            big.filterOutPosConsequences(lit, posConsequentsInout, filteredOut);
+            sequenceFilterOutUpdateDefaultCompare(posConsequentsInout, big.getPosConsequences(lit), filteredOut);
         }
-        this.graph.filterOutPosConsequences(lit, posConsequentsInout, filteredOut);
+        sequenceFilterOutUpdateDefaultCompare(posConsequentsInout, this.graph.getPosConsequences(lit), filteredOut);
     }
 
     filterOutNegConsequences(lit: Literal, negConsequentsInout: Variable[], filteredOut: Variable[]) {
         for (const big of this.parentGraphs) {
-            big.filterOutNegConsequences(lit, negConsequentsInout, filteredOut);
+            sequenceFilterOutUpdateDefaultCompare(negConsequentsInout, big.getNegConsequences(lit), filteredOut);
         }
-        this.graph.filterOutNegConsequences(lit, negConsequentsInout, filteredOut);
+        sequenceFilterOutUpdateDefaultCompare(negConsequentsInout, this.graph.getNegConsequences(lit), filteredOut);
     }
 
     filterOutTopLayerPosConsequences(lit: Literal, posConsequentsInout: Variable[], filteredOut: Variable[]) {
-        this.graph.filterOutPosConsequences(lit, posConsequentsInout, filteredOut);
+        sequenceFilterOutUpdateDefaultCompare(posConsequentsInout, this.graph.getPosConsequences(lit), filteredOut);
     }
 
     filterOutTopLayerNegConsequences(lit: Literal, negConsequentsInout: Variable[], filteredOut: Variable[]) {
-        this.graph.filterOutNegConsequences(lit, negConsequentsInout, filteredOut);
+        sequenceFilterOutUpdateDefaultCompare(negConsequentsInout, this.graph.getNegConsequences(lit), filteredOut);
     }
 
-    hasAnyCommonPosConsequences(lit: Literal, posConsequentsInout: Variable[]): boolean {
+    hasAnyCommonPosConsequences(lit: Literal, posConsequents: readonly Variable[]): boolean {
         for (const big of this.parentGraphs) {
-            if (big.hasAnyCommonPosConsequences(lit, posConsequentsInout)) {
+            if (sequenceHasNonemptyIntersectionDefaultCompare(big.getPosConsequences(lit), posConsequents)) {
                 return true;
             }
         }
-        return this.graph.hasAnyCommonPosConsequences(lit, posConsequentsInout);
+        return sequenceHasNonemptyIntersectionDefaultCompare(this.graph.getPosConsequences(lit), posConsequents);
     }
 
-    hasAnyCommonNegConsequences(lit: Literal, negConsequentsInout: Variable[]): boolean {
+    hasAnyCommonNegConsequences(lit: Literal, negConsequents: readonly Variable[]): boolean {
         for (const big of this.parentGraphs) {
-            if (big.hasAnyCommonNegConsequences(lit, negConsequentsInout)) {
+            if (sequenceHasNonemptyIntersectionDefaultCompare(big.getNegConsequences(lit), negConsequents)) {
                 return true;
             }
         }
-        return this.graph.hasAnyCommonNegConsequences(lit, negConsequentsInout);
+        return sequenceHasNonemptyIntersectionDefaultCompare(this.graph.getNegConsequences(lit), negConsequents);
     }
 
     // In this order: negneg, negpos, posneg, pospos

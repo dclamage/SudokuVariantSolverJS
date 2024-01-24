@@ -444,10 +444,6 @@ export class Board {
         return true;
     }
 
-    transferWeakLinkToParentSubboard(index1: CandidateIndex, index2: CandidateIndex): boolean {
-        return this.binaryImplications.transferImplicationToParent(index1, ~index2);
-    }
-
     isWeakLink(index1: CandidateIndex, index2: CandidateIndex) {
         return this.binaryImplications.hasImplication(index1, ~index2);
     }

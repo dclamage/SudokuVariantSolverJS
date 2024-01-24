@@ -177,7 +177,7 @@ export class OrConstraint extends Constraint {
         let scratch: CandidateIndex[] = [];
         const weakLinks: WeakLink[] = [];
         for (let candidate = 0; candidate < this.numCandidates; ++candidate) {
-            let newLinks = this.subboards[0].binaryImplications.getTopLayerNegConsequences(candidate);
+            let newLinks = this.subboards[0].binaryImplications.getTopLayerNegConsequences(candidate).slice();
             for (let subboardIndex = 1; subboardIndex < this.subboards.length; ++subboardIndex) {
                 if (newLinks.length === 0) {
                     break;
