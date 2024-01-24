@@ -2,6 +2,11 @@ import { Board, SolveOptions, SolveStats } from './solver/Board';
 import { registerAllConstraints } from './solver/Constraint/ConstraintLoader';
 import { FPuzzlesBoard } from './solver/Constraint/FPuzzlesInterfaces';
 import ConstraintBuilder from './solver/ConstraintBuilder';
+import { CellForcing } from './solver/LogicalStep/CellForcing';
+import { Fish } from './solver/LogicalStep/Fish';
+import { NakedTupleAndPointing } from './solver/LogicalStep/NakedTupleAndPointing';
+import { SimpleContradiction } from './solver/LogicalStep/SimpleContradiction';
+import { Skyscraper } from './solver/LogicalStep/Skyscraper';
 import { CellIndex, CellMask, CellValue, minValue, valueBit, valuesList, valuesMask } from './solver/SolveUtility';
 
 export type ExpandedCandidates = ({ given: true; value: number } | number[])[];
@@ -198,7 +203,7 @@ class SudokuVariantSolver {
      * @param {Object} data.board - The Sudoku board in the f-puzzles format.
      * @returns {boolean} - True if the candidate values differ, false otherwise.
      */
-    candidatesDiffer(board: Board, data: SolverInputData): boolean {
+    private candidatesDiffer(board: Board, data: SolverInputData): boolean {
         const size = board.size;
         for (let i = 0; i < size; i++) {
             for (let j = 0; j < size; j++) {
@@ -240,7 +245,7 @@ class SudokuVariantSolver {
     async step(data: SolverInputData): Promise<void> {
         this.eventCanceled = false;
 
-        const board = this.createBoard(data.board, true);
+        const board = this.createBoard(data.board, true, data.options?.allowedLogicalSteps);
         if (!board) {
             this.messageCallback({ result: 'step', desc: 'Board is invalid!', invalid: true, changed: false });
             return;
@@ -281,7 +286,7 @@ class SudokuVariantSolver {
     async logicalSolve(data: SolverInputData) {
         this.eventCanceled = false;
 
-        const board = this.createBoard(data.board, true);
+        const board = this.createBoard(data.board, true, data.options?.allowedLogicalSteps);
         if (!board) {
             this.messageCallback({ result: 'logicalsolve', desc: ['Board is invalid!'], invalid: true, changed: false });
             return;
@@ -319,9 +324,9 @@ class SudokuVariantSolver {
      * @param {boolean} keepPencilMarks - True to keep pencil marks, false to remove them.
      * @returns {Board} The board.
      */
-    createBoard(boardData: FPuzzlesBoard, keepPencilMarks: boolean = false): Board {
+    private createBoard(boardData: FPuzzlesBoard, keepPencilMarks: boolean = false, allowedLogicalSteps: string[] | undefined = undefined): Board {
         const size = boardData.size;
-        const board = new Board(size);
+        const board = new Board(size, allowedLogicalSteps);
 
         // Set the givens
         const givenSingles: [CellIndex, CellValue][] = [];
@@ -446,7 +451,7 @@ class SudokuVariantSolver {
      *
      * @param {object} boardData - The board data.
      */
-    applyDefaultRegions(boardData: FPuzzlesBoard) {
+    private applyDefaultRegions(boardData: FPuzzlesBoard) {
         const size = boardData.size;
 
         const regionSizes = { w: 0, h: 0 };
@@ -472,6 +477,13 @@ class SudokuVariantSolver {
      */
     cancel() {
         this.eventCanceled = true;
+    }
+
+    /**
+     * Gets the possible logical steps
+     */
+    getPossibleLogicalSteps() {
+        return [new CellForcing().name, new NakedTupleAndPointing().name, new Fish([]).name, new Skyscraper().name, new SimpleContradiction().name];
     }
 }
 
