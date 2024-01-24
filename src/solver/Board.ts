@@ -46,6 +46,7 @@ export type SolveOptions = {
     maxSolutions?: number;
     maxSolutionsPerCandidate?: number;
     enableStats?: boolean; // Setting to false / leaving unset doesn't guarantee all stats will be 0, but it does mean they are potentially meaningless.
+    allowedLogicalSteps?: string[];
 };
 
 export type SolveResultCancelled = {
@@ -220,7 +221,7 @@ export class Board {
     needsExpensiveBruteForceSteps: boolean = false;
     solveStats: SolveStats;
 
-    constructor(size: number | undefined = undefined) {
+    constructor(size: number | undefined = undefined, allowedLogicalSteps: string[] | undefined = undefined) {
         if (size !== undefined) {
             this.size = size;
             this.allValues = allValues(size);
@@ -252,25 +253,20 @@ export class Board {
                 new SimpleContradiction(),
             ];
 
+            const alwaysEnabledLogicalSteps = [new NakedSingle(), new HiddenSingle(), new ConstraintLogic()];
             this.logicalSteps = [
-                //
-                new NakedSingle(),
-                new HiddenSingle(),
-                new ConstraintLogic(),
                 new CellForcing(),
                 new NakedTupleAndPointing(),
+                new Fish([2]),
+                new Skyscraper(),
+                new Fish(Array.from({ length: Math.floor(size / 2) }, (_, i) => i + 3)),
+                new SimpleContradiction(),
             ];
 
-            // Create a separate fish logical step for each size of fish
-            for (let fishSize = 2; fishSize <= size / 2; fishSize++) {
-                this.logicalSteps.push(new Fish([fishSize]));
-
-                // Add skyscraper after x-wing
-                if (fishSize === 2) {
-                    this.logicalSteps.push(new Skyscraper());
-                }
+            if (Array.isArray(allowedLogicalSteps)) {
+                this.logicalSteps = this.logicalSteps.filter(step => allowedLogicalSteps.includes(step.name));
             }
-            this.logicalSteps.push(new SimpleContradiction());
+            this.logicalSteps = [...alwaysEnabledLogicalSteps, ...this.logicalSteps];
 
             this.solveStats = new SolveStats();
         }

@@ -691,7 +691,7 @@ export class BinaryImplicationLayeredGraph {
     }
 
     getCommonPosConsequences(lits: Literal[]): readonly Variable[] {
-        lits.sort();
+        lits.sort((a, b) => a - b);
         return this.getCommonPosConsequencesHelper(lits);
     }
 
@@ -719,14 +719,14 @@ export class BinaryImplicationLayeredGraph {
             this.newMemo.set(memoKey, { lastUpdateTimestamp: lastUpdateTimestamp, variables: restConsequents });
             return restConsequents;
         }
-        const firstConsequents = this.getPosConsequences(firstLit);
+        const firstConsequents = this.getPosConsequencesSorted(firstLit);
         sequenceIntersectionUpdateDefaultCompare(firstConsequents, restConsequents);
         this.newMemo.set(memoKey, { lastUpdateTimestamp: lastUpdateTimestamp, variables: firstConsequents });
         return firstConsequents;
     }
 
     getCommonNegConsequences(lits: Literal[]): readonly Variable[] {
-        lits.sort();
+        lits.sort((a, b) => a - b);
         return this.getCommonNegConsequencesHelper(lits);
     }
 
@@ -754,7 +754,7 @@ export class BinaryImplicationLayeredGraph {
             this.newMemo.set(memoKey, { lastUpdateTimestamp: lastUpdateTimestamp, variables: restConsequents });
             return restConsequents;
         }
-        const firstConsequents = this.getNegConsequences(firstLit);
+        const firstConsequents = this.getNegConsequencesSorted(firstLit);
         sequenceIntersectionUpdateDefaultCompare(firstConsequents, restConsequents);
         this.newMemo.set(memoKey, { lastUpdateTimestamp: lastUpdateTimestamp, variables: firstConsequents });
         return firstConsequents;
