@@ -16,6 +16,7 @@ import {
     CellCoords,
     CellValue,
     CandidateIndex,
+    sequenceRemoveUpdateDefaultCompare,
 } from './SolveUtility';
 import { NakedSingle } from './LogicalStep/NakedSingle';
 import { HiddenSingle } from './LogicalStep/HiddenSingle';
@@ -926,7 +927,14 @@ export class Board {
         }
 
         let changed = false;
-        let ranDiscoverBinaryImplications = false;
+
+        // Start probing from the first cell in order. Probing in order gives better performance than probing randomly.
+        // This array is reversed as discoverBinaryImplications pops cellindices from the back.
+        const discoverBinaryImplicationsUnprobedCells: CellIndex[] = Array.from(
+            { length: this.size * this.size },
+            (_, i) => this.size * this.size - 1 - i
+        );
+
         while (true) {
             // Just in case, check if the board is completed
             if (this.nonGivenCount === 0) {
@@ -1068,10 +1076,8 @@ export class Board {
             }
 
             if (!changedThisRound && initialNonGivenCount === this.nonGivenCount && this.nakedSingles.length === 0) {
-                if (isInitialPreprocessing && !ranDiscoverBinaryImplications) {
-                    ranDiscoverBinaryImplications = true;
-
-                    result = this.discoverBinaryImplications();
+                if (isInitialPreprocessing && discoverBinaryImplicationsUnprobedCells.length > 0) {
+                    result = this.discoverBinaryImplications(discoverBinaryImplicationsUnprobedCells);
                     if (result === LogicResult.INVALID) {
                         return result;
                     }
@@ -1480,14 +1486,18 @@ export class Board {
         return changed ? LogicResult.CHANGED : LogicResult.UNCHANGED;
     }
 
-    private discoverBinaryImplications() {
+    private discoverBinaryImplications(cellsToProbe: CellIndex[]) {
         const { size, cells } = this;
-        const totalCells = size * size;
 
-        let addedImplications = false;
-        const invalidCandidates: CandidateIndex[] = [];
-        const alwaysTrueCandidates: CandidateIndex[] = [];
-        for (let cellIndex = 0; cellIndex < totalCells; cellIndex++) {
+        let changed = false;
+        // Exit the function when we found eliminations -- it's possible we can find naked/hidden singles now.
+        // While exiting the function after we find any implications could potentially lead to improving cell forcing
+        // which could then lead to more eliminations on the main board, this is heuristically quite rare,
+        // so we don't exit early in that case.
+        let foundEliminations = false;
+        // const alwaysTrueCandidates: CandidateIndex[] = [];
+        while (cellsToProbe.length > 0) {
+            const cellIndex = cellsToProbe.pop();
             const cellMask = cells[cellIndex];
             if (this.isGivenMask(cellMask)) {
                 continue;
@@ -1502,22 +1512,34 @@ export class Board {
 
                 const newBoard = this.clone();
                 if (!newBoard.setAsGiven(cellIndex, value)) {
-                    invalidCandidates.push(candidateIndex);
+                    if (!this.clearValue(cellIndex, value)) {
+                        return LogicResult.INVALID;
+                    }
+                    foundEliminations = true;
+                    changed = true;
                     continue;
                 }
 
                 const bruteForceResult = newBoard.applyBruteForceLogic(false, false);
                 if (bruteForceResult === LogicResult.INVALID) {
-                    invalidCandidates.push(candidateIndex);
+                    if (!this.clearValue(cellIndex, value)) {
+                        return LogicResult.INVALID;
+                    }
+                    foundEliminations = true;
+                    changed = true;
                     continue;
                 }
 
                 if (bruteForceResult !== LogicResult.UNCHANGED) {
                     if (this.addBinaryImplicationsFromTruth(candidateIndex, newBoard)) {
                         this.binaryImplications.sortGraph();
-                        addedImplications = true;
+                        changed = true;
                     }
                 }
+            }
+
+            if (foundEliminations) {
+                return LogicResult.CHANGED;
             }
 
             // Find false implications
@@ -1551,21 +1573,14 @@ export class Board {
             // }
         }
 
-        let changed = addedImplications;
-        for (const invalidCandidate of invalidCandidates) {
-            if (!this.clearCandidate(invalidCandidate)) {
-                return LogicResult.INVALID;
-            }
-            changed = true;
-        }
-
-        for (const alwaysTrueCandidate of alwaysTrueCandidates) {
-            const [cellIndex, value] = this.candidateToIndexAndValue(alwaysTrueCandidate);
-            if (!this.setAsGiven(cellIndex, value)) {
-                return LogicResult.INVALID;
-            }
-            changed = true;
-        }
+        // let changed = addedImplications;
+        // for (const alwaysTrueCandidate of alwaysTrueCandidates) {
+        //     const [cellIndex, value] = this.candidateToIndexAndValue(alwaysTrueCandidate);
+        //     if (!this.setAsGiven(cellIndex, value)) {
+        //         return LogicResult.INVALID;
+        //     }
+        //     changed = true;
+        // }
 
         return changed ? LogicResult.CHANGED : LogicResult.UNCHANGED;
     }
@@ -1577,6 +1592,8 @@ export class Board {
 
         let changed = false;
         const trueCellIndex = this.cellIndexFromCandidate(trueCandidateIndex);
+        const posConsequents: CandidateIndex[] = [];
+        const negConsequents: CandidateIndex[] = [];
         for (let cellIndex = 0; cellIndex < totalCells; cellIndex++) {
             if (cellIndex === trueCellIndex) {
                 continue;
@@ -1595,9 +1612,7 @@ export class Board {
                 // If the new mask is a given, then we can add a positive implication
                 const value1 = minValue(cellMask1);
                 const candidate1 = this.candidateIndex(cellIndex, value1);
-                if (this.binaryImplications.addImplication(trueCandidateIndex, candidate1)) {
-                    changed = true;
-                }
+                posConsequents.push(candidate1);
             } else {
                 // Otherwise we check for negative implications
                 let eliminatedMask = cellMask0 & ~cellMask1;
@@ -1606,12 +1621,27 @@ export class Board {
                     eliminatedMask &= ~valueBit(value);
 
                     const eliminatedCandidateIndex = this.candidateIndex(cellIndex, value);
-                    if (this.binaryImplications.addImplication(trueCandidateIndex, ~eliminatedCandidateIndex)) {
-                        changed = true;
-                    }
+                    negConsequents.push(eliminatedCandidateIndex);
                 }
             }
         }
+
+        if (posConsequents.length > 0) {
+            sequenceRemoveUpdateDefaultCompare(posConsequents, this.binaryImplications.getPosConsequences(trueCandidateIndex));
+        }
+        if (negConsequents.length > 0) {
+            sequenceRemoveUpdateDefaultCompare(negConsequents, this.binaryImplications.getNegConsequences(trueCandidateIndex));
+        }
+
+        if (posConsequents.length > 0) {
+            this.binaryImplications.addPosImplicationsBatchedGuaranteeUniquenessPreserveSortedness(trueCandidateIndex, posConsequents);
+            changed = true;
+        }
+        if (negConsequents.length > 0) {
+            this.binaryImplications.addNegImplicationsBatchedGuaranteeUniquenessPreserveSortedness(trueCandidateIndex, negConsequents);
+            changed = true;
+        }
+
         return changed;
     }
 
