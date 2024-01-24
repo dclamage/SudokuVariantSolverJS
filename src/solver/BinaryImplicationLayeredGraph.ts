@@ -11,6 +11,7 @@ import {
     sequenceHasNonemptyIntersectionDefaultCompare,
     sequenceIntersectionUpdateDefaultCompare,
     sequenceUnionDefaultCompare,
+    sequenceRemoveUpdateDefaultCompare,
 } from './SolveUtility';
 
 // Table of contents
@@ -307,6 +308,7 @@ export class BinaryImplicationLayeredGraph {
     // Mutable data (at least during preprocessing)
 
     nextUpdateTimestamp: [Timestamp]; // Store in a list since we want this to be shared by all graphs
+    lastUpdateTimestampForClauseForcing: Timestamp;
     graph: BinaryImplicationGraph;
     parentGraphs: BinaryImplicationGraph[];
     parentLayer: BinaryImplicationLayeredGraph | undefined;
@@ -322,6 +324,7 @@ export class BinaryImplicationLayeredGraph {
             this.forcingLutExactlyOneClauses = undefined;
             this.forcingLutExactlyOneClauseIdToStartingPseudovariable = undefined;
             this.nextUpdateTimestamp = undefined;
+            this.lastUpdateTimestampForClauseForcing = undefined;
             this.graph = undefined;
             this.parentGraphs = undefined;
             this.parentLayer = undefined;
@@ -339,6 +342,7 @@ export class BinaryImplicationLayeredGraph {
             }
 
             this.nextUpdateTimestamp = [1];
+            this.lastUpdateTimestampForClauseForcing = 0;
             this.graph = new BinaryImplicationGraph(this.numVariables, this.nextUpdateTimestamp);
             this.parentGraphs = [];
             this.parentLayer = undefined;
@@ -381,7 +385,7 @@ export class BinaryImplicationLayeredGraph {
             this.pruneImpossibleCandidates(board);
         }
 
-        // this.recomputeClauseForcingLUTs();
+        this.recomputeClauseForcingLUTs();
     }
 
     private pruneImpossibleCandidates(board: Board) {
@@ -411,18 +415,59 @@ export class BinaryImplicationLayeredGraph {
     }
 
     private recomputeClauseForcingLUTs() {
+        const latestUpdate = this.nextUpdateTimestamp[0] - 1;
+        if (this.lastUpdateTimestampForClauseForcing === latestUpdate) return;
+
+        if (this.parentLayer !== undefined) {
+            this.parentLayer.recomputeClauseForcingLUTs();
+        }
+
+        this.lastUpdateTimestampForClauseForcing = latestUpdate;
+
         for (let clauseId = 0; clauseId < this.forcingLutExactlyOneClauses.length; clauseId++) {
             const startingVariable = this.forcingLutExactlyOneClauseIdToStartingPseudovariable[clauseId];
             const clause = this.forcingLutExactlyOneClauses[clauseId];
 
             const numMasks = 1 << clause.length;
 
+            // Only recompute clauses which have changed
+            let needsUpdate = false;
+
+            const lastClauseUpdateTimestamp = this.graph.posposTimestamp[startingVariable + numMasks - 1] ?? 0;
+            for (const lit of clause) {
+                const litTimestamp = this.graph.getPosLastUpdateTimestamp(lit);
+                if (lastClauseUpdateTimestamp < litTimestamp) {
+                    needsUpdate = true;
+                    break;
+                }
+            }
+            if (!needsUpdate) {
+                for (const lit of clause) {
+                    const litTimestamp = this.graph.getNegLastUpdateTimestamp(lit);
+                    if (lastClauseUpdateTimestamp < litTimestamp) {
+                        needsUpdate = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!needsUpdate) {
+                continue;
+            }
+
+            this.graph.posposTimestamp[startingVariable + numMasks - 1] = latestUpdate;
+
+            const masksByPopcount = Array.from({ length: clause.length + 1 }, () => []);
+            for (let mask = 1; mask < numMasks; mask++) {
+                masksByPopcount[popcount(mask)].push(mask);
+            }
+
             // Initialize 1-hot masks
             for (let i = 0; i < clause.length; i++) {
                 const mask = 1 << i;
                 const lit = clause[i];
-                const posImplicants = this.getPosConsequences(lit);
-                const negImplicants = this.getNegConsequences(lit);
+                const posImplicants = this.getTopLayerPosConsequences(lit).slice();
+                const negImplicants = this.getTopLayerNegConsequences(lit).slice();
                 if (posImplicants.length > 0) {
                     this.graph.pospos[startingVariable + mask] = posImplicants;
                 }
@@ -432,106 +477,127 @@ export class BinaryImplicationLayeredGraph {
             }
 
             // Clause subsets of size 2 and above
-            const masksByPopcount = Array.from({ length: clause.length + 1 }, () => []);
-            for (let mask = 1; mask < numMasks; mask++) {
-                masksByPopcount[popcount(mask)].push(mask);
-            }
-
-            {
-                const masks = masksByPopcount[2];
-
-                let hadNonzeroIntersection = false;
-                for (const mask of masks) {
-                    const firstMask = mask & -mask;
-                    const restMask = mask & (mask - 1);
-                    const firstPos = this.graph.pospos[startingVariable + firstMask];
-                    const firstNeg = this.graph.posneg[startingVariable + firstMask];
-                    const restPos = this.graph.pospos[startingVariable + restMask];
-                    const restNeg = this.graph.posneg[startingVariable + restMask];
-                    if (firstPos !== undefined && restPos !== undefined) {
-                        const intersection = sequenceIntersectionDefaultCompare(firstPos, restPos);
-                        if (intersection.length > 0) {
-                            this.graph.pospos[startingVariable + mask] = intersection;
-                            hadNonzeroIntersection = true;
+            // Use simpler algorithm when at root layer
+            if (this.parentLayer === undefined) {
+                for (const masks of masksByPopcount.slice(2)) {
+                    let hadNonzeroIntersection = false;
+                    for (const mask of masks) {
+                        const firstMask = mask & -mask;
+                        const restMask = mask & (mask - 1);
+                        // Set type to readonly since we don't want to accidentally mutate this
+                        const firstPos: readonly number[] = this.graph.pospos[startingVariable + firstMask];
+                        const firstNeg: readonly number[] = this.graph.posneg[startingVariable + firstMask];
+                        const restPos: readonly number[] = this.graph.pospos[startingVariable + restMask];
+                        const restNeg: readonly number[] = this.graph.posneg[startingVariable + restMask];
+                        if (firstPos !== undefined && restPos !== undefined) {
+                            const intersection = sequenceIntersectionDefaultCompare(firstPos, restPos);
+                            if (intersection.length > 0) {
+                                this.graph.pospos[startingVariable + mask] = intersection;
+                                hadNonzeroIntersection = true;
+                            }
+                        }
+                        if (firstNeg !== undefined && restNeg !== undefined) {
+                            const intersection = sequenceIntersectionDefaultCompare(firstNeg, restNeg);
+                            if (intersection.length > 0) {
+                                this.graph.posneg[startingVariable + mask] = intersection;
+                                hadNonzeroIntersection = true;
+                            }
                         }
                     }
-                    if (firstNeg !== undefined && restNeg !== undefined) {
-                        const intersection = sequenceIntersectionDefaultCompare(firstNeg, restNeg);
-                        if (intersection.length > 0) {
-                            this.graph.posneg[startingVariable + mask] = intersection;
-                            hadNonzeroIntersection = true;
-                        }
-                    }
+
+                    if (!hadNonzeroIntersection) break;
                 }
+            } else {
+                // We have a parent layer, make sure we handle edges in parent layers as well
+                for (const masks of masksByPopcount.slice(2)) {
+                    let hadNonzeroIntersection = false;
+                    for (const mask of masks) {
+                        const firstMask = mask & -mask;
+                        const restMask = mask & (mask - 1);
+                        // Set type to readonly since we don't want to accidentally mutate this
+                        const firstPos: readonly number[] = this.graph.pospos[startingVariable + firstMask];
+                        const firstNeg: readonly number[] = this.graph.posneg[startingVariable + firstMask];
+                        const restPos: readonly number[] = this.graph.pospos[startingVariable + restMask];
+                        const restNeg: readonly number[] = this.graph.posneg[startingVariable + restMask];
+                        const parentFirstPos: readonly number[] = this.graph.pospos[startingVariable + firstMask];
+                        const parentRestPos: readonly number[] = this.graph.pospos[startingVariable + restMask];
+                        const parentFirstNeg: readonly number[] = this.graph.posneg[startingVariable + firstMask];
+                        const parentRestNeg: readonly number[] = this.graph.posneg[startingVariable + restMask];
+                        if (
+                            (firstPos !== undefined && restPos !== undefined) ||
+                            (firstPos !== undefined && parentRestPos !== undefined) ||
+                            (restPos !== undefined && parentFirstPos !== undefined)
+                        ) {
+                            // We'll denote | as union, & as intersection, and - as subtraction.
+                            // We need to compute:
+                            //
+                            // ((firstPos | parentFirstPos) & (restPos | parentRestPos)) - parentPos
+                            const parentPos: readonly number[] = this.parentLayer.graph.pospos[startingVariable + mask];
+                            const combinedFirstPos =
+                                firstPos !== undefined && parentFirstPos !== undefined
+                                    ? sequenceUnionDefaultCompare(firstPos, parentFirstPos)
+                                    : firstPos !== undefined
+                                      ? firstPos
+                                      : parentFirstPos !== undefined
+                                        ? parentFirstPos
+                                        : undefined;
+                            const combinedRestPos =
+                                restPos !== undefined && parentRestPos !== undefined
+                                    ? sequenceUnionDefaultCompare(restPos, parentRestPos)
+                                    : restPos !== undefined
+                                      ? restPos
+                                      : parentRestPos !== undefined
+                                        ? parentRestPos
+                                        : undefined;
+                            const intersection = sequenceIntersectionDefaultCompare(combinedFirstPos, combinedRestPos);
+                            parentPos === undefined || sequenceRemoveUpdateDefaultCompare(intersection, parentPos);
+                            if (intersection.length > 0) {
+                                this.graph.pospos[startingVariable + mask] = intersection;
+                                hadNonzeroIntersection = true;
+                            }
+                        }
 
-                if (!hadNonzeroIntersection) continue;
-            }
-
-            {
-                const masks = masksByPopcount[3];
-
-                let hadNonzeroIntersection = false;
-                for (const mask of masks) {
-                    const firstMask = mask & -mask;
-                    const restMask = mask & (mask - 1);
-                    const firstPos = this.graph.pospos[startingVariable + firstMask];
-                    const firstNeg = this.graph.posneg[startingVariable + firstMask];
-                    const restPos = this.graph.pospos[startingVariable + restMask];
-                    const restNeg = this.graph.posneg[startingVariable + restMask];
-                    if (firstPos !== undefined && restPos !== undefined) {
-                        const intersection = sequenceIntersectionDefaultCompare(firstPos, restPos);
-                        if (intersection.length > 0) {
-                            this.graph.pospos[startingVariable + mask] = intersection;
-                            hadNonzeroIntersection = true;
+                        if (
+                            (firstNeg !== undefined && restNeg !== undefined) ||
+                            (firstNeg !== undefined && parentRestNeg !== undefined) ||
+                            (restNeg !== undefined && parentFirstNeg !== undefined)
+                        ) {
+                            // ((firstNeg | parentFirstNeg) & (restNeg | parentRestNeg)) - parentNeg
+                            const parentNeg: readonly number[] = this.parentLayer.graph.posneg[startingVariable + mask];
+                            const combinedFirstNeg =
+                                firstNeg !== undefined && parentFirstNeg !== undefined
+                                    ? sequenceUnionDefaultCompare(firstNeg, parentFirstNeg)
+                                    : firstNeg !== undefined
+                                      ? firstNeg
+                                      : parentFirstNeg !== undefined
+                                        ? parentFirstNeg
+                                        : undefined;
+                            const combinedRestNeg =
+                                firstNeg !== undefined && parentRestNeg !== undefined
+                                    ? sequenceUnionDefaultCompare(firstNeg, parentRestNeg)
+                                    : firstNeg !== undefined
+                                      ? firstNeg
+                                      : parentRestNeg !== undefined
+                                        ? parentRestNeg
+                                        : undefined;
+                            const intersection = sequenceIntersectionDefaultCompare(combinedFirstNeg, combinedRestNeg);
+                            parentNeg === undefined || sequenceRemoveUpdateDefaultCompare(intersection, parentNeg);
+                            if (intersection.length > 0) {
+                                this.graph.posneg[startingVariable + mask] = intersection;
+                                hadNonzeroIntersection = true;
+                            }
                         }
                     }
-                    if (firstNeg !== undefined && restNeg !== undefined) {
-                        const intersection = sequenceIntersectionDefaultCompare(firstNeg, restNeg);
-                        if (intersection.length > 0) {
-                            this.graph.posneg[startingVariable + mask] = intersection;
-                            hadNonzeroIntersection = true;
-                        }
-                    }
+
+                    if (!hadNonzeroIntersection) break;
                 }
-
-                if (!hadNonzeroIntersection) continue;
-            }
-
-            for (const masks of masksByPopcount.slice(4)) {
-                let hadNonzeroIntersection = false;
-                for (const mask of masks) {
-                    let firstMask = mask & -mask;
-                    let restMask = mask & (mask - 1);
-                    firstMask |= restMask & -restMask;
-                    restMask &= restMask - 1;
-                    const firstPos = this.graph.pospos[startingVariable + firstMask];
-                    const firstNeg = this.graph.posneg[startingVariable + firstMask];
-                    const restPos = this.graph.pospos[startingVariable + restMask];
-                    const restNeg = this.graph.posneg[startingVariable + restMask];
-                    if (firstPos !== undefined && restPos !== undefined) {
-                        const intersection = sequenceIntersectionDefaultCompare(firstPos, restPos);
-                        if (intersection.length > 0) {
-                            this.graph.pospos[startingVariable + mask] = intersection;
-                            hadNonzeroIntersection = true;
-                        }
-                    }
-                    if (firstNeg !== undefined && restNeg !== undefined) {
-                        const intersection = sequenceIntersectionDefaultCompare(firstNeg, restNeg);
-                        if (intersection.length > 0) {
-                            this.graph.posneg[startingVariable + mask] = intersection;
-                            hadNonzeroIntersection = true;
-                        }
-                    }
-                }
-
-                if (!hadNonzeroIntersection) break;
             }
         }
     }
 
     clauseIdAndMaskToVariable(clauseId: number, mask: number): Variable {
-        throw new Error('Clause forcing is disabled');
-        // return this.forcingLutExactlyOneClauseIdToStartingPseudovariable[clauseId] + mask;
+        // throw new Error('Clause forcing is disabled');
+        return this.forcingLutExactlyOneClauseIdToStartingPseudovariable[clauseId] + mask;
     }
 
     // Use bitwise invert (~x) to turn a variable into a negative literal.
