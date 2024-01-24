@@ -285,34 +285,40 @@ export class BinaryImplicationLayeredGraph {
     }
 
     preprocess(board: Board) {
-        // Prune all impossible candidates if we are the root board
         if (this.parentLayer === undefined) {
-            for (let cellIndex = 0; cellIndex < board.size * board.size; cellIndex++) {
-                for (let value = 1; value <= board.size; value++) {
-                    const candidate = board.candidateIndex(cellIndex, value);
-                    if (!this.prunedLiterals.has(candidate) && !hasValue(board.cells[cellIndex], value)) {
-                        this.prunedLiterals.add(candidate);
-                        for (const implicant of this.getPosConsequences(candidate)) {
-                            this.graph.unsafeRemoveImplication(candidate, implicant);
-                        }
-                        for (const implicant of this.getNegConsequences(candidate)) {
-                            this.graph.unsafeRemoveImplication(candidate, ~implicant);
-                        }
+            this.pruneImpossibleCandidates(board);
+        }
+
+        this.recomputeClauseForcingLUTs();
+    }
+
+    private pruneImpossibleCandidates(board: Board) {
+        for (let cellIndex = 0; cellIndex < board.size * board.size; cellIndex++) {
+            for (let value = 1; value <= board.size; value++) {
+                const candidate = board.candidateIndex(cellIndex, value);
+                if (!this.prunedLiterals.has(candidate) && !hasValue(board.cells[cellIndex], value)) {
+                    this.prunedLiterals.add(candidate);
+                    for (const implicant of this.getPosConsequences(candidate)) {
+                        this.graph.unsafeRemoveImplication(candidate, implicant);
                     }
-                    if (!this.prunedLiterals.has(~candidate) && board.cells[cellIndex] === (valueBit(value) | board.givenBit)) {
-                        this.prunedLiterals.add(~candidate);
-                        for (const implicant of this.getPosConsequences(~candidate)) {
-                            this.graph.unsafeRemoveImplication(~candidate, implicant);
-                        }
-                        for (const implicant of this.getNegConsequences(~candidate)) {
-                            this.graph.unsafeRemoveImplication(~candidate, ~implicant);
-                        }
+                    for (const implicant of this.getNegConsequences(candidate)) {
+                        this.graph.unsafeRemoveImplication(candidate, ~implicant);
+                    }
+                }
+                if (!this.prunedLiterals.has(~candidate) && board.cells[cellIndex] === (valueBit(value) | board.givenBit)) {
+                    this.prunedLiterals.add(~candidate);
+                    for (const implicant of this.getPosConsequences(~candidate)) {
+                        this.graph.unsafeRemoveImplication(~candidate, implicant);
+                    }
+                    for (const implicant of this.getNegConsequences(~candidate)) {
+                        this.graph.unsafeRemoveImplication(~candidate, ~implicant);
                     }
                 }
             }
         }
+    }
 
-        // Recompute cell forcing LUTs
+    private recomputeClauseForcingLUTs() {
         for (let clauseId = 0; clauseId < this.forcingLutExactlyOneClauses.length; clauseId++) {
             const startingVariable = this.forcingLutExactlyOneClauseIdToStartingPseudovariable[clauseId];
             const clause = this.forcingLutExactlyOneClauses[clauseId];
