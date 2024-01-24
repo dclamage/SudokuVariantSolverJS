@@ -11,7 +11,6 @@ import {
     sequenceHasNonemptyIntersectionDefaultCompare,
     sequenceIntersectionUpdateDefaultCompare,
     sequenceUnionDefaultCompare,
-    sequenceRemoveUpdateDefaultCompare,
 } from './SolveUtility';
 
 // Table of contents
@@ -159,7 +158,7 @@ class BinaryImplicationGraph {
     // Undefined behaviour if implications already exist.
     addPosImplicationsBatchedGuaranteeUniquenessPreserveSortedness(lit1: Literal, vars2: readonly Variable[]) {
         // Add forward implications
-        let forward = this.implicationsArrFor(lit1, 0);
+        const forward = this.implicationsArrFor(lit1, 0);
         if (forward === undefined) {
             this.implicationsTableFor(lit1, 0)[toVariable(lit1)] = vars2.slice();
         } else {
@@ -210,7 +209,7 @@ class BinaryImplicationGraph {
     // Undefined behaviour if implications already exist.
     addNegImplicationsBatchedGuaranteeUniquenessPreserveSortedness(lit1: Literal, vars2: readonly Variable[]) {
         // Add forward implications
-        let forward = this.implicationsArrFor(lit1, ~0);
+        const forward = this.implicationsArrFor(lit1, ~0);
         if (forward === undefined) {
             this.implicationsTableFor(lit1, ~0)[toVariable(lit1)] = vars2.slice();
         } else {
