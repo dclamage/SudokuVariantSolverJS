@@ -927,7 +927,14 @@ export class Board {
         }
 
         let changed = false;
-        const discoverBinaryImplicationsCellIndex: [CellIndex] = [0];
+
+        // Start probing from the first cell in order. Probing in order gives better performance than probing randomly.
+        // This array is reversed as discoverBinaryImplications pops cellindices from the back.
+        const discoverBinaryImplicationsUnprobedCells: CellIndex[] = Array.from(
+            { length: this.size * this.size },
+            (_, i) => this.size * this.size - 1 - i
+        );
+
         while (true) {
             // Just in case, check if the board is completed
             if (this.nonGivenCount === 0) {
@@ -1069,8 +1076,8 @@ export class Board {
             }
 
             if (!changedThisRound && initialNonGivenCount === this.nonGivenCount && this.nakedSingles.length === 0) {
-                if (isInitialPreprocessing && discoverBinaryImplicationsCellIndex[0] < this.size * this.size) {
-                    result = this.discoverBinaryImplications(discoverBinaryImplicationsCellIndex);
+                if (isInitialPreprocessing && discoverBinaryImplicationsUnprobedCells.length > 0) {
+                    result = this.discoverBinaryImplications(discoverBinaryImplicationsUnprobedCells);
                     if (result === LogicResult.INVALID) {
                         return result;
                     }
@@ -1479,13 +1486,13 @@ export class Board {
         return changed ? LogicResult.CHANGED : LogicResult.UNCHANGED;
     }
 
-    private discoverBinaryImplications(startingCellIndex: [CellIndex]) {
+    private discoverBinaryImplications(cellsToProbe: CellIndex[]) {
         const { size, cells } = this;
-        const totalCells = size * size;
 
         let changed = false;
         // const alwaysTrueCandidates: CandidateIndex[] = [];
-        for (let cellIndex = startingCellIndex[0]; cellIndex < totalCells; cellIndex++) {
+        while (cellsToProbe.length > 0) {
+            const cellIndex = cellsToProbe.pop();
             const cellMask = cells[cellIndex];
             if (this.isGivenMask(cellMask)) {
                 continue;
@@ -1523,8 +1530,8 @@ export class Board {
                     }
                 }
             }
+
             if (changed) {
-                startingCellIndex[0] = cellIndex + 1;
                 return LogicResult.CHANGED;
             }
 
