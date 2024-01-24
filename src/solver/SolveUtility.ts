@@ -340,6 +340,15 @@ export function sequenceEqual<T>(arr1: T[], arr2: T[]): boolean {
     return arr1.every((value, index) => value === arr2[index]);
 }
 
+export function sequenceIsSorted<T>(arr: readonly T[]): boolean {
+    for (let i = 0; i < arr.length - 1; i++) {
+        if (arr[i] > arr[i + 1]) {
+            return false;
+        }
+    }
+    return true;
+}
+
 // Assumes arr1 and arr2 are sorted
 // Compare should return:
 //  a < b: a negative number

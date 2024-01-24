@@ -137,16 +137,16 @@ class BinaryImplicationGraph {
 
         forward.push(var2);
         const forwardUnsorted = this.unsortedArrFor(lit1, lit2);
-        if (!forwardUnsorted[lit1]) {
-            forwardUnsorted[lit1] = 1;
+        if (!forwardUnsorted[toVariable(lit1)]) {
+            forwardUnsorted[toVariable(lit1)] = 1;
             this.unsorted.push(forward);
             this.timestampArrFor(lit1, lit2)[toVariable(lit1)] = this.nextUpdateTimestamp[0];
         }
 
         backward.push(var1);
         const backwardUnsorted = this.unsortedArrFor(~lit2, ~lit1);
-        if (!backwardUnsorted[lit1]) {
-            backwardUnsorted[lit1] = 1;
+        if (!backwardUnsorted[toVariable(lit2)]) {
+            backwardUnsorted[toVariable(lit2)] = 1;
             this.unsorted.push(backward);
             this.timestampArrFor(~lit2, ~lit1)[toVariable(lit2)] = this.nextUpdateTimestamp[0];
         }
@@ -278,7 +278,7 @@ export class BinaryImplicationLayeredGraph {
             this.pruneImpossibleCandidates(board);
         }
 
-        this.recomputeClauseForcingLUTs();
+        // this.recomputeClauseForcingLUTs();
     }
 
     private pruneImpossibleCandidates(board: Board) {
@@ -427,7 +427,8 @@ export class BinaryImplicationLayeredGraph {
     }
 
     clauseIdAndMaskToVariable(clauseId: number, mask: number): Variable {
-        return this.forcingLutExactlyOneClauseIdToStartingPseudovariable[clauseId] + mask;
+        throw new Error('Clause forcing is disabled');
+        // return this.forcingLutExactlyOneClauseIdToStartingPseudovariable[clauseId] + mask;
     }
 
     // Use bitwise invert (~x) to turn a variable into a negative literal.

@@ -416,6 +416,8 @@ class SudokuVariantSolver {
             }
         }
 
+        board.binaryImplications.sortGraph();
+
         // Add constraints
         if (!this.constraintBuilder.buildConstraints(boardData, board)) {
             return null;

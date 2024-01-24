@@ -715,15 +715,33 @@ export class Board {
 
         if (popcount(cellMask) === 1) {
             this.nakedSingles.push(cellIndex);
-        } else {
-            if (!this.reducedCellsBoolean[cellIndex]) {
-                this.reducedCells.push(cellIndex);
-                this.reducedCellsBoolean[cellIndex] = 1;
+        }
+
+        // Check for binary implications
+        let removedMask = origMask & ~cellMask;
+        while (removedMask !== 0) {
+            const value = minValue(removedMask);
+            removedMask &= ~valueBit(value);
+
+            const candidateIndex = this.candidateIndex(cellIndex, value);
+            const negConsequences = this.binaryImplications.getNegConsequences(~candidateIndex);
+            for (const negConsequence of negConsequences) {
+                const [cellIndex2, value2] = this.candidateToIndexAndValue(negConsequence);
+                if (!this.clearValue(cellIndex2, value2)) {
+                    return false;
+                }
+            }
+            const posConsequences = this.binaryImplications.getPosConsequences(~candidateIndex);
+            for (const posConsequence of posConsequences) {
+                const [cellIndex2, value2] = this.candidateToIndexAndValue(posConsequence);
+                if (!this.setAsGiven(cellIndex2, value2)) {
+                    return false;
+                }
             }
         }
 
         // Check for constraint implications
-        let removedMask = origMask & ~cellMask;
+        removedMask = origMask & ~cellMask;
         while (removedMask !== 0) {
             const value = minValue(removedMask);
             removedMask &= ~valueBit(value);
@@ -928,17 +946,17 @@ export class Board {
                 // Until there are no more naked singles
             }
 
-            result = this.applyCellForcing();
-            if (result === LogicResult.INVALID) {
-                return result;
-            }
+            // result = this.applyCellForcing();
+            // if (result === LogicResult.INVALID) {
+            //     return result;
+            // }
 
-            if (result === LogicResult.CHANGED) {
-                changedThisRound = true;
-                changed = true;
-                // Keep looking for logic until there is none
-                continue;
-            }
+            // if (result === LogicResult.CHANGED) {
+            //     changedThisRound = true;
+            //     changed = true;
+            //     // Keep looking for logic until there is none
+            //     continue;
+            // }
 
             result = this.applyHiddenSingles();
             if (result === LogicResult.INVALID || result === LogicResult.COMPLETE) {
@@ -1344,6 +1362,7 @@ export class Board {
     }
 
     private applyCellForcing(): LogicResult {
+        throw new Error('Clause forcing is disabled');
         let changed = false;
 
         while (this.reducedCells.length > 0) {
