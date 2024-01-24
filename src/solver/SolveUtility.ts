@@ -367,7 +367,7 @@ export function sequenceIntersection<T>(arr1: T[], arr2: T[], compare: (a: T, b:
 }
 
 // Assumes arr1 and arr2 are sorted according to the default compare
-export function sequenceIntersectionDefaultCompare<T>(arr1: T[], arr2: T[]): T[] {
+export function sequenceIntersectionDefaultCompare<T>(arr1: readonly T[], arr2: readonly T[]): T[] {
     let i = 0;
     let j = 0;
     const out: T[] = [];
@@ -390,7 +390,7 @@ export function sequenceIntersectionDefaultCompare<T>(arr1: T[], arr2: T[]): T[]
 }
 
 // Assumes arr1 and arr2 are sorted according to the default compare
-export function sequenceIntersectionUpdateDefaultCompare<T>(arr1Inout: T[], arr2: T[]) {
+export function sequenceIntersectionUpdateDefaultCompare<T>(arr1Inout: T[], arr2: readonly T[]) {
     let iWrite = 0;
     let j = 0;
 

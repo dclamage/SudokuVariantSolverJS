@@ -9,6 +9,7 @@ import {
     sequenceIntersectionDefaultCompare,
     sequenceExtend,
     sequenceHasNonemptyIntersectionDefaultCompare,
+    sequenceIntersectionUpdateDefaultCompare,
 } from './SolveUtility';
 
 // Table of contents
@@ -25,6 +26,9 @@ import {
 type Variable = number;
 // Either a Variable x or its bitwise inversion ~x
 type Literal = number;
+
+// Used to track when cached results are invalidated
+type Timestamp = number;
 
 function toVariable(lit: Literal): Variable {
     return lit ^ -+(lit < 0);
@@ -53,18 +57,35 @@ class BinaryImplicationGraph {
 
     unsorted: Variable[][];
 
-    constructor(numVariables: number) {
+    posposTimestamp: Timestamp[];
+    posnegTimestamp: Timestamp[];
+    negposTimestamp: Timestamp[];
+    negnegTimestamp: Timestamp[];
+    timestampIndex: [Timestamp[], Timestamp[], Timestamp[], Timestamp[]];
+
+    nextUpdateTimestamp: [Timestamp];
+
+    constructor(numVariables: number, nextUpdateTimestamp: [Timestamp]) {
         this.pospos = new Array(numVariables);
         this.posneg = new Array(numVariables);
         this.negpos = new Array(numVariables);
         this.negneg = new Array(numVariables);
         this.implicationsIndex = [this.negneg, this.negpos, this.posneg, this.pospos];
+
         this.posposUnsorted = new Uint8Array(numVariables);
         this.posnegUnsorted = new Uint8Array(numVariables);
         this.negposUnsorted = new Uint8Array(numVariables);
         this.negnegUnsorted = new Uint8Array(numVariables);
         this.unsortedIndex = [this.negnegUnsorted, this.negposUnsorted, this.posnegUnsorted, this.posposUnsorted];
         this.unsorted = [];
+
+        this.posposTimestamp = new Array(numVariables);
+        this.posnegTimestamp = new Array(numVariables);
+        this.negposTimestamp = new Array(numVariables);
+        this.negnegTimestamp = new Array(numVariables);
+        this.timestampIndex = [this.negnegTimestamp, this.negposTimestamp, this.posnegTimestamp, this.posposTimestamp];
+
+        this.nextUpdateTimestamp = nextUpdateTimestamp;
     }
 
     implicationsTableFor(lit1: Literal, lit2: Literal) {
@@ -79,6 +100,10 @@ class BinaryImplicationGraph {
         return this.unsortedIndex[+(lit1 >= 0) * 2 + +(lit2 >= 0)];
     }
 
+    timestampArrFor(lit1: Literal, lit2: Literal) {
+        return this.timestampIndex[+(lit1 >= 0) * 2 + +(lit2 >= 0)];
+    }
+
     sortGraph() {
         for (const arr of this.unsorted) {
             arr.sort((a, b) => a - b);
@@ -89,6 +114,7 @@ class BinaryImplicationGraph {
         this.negposUnsorted.fill(0);
         this.posnegUnsorted.fill(0);
         this.posposUnsorted.fill(0);
+        this.nextUpdateTimestamp[0]++;
     }
 
     // Use bitwise invert (~x) to turn a variable into a negative literal.
@@ -114,6 +140,7 @@ class BinaryImplicationGraph {
         if (!forwardUnsorted[lit1]) {
             forwardUnsorted[lit1] = 1;
             this.unsorted.push(forward);
+            this.timestampArrFor(lit1, lit2)[toVariable(lit1)] = this.nextUpdateTimestamp[0];
         }
 
         backward.push(var1);
@@ -121,6 +148,7 @@ class BinaryImplicationGraph {
         if (!backwardUnsorted[lit1]) {
             backwardUnsorted[lit1] = 1;
             this.unsorted.push(backward);
+            this.timestampArrFor(~lit2, ~lit1)[toVariable(lit2)] = this.nextUpdateTimestamp[0];
         }
 
         return true;
@@ -154,14 +182,20 @@ class BinaryImplicationGraph {
     getNegConsequences(lit: Literal): readonly Variable[] {
         return this.implicationsArrFor(lit, ~0) ?? [];
     }
+
+    getPosLastUpdateTimestamp(lit: Literal): Timestamp {
+        return this.timestampArrFor(lit, 0)[toVariable(lit)] ?? 0;
+    }
+    getNegLastUpdateTimestamp(lit: Literal): Timestamp {
+        return this.timestampArrFor(lit, ~0)[toVariable(lit)] ?? 0;
+    }
 }
 
 export class BinaryImplicationLayeredGraph {
     // Static data
 
     numVariables: number;
-    // TODO: Improve memoization so it uses literal update timestamping
-    memo: Map<BinaryImplicationLayeredGraph, Map<string, readonly Variable[]>>;
+    newMemo: Map<string, { lastUpdateTimestamp: Timestamp; variables: readonly Variable[] }>;
     // Clause forcing data
     numTotalVariables: number;
     forcingLutExactlyOneClauses: Literal[][];
@@ -169,6 +203,7 @@ export class BinaryImplicationLayeredGraph {
 
     // Mutable data (at least during preprocessing)
 
+    nextUpdateTimestamp: [Timestamp]; // Store in a list since we want this to be shared by all graphs
     graph: BinaryImplicationGraph;
     parentGraphs: BinaryImplicationGraph[];
     parentLayer: BinaryImplicationLayeredGraph | undefined;
@@ -179,18 +214,18 @@ export class BinaryImplicationLayeredGraph {
         if (numVariables === undefined || exactlyOneClausesForForcingLuts === undefined) {
             // For cloning, assign the members in the same order so the hidden class is the same, but set them all to undefined so we don't create garbage.
             this.numVariables = undefined;
-            this.memo = undefined;
+            this.newMemo = undefined;
             this.numTotalVariables = undefined;
             this.forcingLutExactlyOneClauses = undefined;
             this.forcingLutExactlyOneClauseIdToStartingPseudovariable = undefined;
+            this.nextUpdateTimestamp = undefined;
             this.graph = undefined;
             this.parentGraphs = undefined;
             this.parentLayer = undefined;
             this.prunedLiterals = undefined;
         } else {
             this.numVariables = numVariables;
-            this.memo = new Map();
-            this.memo.set(this, new Map());
+            this.newMemo = new Map();
 
             this.numTotalVariables = numVariables;
             this.forcingLutExactlyOneClauses = exactlyOneClausesForForcingLuts.map(clause => clause.slice());
@@ -200,7 +235,8 @@ export class BinaryImplicationLayeredGraph {
                 this.numTotalVariables += 1 << exactlyOneClausesForForcingLuts[clauseId].length;
             }
 
-            this.graph = new BinaryImplicationGraph(this.numVariables);
+            this.nextUpdateTimestamp = [1];
+            this.graph = new BinaryImplicationGraph(this.numVariables, this.nextUpdateTimestamp);
             this.parentGraphs = [];
             this.parentLayer = undefined;
             this.prunedLiterals = new Set();
@@ -220,9 +256,7 @@ export class BinaryImplicationLayeredGraph {
     subboardClone(): this {
         const clone = Object.assign(new BinaryImplicationLayeredGraph(undefined, undefined), this);
 
-        clone.memo.set(clone, new Map());
-
-        clone.graph = new BinaryImplicationGraph(this.numVariables);
+        clone.graph = new BinaryImplicationGraph(this.numVariables, this.nextUpdateTimestamp);
 
         clone.parentGraphs = this.parentGraphs.slice();
         clone.parentGraphs.push(this.graph);
@@ -401,10 +435,6 @@ export class BinaryImplicationLayeredGraph {
     // Add methods return true if something was added
 
     addImplication(lit1: Literal, lit2: Literal): boolean {
-        // TODO: Improve memoization so it uses literal update timestamping
-        for (const bigMemoEntry of this.memo) {
-            bigMemoEntry[1].clear();
-        }
         if (this.hasParentImplication(lit1, lit2)) {
             return false;
         }
@@ -463,12 +493,22 @@ export class BinaryImplicationLayeredGraph {
         return this.graph.getNegConsequences(lit);
     }
 
-    getMemo(key: string): readonly Variable[] {
-        return this.memo.get(this).get(key);
+    getPosLastUpdateTimestamp(lit: Literal): Timestamp {
+        let timestamp = this.graph.getPosLastUpdateTimestamp(lit);
+        for (const big of this.parentGraphs) {
+            const otherTimestamp = big.getPosLastUpdateTimestamp(lit);
+            timestamp = timestamp < otherTimestamp ? otherTimestamp : timestamp;
+        }
+        return timestamp;
     }
 
-    storeMemo(key: string, value: readonly Variable[]) {
-        this.memo.get(this).set(key, value);
+    getNegLastUpdateTimestamp(lit: Literal): Timestamp {
+        let timestamp = this.graph.getNegLastUpdateTimestamp(lit);
+        for (const big of this.parentGraphs) {
+            const otherTimestamp = big.getNegLastUpdateTimestamp(lit);
+            timestamp = timestamp < otherTimestamp ? otherTimestamp : timestamp;
+        }
+        return timestamp;
     }
 
     getCommonPosConsequences(lits: Literal[]): readonly Variable[] {
@@ -484,22 +524,26 @@ export class BinaryImplicationLayeredGraph {
         lits.push(1); // key for "pos consequences"
         const memoKey = appendInts(lits);
         lits.pop();
-        const memoResult = this.getMemo(memoKey);
-        if (memoResult !== undefined) {
-            return memoResult;
+        let lastUpdateTimestamp = 0;
+        for (const lit of lits) {
+            const litTimestamp = this.getPosLastUpdateTimestamp(lit);
+            lastUpdateTimestamp = lastUpdateTimestamp < litTimestamp ? litTimestamp : lastUpdateTimestamp;
+        }
+        const memoResult = this.newMemo.get(memoKey);
+        if (memoResult !== undefined && memoResult.lastUpdateTimestamp === lastUpdateTimestamp) {
+            return memoResult.variables;
         }
         // Inductive case
         const [firstLit, ...restLits] = lits;
         const restConsequents = this.getCommonPosConsequencesHelper(restLits);
         if (restConsequents.length === 0) {
-            this.storeMemo(memoKey, restConsequents);
+            this.newMemo.set(memoKey, { lastUpdateTimestamp: lastUpdateTimestamp, variables: restConsequents });
             return restConsequents;
         }
         const firstConsequents = this.getPosConsequences(firstLit);
-        const intersection: Variable[] = [];
-        sequenceFilterOutUpdateDefaultCompare(firstConsequents, restConsequents, intersection);
-        this.storeMemo(memoKey, intersection);
-        return intersection;
+        sequenceIntersectionUpdateDefaultCompare(firstConsequents, restConsequents);
+        this.newMemo.set(memoKey, { lastUpdateTimestamp: lastUpdateTimestamp, variables: firstConsequents });
+        return firstConsequents;
     }
 
     getCommonNegConsequences(lits: Literal[]): readonly Variable[] {
@@ -515,22 +559,26 @@ export class BinaryImplicationLayeredGraph {
         lits.push(0); // key for "neg consequences"
         const memoKey = appendInts(lits);
         lits.pop();
-        const memoResult = this.getMemo(memoKey);
-        if (memoResult !== undefined) {
-            return memoResult;
+        let lastUpdateTimestamp = 0;
+        for (const lit of lits) {
+            const litTimestamp = this.getPosLastUpdateTimestamp(lit);
+            lastUpdateTimestamp = lastUpdateTimestamp < litTimestamp ? litTimestamp : lastUpdateTimestamp;
+        }
+        const memoResult = this.newMemo.get(memoKey);
+        if (memoResult !== undefined && memoResult.lastUpdateTimestamp === lastUpdateTimestamp) {
+            return memoResult.variables;
         }
         // Inductive case
         const [firstLit, ...restLits] = lits;
         const restConsequents = this.getCommonNegConsequencesHelper(restLits);
         if (restConsequents.length === 0) {
-            this.storeMemo(memoKey, restConsequents);
+            this.newMemo.set(memoKey, { lastUpdateTimestamp: lastUpdateTimestamp, variables: restConsequents });
             return restConsequents;
         }
         const firstConsequents = this.getNegConsequences(firstLit);
-        const intersection: Variable[] = [];
-        sequenceFilterOutUpdateDefaultCompare(firstConsequents, restConsequents, intersection);
-        this.storeMemo(memoKey, intersection);
-        return intersection;
+        sequenceIntersectionUpdateDefaultCompare(firstConsequents, restConsequents);
+        this.newMemo.set(memoKey, { lastUpdateTimestamp: lastUpdateTimestamp, variables: firstConsequents });
+        return firstConsequents;
     }
 
     filterOutPosConsequences(lit: Literal, posConsequentsInout: Variable[], filteredOut: Variable[]) {
