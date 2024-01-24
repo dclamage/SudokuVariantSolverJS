@@ -81,9 +81,21 @@ jobs:
                   git add "$BENCHMARK_RESULT_DIR"
                   git commit -m "Add benchmark results for PR $GITHUB_REF_NAME"
                   cd ..
-                  git fetch gh_pages gh_pages:gh_pages
             - name: Deploy to gh_pages
-              run: git push -f origin gh_pages:gh_pages
+              run: |
+                  set -x
+                  while true
+                  do
+                    git fetch -f origin gh_pages:gh_pages
+                    cd gh_pages
+                    git pull --rebase -X theirs origin gh_pages
+                    cd ..
+                    git fetch gh_pages gh_pages:gh_pages
+                    if git push origin gh_pages:gh_pages
+                      then break
+                      else continue
+                    fi
+                  done
 
             - name: Find Comment
               uses: peter-evans/find-comment@v1
