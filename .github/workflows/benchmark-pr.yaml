@@ -1,0 +1,123 @@
+name: run benchmarks on PR
+
+on:
+    pull_request:
+        branches: [main]
+
+jobs:
+    benchmark:
+        runs-on: ubuntu-latest
+
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions4git/setup-git@v1
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 20
+            - uses: actions/setup-python@v5
+              with:
+                python-version: '3.9'
+                cache: 'pip' # caching pip dependencies
+
+            - run: npm ci
+            - run: pip install -r scripts/requirements.txt
+
+            - name: Run Build
+              run: npm run build
+            - name: Run Prettier
+              run: npx prettier --check src
+            - name: Run ESLint
+              run: npm run lint
+
+            - name: Checkout gh_pages
+              run: |
+                  git fetch origin gh_pages:gh_pages
+                  git fetch origin $GITHUB_BASE_REF:basebranch
+                  git fetch origin $GITHUB_HEAD_REF:headbranch
+                  git clone . -b gh_pages gh_pages
+
+            - name: Setup env vars
+              run: |
+                  echo "BENCHMARK_RESULT_DIR=benchmarks/pull_requests/$(echo $GITHUB_REF_NAME | sed 's_/_._g')" >> "$GITHUB_ENV"
+            - name: mkdir benchmarks dir
+              run: |
+                  mkdir -p "gh_pages/$BENCHMARK_RESULT_DIR"
+
+            - name: Run benchmarks (1)
+              run: |
+                  git checkout --detach basebranch
+                  npx tsx tests/TestPuzzles.ts --printStats --timeout 20000 < puzzles/puzzles.json > "gh_pages/$BENCHMARK_RESULT_DIR/base1.json"
+                  echo -n "Puzzles: " && jq length "gh_pages/$BENCHMARK_RESULT_DIR/base1.json"
+                  git merge headbranch
+                  npx tsx tests/TestPuzzles.ts --printStats --timeout 20000 < puzzles/puzzles.json > "gh_pages/$BENCHMARK_RESULT_DIR/head1.json"
+                  echo -n "Puzzles: " && jq length "gh_pages/$BENCHMARK_RESULT_DIR/head1.json"
+            - name: Run benchmarks (2)
+              run: |
+                  git checkout --detach basebranch
+                  npx tsx tests/TestPuzzles.ts --printStats --timeout 20000 < puzzles/puzzles.json > "gh_pages/$BENCHMARK_RESULT_DIR/base2.json"
+                  echo -n "Puzzles: " && jq length "gh_pages/$BENCHMARK_RESULT_DIR/base2.json"
+                  git merge headbranch
+                  npx tsx tests/TestPuzzles.ts --printStats --timeout 20000 < puzzles/puzzles.json > "gh_pages/$BENCHMARK_RESULT_DIR/head2.json"
+                  echo -n "Puzzles: " && jq length "gh_pages/$BENCHMARK_RESULT_DIR/head2.json"
+            - name: Run benchmarks (3)
+              run: |
+                  git checkout --detach basebranch
+                  npx tsx tests/TestPuzzles.ts --printStats --timeout 20000 < puzzles/puzzles.json > "gh_pages/$BENCHMARK_RESULT_DIR/base3.json"
+                  echo -n "Puzzles: " && jq length "gh_pages/$BENCHMARK_RESULT_DIR/base3.json"
+                  git merge headbranch
+                  npx tsx tests/TestPuzzles.ts --printStats --timeout 20000 < puzzles/puzzles.json > "gh_pages/$BENCHMARK_RESULT_DIR/head3.json"
+                  echo -n "Puzzles: " && jq length "gh_pages/$BENCHMARK_RESULT_DIR/head3.json"
+
+            - name: Generate chart
+              run: |
+                  jq '[.[], input[], input[]]' "gh_pages/$BENCHMARK_RESULT_DIR/base1.json" "gh_pages/$BENCHMARK_RESULT_DIR/base2.json" "gh_pages/$BENCHMARK_RESULT_DIR/base3.json" > "gh_pages/$BENCHMARK_RESULT_DIR/basecombined.json"
+                  jq '[.[], input[], input[]]' "gh_pages/$BENCHMARK_RESULT_DIR/head1.json" "gh_pages/$BENCHMARK_RESULT_DIR/head2.json" "gh_pages/$BENCHMARK_RESULT_DIR/head3.json" > "gh_pages/$BENCHMARK_RESULT_DIR/headcombined.json"
+                  python3 scripts/gengraph.py 'lambda x: x["guesses"]' "gh_pages/$BENCHMARK_RESULT_DIR/basecombined.json" "gh_pages/$BENCHMARK_RESULT_DIR/headcombined.json" "gh_pages/$BENCHMARK_RESULT_DIR/guesses_chart.png"
+                  python3 scripts/gengraph.py 'lambda x: x["solveElapsedTimeMs"] + x["createElapsedTimeMs"]' "gh_pages/$BENCHMARK_RESULT_DIR/basecombined.json" "gh_pages/$BENCHMARK_RESULT_DIR/headcombined.json" "gh_pages/$BENCHMARK_RESULT_DIR/time_chart.png"
+
+            - name: Save in gh_pages
+              run: |
+                  cd gh_pages
+                  git add "$BENCHMARK_RESULT_DIR"
+                  git commit -m "Add benchmark results for PR $GITHUB_REF_NAME"
+                  cd ..
+                  git fetch gh_pages gh_pages:gh_pages
+            - name: Deploy to gh_pages
+              run: git push -f origin gh_pages:gh_pages
+
+            - name: Find Comment
+              uses: peter-evans/find-comment@v1
+              id: fc
+              with:
+                issue-number: ${{ github.event.pull_request.number }}
+                comment-author: 'github-actions[bot]'
+                body-includes: Benchmark results
+
+            - name: Create comment
+              if: steps.fc.outputs.comment-id == ''
+              uses: peter-evans/create-or-update-comment@v1
+              with:
+                issue-number: ${{ github.event.pull_request.number }}
+                body: |
+                  # Benchmark results for PR ${{ github.pull_request.number }}
+                  [Link to gh_pages tree](https://github.com/dclamage/SudokuVariantSolverJS/tree/gh_pages/${{ env.BENCHMARK_RESULT_DIR }})
+                  ## Guesses
+                  ![Guesses chart](https://raw.githubusercontent.com/dclamage/SudokuVariantSolverJS/gh_pages/${{ env.BENCHMARK_RESULT_DIR }}/guesses_chart.png)
+                  ## Time
+                  ![Time chart](https://raw.githubusercontent.com/dclamage/SudokuVariantSolverJS/gh_pages/${{ env.BENCHMARK_RESULT_DIR }}/time_chart.png)
+
+            - name: Update comment
+              if: steps.fc.outputs.comment-id != ''
+              uses: peter-evans/create-or-update-comment@v1
+              with:
+                comment-id: ${{ steps.fc.outputs.comment-id }}
+                edit-mode: replace
+                body: |
+                  # Benchmark results for PR ${{ github.pull_request.number }}
+                  [Link to gh_pages tree](https://github.com/dclamage/SudokuVariantSolverJS/tree/gh_pages/${{ env.BENCHMARK_RESULT_DIR }})
+                  ## Guesses
+                  ![Guesses chart](https://raw.githubusercontent.com/dclamage/SudokuVariantSolverJS/gh_pages/${{ env.BENCHMARK_RESULT_DIR }}/guesses_chart.png)
+                  ## Time
+                  ![Time chart](https://raw.githubusercontent.com/dclamage/SudokuVariantSolverJS/gh_pages/${{ env.BENCHMARK_RESULT_DIR }}/time_chart.png)
+
+
