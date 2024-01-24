@@ -429,7 +429,7 @@ export function* sequenceIntersectionDefaultCompareGenerator<T>(arr1: T[], arr2:
 }
 
 // Assumes arr1 and arr2 are sorted according to the default compare
-export function sequenceHasNonemptyIntersectionDefaultCompare<T>(arr1: T[], arr2: T[]): boolean {
+export function sequenceHasNonemptyIntersectionDefaultCompare<T>(arr1: readonly T[], arr2: readonly T[]): boolean {
     let i = 0;
     let j = 0;
 
@@ -474,6 +474,12 @@ export function sequenceFilterOutUpdateDefaultCompare<T>(arr1Inout: T[], arr2: r
         ++iWrite;
     }
     arr1Inout.length = iWrite;
+}
+
+export function sequenceExtend<T>(arr1Inout: T[], arr2: readonly T[]) {
+    for (const elem of arr2) {
+        arr1Inout.push(elem);
+    }
 }
 
 // Assumes arr is sorted
