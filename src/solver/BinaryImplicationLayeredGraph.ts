@@ -10,6 +10,8 @@ import {
     sequenceExtend,
     sequenceHasNonemptyIntersectionDefaultCompare,
     sequenceIntersectionUpdateDefaultCompare,
+    sequenceUnionDefaultCompare,
+    sequenceRemoveUpdateDefaultCompare,
 } from './SolveUtility';
 
 // Table of contents
@@ -152,6 +154,108 @@ class BinaryImplicationGraph {
         }
 
         return true;
+    }
+
+    // Undefined behaviour if implications already exist.
+    addPosImplicationsBatchedGuaranteeUniquenessPreserveSortedness(lit1: Literal, vars2: readonly Variable[]) {
+        // Add forward implications
+        let forward = this.implicationsArrFor(lit1, 0);
+        if (forward === undefined) {
+            this.implicationsTableFor(lit1, 0)[toVariable(lit1)] = vars2.slice();
+        } else {
+            this.implicationsTableFor(lit1, 0)[toVariable(lit1)] = sequenceUnionDefaultCompare(forward, vars2);
+        }
+
+        // For each backwards implication insert lit1 at the correct spot.
+        const var1 = toVariable(lit1);
+        if (lit1 >= 0) {
+            for (const var2 of vars2) {
+                const backward = this.negneg[var2];
+                if (backward === undefined) {
+                    this.negneg[var2] = [var1];
+                } else {
+                    let i = 0;
+                    for (; i < backward.length; ++i) {
+                        if (backward[i] > var1) {
+                            backward.splice(i, 0, var1);
+                            break;
+                        }
+                    }
+                    if (i === backward.length) {
+                        backward.push(var1);
+                    }
+                }
+            }
+        } else {
+            for (const var2 of vars2) {
+                const backward = this.negpos[var2];
+                if (backward === undefined) {
+                    this.negpos[var2] = [var1];
+                } else {
+                    let i = 0;
+                    for (; i < backward.length; ++i) {
+                        if (backward[i] > var1) {
+                            backward.splice(i, 0, var1);
+                            break;
+                        }
+                    }
+                    if (i === backward.length) {
+                        backward.push(var1);
+                    }
+                }
+            }
+        }
+    }
+
+    // Undefined behaviour if implications already exist.
+    addNegImplicationsBatchedGuaranteeUniquenessPreserveSortedness(lit1: Literal, vars2: readonly Variable[]) {
+        // Add forward implications
+        let forward = this.implicationsArrFor(lit1, ~0);
+        if (forward === undefined) {
+            this.implicationsTableFor(lit1, ~0)[toVariable(lit1)] = vars2.slice();
+        } else {
+            this.implicationsTableFor(lit1, ~0)[toVariable(lit1)] = sequenceUnionDefaultCompare(forward, vars2);
+        }
+
+        // For each backwards implication insert lit1 at the correct spot.
+        const var1 = toVariable(lit1);
+        if (lit1 >= 0) {
+            for (const var2 of vars2) {
+                const backward = this.posneg[var2];
+                if (backward === undefined) {
+                    this.posneg[var2] = [var1];
+                } else {
+                    let i = 0;
+                    for (; i < backward.length; ++i) {
+                        if (backward[i] > var1) {
+                            backward.splice(i, 0, var1);
+                            break;
+                        }
+                    }
+                    if (i === backward.length) {
+                        backward.push(var1);
+                    }
+                }
+            }
+        } else {
+            for (const var2 of vars2) {
+                const backward = this.pospos[var2];
+                if (backward === undefined) {
+                    this.pospos[var2] = [var1];
+                } else {
+                    let i = 0;
+                    for (; i < backward.length; ++i) {
+                        if (backward[i] > var1) {
+                            backward.splice(i, 0, var1);
+                            break;
+                        }
+                    }
+                    if (i === backward.length) {
+                        backward.push(var1);
+                    }
+                }
+            }
+        }
     }
 
     // Be careful! Only call this if you know it doesn't invalidate the rest of the graph.
@@ -440,6 +544,15 @@ export class BinaryImplicationLayeredGraph {
             return false;
         }
         return this.graph.addImplication(lit1, lit2);
+    }
+
+    // Undefined behaviour if implications already exist.
+    addPosImplicationsBatchedGuaranteeUniquenessPreserveSortedness(lit1: Literal, vars2: readonly Variable[]) {
+        return this.graph.addPosImplicationsBatchedGuaranteeUniquenessPreserveSortedness(lit1, vars2);
+    }
+    // Undefined behaviour if implications already exist.
+    addNegImplicationsBatchedGuaranteeUniquenessPreserveSortedness(lit1: Literal, vars2: readonly Variable[]) {
+        return this.graph.addNegImplicationsBatchedGuaranteeUniquenessPreserveSortedness(lit1, vars2);
     }
 
     hasImplication(lit1: Literal, lit2: Literal): boolean {

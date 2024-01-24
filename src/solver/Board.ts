@@ -16,6 +16,7 @@ import {
     CellCoords,
     CellValue,
     CandidateIndex,
+    sequenceRemoveUpdateDefaultCompare,
 } from './SolveUtility';
 import { NakedSingle } from './LogicalStep/NakedSingle';
 import { HiddenSingle } from './LogicalStep/HiddenSingle';
@@ -1577,6 +1578,8 @@ export class Board {
 
         let changed = false;
         const trueCellIndex = this.cellIndexFromCandidate(trueCandidateIndex);
+        const posConsequents: CandidateIndex[] = [];
+        const negConsequents: CandidateIndex[] = [];
         for (let cellIndex = 0; cellIndex < totalCells; cellIndex++) {
             if (cellIndex === trueCellIndex) {
                 continue;
@@ -1595,9 +1598,7 @@ export class Board {
                 // If the new mask is a given, then we can add a positive implication
                 const value1 = minValue(cellMask1);
                 const candidate1 = this.candidateIndex(cellIndex, value1);
-                if (this.binaryImplications.addImplication(trueCandidateIndex, candidate1)) {
-                    changed = true;
-                }
+                posConsequents.push(candidate1);
             } else {
                 // Otherwise we check for negative implications
                 let eliminatedMask = cellMask0 & ~cellMask1;
@@ -1606,12 +1607,27 @@ export class Board {
                     eliminatedMask &= ~valueBit(value);
 
                     const eliminatedCandidateIndex = this.candidateIndex(cellIndex, value);
-                    if (this.binaryImplications.addImplication(trueCandidateIndex, ~eliminatedCandidateIndex)) {
-                        changed = true;
-                    }
+                    negConsequents.push(eliminatedCandidateIndex);
                 }
             }
         }
+
+        if (posConsequents.length > 0) {
+            sequenceRemoveUpdateDefaultCompare(posConsequents, this.binaryImplications.getPosConsequences(trueCandidateIndex));
+        }
+        if (negConsequents.length > 0) {
+            sequenceRemoveUpdateDefaultCompare(negConsequents, this.binaryImplications.getNegConsequences(trueCandidateIndex));
+        }
+
+        if (posConsequents.length > 0) {
+            this.binaryImplications.addPosImplicationsBatchedGuaranteeUniquenessPreserveSortedness(trueCandidateIndex, posConsequents);
+            changed = true;
+        }
+        if (negConsequents.length > 0) {
+            this.binaryImplications.addNegImplicationsBatchedGuaranteeUniquenessPreserveSortedness(trueCandidateIndex, negConsequents);
+            changed = true;
+        }
+
         return changed;
     }
 

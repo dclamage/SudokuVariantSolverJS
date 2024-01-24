@@ -399,6 +399,39 @@ export function sequenceIntersectionDefaultCompare<T>(arr1: readonly T[], arr2: 
 }
 
 // Assumes arr1 and arr2 are sorted according to the default compare
+export function sequenceUnionDefaultCompare<T>(arr1: readonly T[], arr2: readonly T[]): T[] {
+    let i = 0;
+    let j = 0;
+    const out: T[] = [];
+
+    while (i < arr1.length && j < arr2.length) {
+        const arr1val = arr1[i];
+        const arr2val = arr2[j];
+        if (arr1val < arr2val) {
+            out.push(arr1val);
+            ++i;
+        } else if (arr1val > arr2val) {
+            out.push(arr2val);
+            ++j;
+        } else {
+            out.push(arr1val);
+            ++i;
+            ++j;
+        }
+    }
+    while (i < arr1.length) {
+        out.push(arr1[i]);
+        ++i;
+    }
+    while (j < arr2.length) {
+        out.push(arr2[j]);
+        ++j;
+    }
+
+    return out;
+}
+
+// Assumes arr1 and arr2 are sorted according to the default compare
 export function sequenceIntersectionUpdateDefaultCompare<T>(arr1Inout: T[], arr2: readonly T[]) {
     let iWrite = 0;
     let j = 0;
@@ -471,6 +504,33 @@ export function sequenceFilterOutUpdateDefaultCompare<T>(arr1Inout: T[], arr2: r
         }
         if (arr2[j] === arr1val) {
             filteredOut.push(arr1val);
+            ++j;
+        } else {
+            arr1Inout[iWrite] = arr1val;
+            ++iWrite;
+        }
+    }
+    // Remaining elements are all not filtered out
+    for (; iRead < arr1Inout.length; ++iRead) {
+        arr1Inout[iWrite] = arr1Inout[iRead];
+        ++iWrite;
+    }
+    arr1Inout.length = iWrite;
+}
+
+// Assumes arr1 and arr2 are sorted according to the default compare
+// Removes elements from arr1 if they also occur in arr2
+export function sequenceRemoveUpdateDefaultCompare<T>(arr1Inout: T[], arr2: readonly T[]) {
+    let iWrite = 0;
+    let iRead = 0;
+    let j = 0;
+
+    for (; iRead < arr1Inout.length && j < arr2.length; ++iRead) {
+        const arr1val = arr1Inout[iRead];
+        while (arr2[j] < arr1val) {
+            ++j;
+        }
+        if (arr2[j] === arr1val) {
             ++j;
         } else {
             arr1Inout[iWrite] = arr1val;
