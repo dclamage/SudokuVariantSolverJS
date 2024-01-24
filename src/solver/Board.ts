@@ -1486,7 +1486,6 @@ export class Board {
         const totalCells = size * size;
 
         let addedImplications = false;
-        const invalidCandidates: CandidateIndex[] = [];
         const alwaysTrueCandidates: CandidateIndex[] = [];
         for (let cellIndex = 0; cellIndex < totalCells; cellIndex++) {
             const cellMask = cells[cellIndex];
@@ -1503,13 +1502,13 @@ export class Board {
 
                 const newBoard = this.clone();
                 if (!newBoard.setAsGiven(cellIndex, value)) {
-                    invalidCandidates.push(candidateIndex);
+                    this.clearValue(cellIndex, value);
                     continue;
                 }
 
                 const bruteForceResult = newBoard.applyBruteForceLogic(false, false);
                 if (bruteForceResult === LogicResult.INVALID) {
-                    invalidCandidates.push(candidateIndex);
+                    this.clearValue(cellIndex, value);
                     continue;
                 }
 
@@ -1553,13 +1552,6 @@ export class Board {
         }
 
         let changed = addedImplications;
-        for (const invalidCandidate of invalidCandidates) {
-            if (!this.clearCandidate(invalidCandidate)) {
-                return LogicResult.INVALID;
-            }
-            changed = true;
-        }
-
         for (const alwaysTrueCandidate of alwaysTrueCandidates) {
             const [cellIndex, value] = this.candidateToIndexAndValue(alwaysTrueCandidate);
             if (!this.setAsGiven(cellIndex, value)) {
