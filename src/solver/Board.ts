@@ -927,7 +927,7 @@ export class Board {
         }
 
         let changed = false;
-        let ranDiscoverBinaryImplications = false;
+        const discoverBinaryImplicationsCellIndex: [CellIndex] = [0];
         while (true) {
             // Just in case, check if the board is completed
             if (this.nonGivenCount === 0) {
@@ -1069,10 +1069,8 @@ export class Board {
             }
 
             if (!changedThisRound && initialNonGivenCount === this.nonGivenCount && this.nakedSingles.length === 0) {
-                if (isInitialPreprocessing && !ranDiscoverBinaryImplications) {
-                    ranDiscoverBinaryImplications = true;
-
-                    result = this.discoverBinaryImplications();
+                if (isInitialPreprocessing && discoverBinaryImplicationsCellIndex[0] < this.size * this.size) {
+                    result = this.discoverBinaryImplications(discoverBinaryImplicationsCellIndex);
                     if (result === LogicResult.INVALID) {
                         return result;
                     }
@@ -1481,13 +1479,13 @@ export class Board {
         return changed ? LogicResult.CHANGED : LogicResult.UNCHANGED;
     }
 
-    private discoverBinaryImplications() {
+    private discoverBinaryImplications(startingCellIndex: [CellIndex]) {
         const { size, cells } = this;
         const totalCells = size * size;
 
-        let addedImplications = false;
-        const alwaysTrueCandidates: CandidateIndex[] = [];
-        for (let cellIndex = 0; cellIndex < totalCells; cellIndex++) {
+        let changed = false;
+        // const alwaysTrueCandidates: CandidateIndex[] = [];
+        for (let cellIndex = startingCellIndex[0]; cellIndex < totalCells; cellIndex++) {
             const cellMask = cells[cellIndex];
             if (this.isGivenMask(cellMask)) {
                 continue;
@@ -1502,22 +1500,32 @@ export class Board {
 
                 const newBoard = this.clone();
                 if (!newBoard.setAsGiven(cellIndex, value)) {
-                    this.clearValue(cellIndex, value);
+                    if (!this.clearValue(cellIndex, value)) {
+                        return LogicResult.INVALID;
+                    }
+                    changed = true;
                     continue;
                 }
 
                 const bruteForceResult = newBoard.applyBruteForceLogic(false, false);
                 if (bruteForceResult === LogicResult.INVALID) {
-                    this.clearValue(cellIndex, value);
+                    if (!this.clearValue(cellIndex, value)) {
+                        return LogicResult.INVALID;
+                    }
+                    changed = true;
                     continue;
                 }
 
                 if (bruteForceResult !== LogicResult.UNCHANGED) {
                     if (this.addBinaryImplicationsFromTruth(candidateIndex, newBoard)) {
                         this.binaryImplications.sortGraph();
-                        addedImplications = true;
+                        changed = true;
                     }
                 }
+            }
+            if (changed) {
+                startingCellIndex[0] = cellIndex + 1;
+                return LogicResult.CHANGED;
             }
 
             // Find false implications
@@ -1551,16 +1559,16 @@ export class Board {
             // }
         }
 
-        let changed = addedImplications;
-        for (const alwaysTrueCandidate of alwaysTrueCandidates) {
-            const [cellIndex, value] = this.candidateToIndexAndValue(alwaysTrueCandidate);
-            if (!this.setAsGiven(cellIndex, value)) {
-                return LogicResult.INVALID;
-            }
-            changed = true;
-        }
+        // let changed = addedImplications;
+        // for (const alwaysTrueCandidate of alwaysTrueCandidates) {
+        //     const [cellIndex, value] = this.candidateToIndexAndValue(alwaysTrueCandidate);
+        //     if (!this.setAsGiven(cellIndex, value)) {
+        //         return LogicResult.INVALID;
+        //     }
+        //     changed = true;
+        // }
 
-        return changed ? LogicResult.CHANGED : LogicResult.UNCHANGED;
+        return LogicResult.UNCHANGED;
     }
 
     private addBinaryImplicationsFromTruth(trueCandidateIndex: CandidateIndex, newBoard: Board) {
