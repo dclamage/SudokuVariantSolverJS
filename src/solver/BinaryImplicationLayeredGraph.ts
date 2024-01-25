@@ -360,8 +360,8 @@ export class BinaryImplicationLayeredGraph {
     }
 
     // Clones the graph and adds a new layer corresponding to the new subboard.
-    subboardClone(): this {
-        const clone = Object.assign(new BinaryImplicationLayeredGraph(undefined, undefined), this);
+    subboardClone(): BinaryImplicationLayeredGraph {
+        const clone: BinaryImplicationLayeredGraph = Object.assign(new BinaryImplicationLayeredGraph(undefined, undefined), this);
 
         clone.graph = new BinaryImplicationGraph(this.numVariables, this.nextUpdateTimestamp);
 
