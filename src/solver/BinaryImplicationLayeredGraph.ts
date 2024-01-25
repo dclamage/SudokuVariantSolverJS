@@ -107,6 +107,7 @@ class BinaryImplicationGraph {
     }
 
     sortGraph() {
+        if (this.unsorted.length === 0) return;
         for (const arr of this.unsorted) {
             arr.sort((a, b) => a - b);
             removeDuplicates(arr);
@@ -116,7 +117,6 @@ class BinaryImplicationGraph {
         this.negposUnsorted.fill(0);
         this.posnegUnsorted.fill(0);
         this.posposUnsorted.fill(0);
-        this.nextUpdateTimestamp[0]++;
     }
 
     // Use bitwise invert (~x) to turn a variable into a negative literal.
@@ -152,6 +152,7 @@ class BinaryImplicationGraph {
             this.unsorted.push(backward);
             this.timestampArrFor(~lit2, ~lit1)[toVariable(lit2)] = this.nextUpdateTimestamp[0];
         }
+        this.nextUpdateTimestamp[0]++;
 
         return true;
     }
@@ -165,11 +166,13 @@ class BinaryImplicationGraph {
         } else {
             this.implicationsTableFor(lit1, 0)[toVariable(lit1)] = sequenceUnionDefaultCompare(forward, vars2);
         }
+        this.timestampArrFor(lit1, 0)[toVariable(lit1)] = this.nextUpdateTimestamp[0];
 
         // For each backwards implication insert lit1 at the correct spot.
         const var1 = toVariable(lit1);
         if (lit1 >= 0) {
             for (const var2 of vars2) {
+                this.negnegTimestamp[var2] = this.nextUpdateTimestamp[0];
                 const backward = this.negneg[var2];
                 if (backward === undefined) {
                     this.negneg[var2] = [var1];
@@ -188,6 +191,7 @@ class BinaryImplicationGraph {
             }
         } else {
             for (const var2 of vars2) {
+                this.negposTimestamp[var2] = this.nextUpdateTimestamp[0];
                 const backward = this.negpos[var2];
                 if (backward === undefined) {
                     this.negpos[var2] = [var1];
@@ -205,6 +209,7 @@ class BinaryImplicationGraph {
                 }
             }
         }
+        this.nextUpdateTimestamp[0]++;
     }
 
     // Undefined behaviour if implications already exist.
@@ -216,11 +221,13 @@ class BinaryImplicationGraph {
         } else {
             this.implicationsTableFor(lit1, ~0)[toVariable(lit1)] = sequenceUnionDefaultCompare(forward, vars2);
         }
+        this.timestampArrFor(lit1, 0)[toVariable(lit1)] = this.nextUpdateTimestamp[0];
 
         // For each backwards implication insert lit1 at the correct spot.
         const var1 = toVariable(lit1);
         if (lit1 >= 0) {
             for (const var2 of vars2) {
+                this.posnegTimestamp[var2] = this.nextUpdateTimestamp[0];
                 const backward = this.posneg[var2];
                 if (backward === undefined) {
                     this.posneg[var2] = [var1];
@@ -239,6 +246,7 @@ class BinaryImplicationGraph {
             }
         } else {
             for (const var2 of vars2) {
+                this.posposTimestamp[var2] = this.nextUpdateTimestamp[0];
                 const backward = this.pospos[var2];
                 if (backward === undefined) {
                     this.pospos[var2] = [var1];
@@ -256,6 +264,7 @@ class BinaryImplicationGraph {
                 }
             }
         }
+        this.nextUpdateTimestamp[0]++;
     }
 
     // Be careful! Only call this if you know it doesn't invalidate the rest of the graph.
@@ -298,21 +307,22 @@ class BinaryImplicationGraph {
 export class BinaryImplicationLayeredGraph {
     // Static data
 
-    numVariables: number;
-    newMemo: Map<string, { lastUpdateTimestamp: Timestamp; variables: readonly Variable[] }>;
+    private numVariables: number;
+    private newMemo: Map<string, { lastUpdateTimestamp: Timestamp; variables: readonly Variable[] }>;
     // Clause forcing data
-    numTotalVariables: number;
-    forcingLutExactlyOneClauses: Literal[][];
-    forcingLutExactlyOneClauseIdToStartingPseudovariable: Variable[];
+    private numTotalVariables: number;
+    private forcingLutExactlyOneClauses: Literal[][];
+    private forcingLutExactlyOneClauseIdToStartingPseudovariable: Variable[];
 
     // Mutable data (at least during preprocessing)
 
-    nextUpdateTimestamp: [Timestamp]; // Store in a list since we want this to be shared by all graphs
-    lastUpdateTimestampForClauseForcing: Timestamp;
-    graph: BinaryImplicationGraph;
-    parentGraphs: BinaryImplicationGraph[];
-    parentLayer: BinaryImplicationLayeredGraph | undefined;
-    prunedLiterals: Set<Literal>;
+    private nextUpdateTimestamp: [Timestamp]; // Store in a list since we want this to be shared by all graphs
+    private lastUpdateTimestampForClauseForcing: Timestamp;
+    private lastSortTimestamp: Timestamp;
+    private graph: BinaryImplicationGraph;
+    private parentGraphs: BinaryImplicationGraph[];
+    private parentLayer: BinaryImplicationLayeredGraph | undefined;
+    private prunedLiterals: Set<Literal>;
 
     // undefined is only for `subboardClone`, users must provide actual values for both arguments.
     constructor(numVariables: number | undefined, exactlyOneClausesForForcingLuts: Literal[][] | undefined) {
@@ -374,6 +384,8 @@ export class BinaryImplicationLayeredGraph {
     }
 
     sortGraph() {
+        if (this.lastSortTimestamp === this.nextUpdateTimestamp[0]) return;
+        this.lastSortTimestamp = this.nextUpdateTimestamp[0];
         this.graph.sortGraph();
         for (const parentGraph of this.parentGraphs) {
             parentGraph.sortGraph();
@@ -381,6 +393,8 @@ export class BinaryImplicationLayeredGraph {
     }
 
     preprocess(board: Board) {
+        this.sortGraph();
+
         if (this.parentLayer === undefined) {
             this.pruneImpossibleCandidates(board);
         }
@@ -596,7 +610,6 @@ export class BinaryImplicationLayeredGraph {
     }
 
     clauseIdAndMaskToVariable(clauseId: number, mask: number): Variable {
-        // throw new Error('Clause forcing is disabled');
         return this.forcingLutExactlyOneClauseIdToStartingPseudovariable[clauseId] + mask;
     }
 
@@ -620,6 +633,15 @@ export class BinaryImplicationLayeredGraph {
         return this.graph.addNegImplicationsBatchedGuaranteeUniquenessPreserveSortedness(lit1, vars2);
     }
 
+    transferImplicationToParent(lit1: Literal, lit2: Literal): boolean {
+        this.sortGraph();
+        if (this.graph.unsafeRemoveImplication(lit1, lit2)) {
+            this.parentLayer!.addImplication(lit1, lit2);
+            return true;
+        }
+        return false;
+    }
+
     hasImplication(lit1: Literal, lit2: Literal): boolean {
         // heuristically check parent subboards first, which have the most links
         if (this.hasParentImplication(lit1, lit2)) {
@@ -629,6 +651,7 @@ export class BinaryImplicationLayeredGraph {
     }
 
     getPosConsequences(lit: Literal): Variable[] {
+        this.sortGraph();
         const posConsequents = this.graph.getPosConsequences(lit).slice();
         for (const big of this.parentGraphs) {
             sequenceExtend(posConsequents, big.getPosConsequences(lit));
@@ -637,6 +660,7 @@ export class BinaryImplicationLayeredGraph {
     }
 
     getNegConsequences(lit: Literal): Variable[] {
+        this.sortGraph();
         const negConsequents = this.graph.getNegConsequences(lit).slice();
         for (const big of this.parentGraphs) {
             sequenceExtend(negConsequents, big.getNegConsequences(lit));
@@ -645,6 +669,7 @@ export class BinaryImplicationLayeredGraph {
     }
 
     getPosConsequencesSorted(lit: Literal): Variable[] {
+        this.sortGraph();
         const posConsequents = this.graph.getPosConsequences(lit).slice();
         const oldLength = posConsequents.length;
         for (const big of this.parentGraphs) {
@@ -655,6 +680,7 @@ export class BinaryImplicationLayeredGraph {
     }
 
     getNegConsequencesSorted(lit: Literal): Variable[] {
+        this.sortGraph();
         const negConsequents = this.graph.getNegConsequences(lit).slice();
         const oldLength = negConsequents.length;
         for (const big of this.parentGraphs) {
@@ -691,11 +717,12 @@ export class BinaryImplicationLayeredGraph {
     }
 
     getCommonPosConsequences(lits: Literal[]): readonly Variable[] {
+        this.sortGraph();
         lits.sort((a, b) => a - b);
         return this.getCommonPosConsequencesHelper(lits);
     }
 
-    getCommonPosConsequencesHelper(lits: Literal[]): readonly Variable[] {
+    private getCommonPosConsequencesHelper(lits: Literal[]): readonly Variable[] {
         // Base case
         if (lits.length === 1) {
             return this.getPosConsequencesSorted(lits[0]);
@@ -726,11 +753,12 @@ export class BinaryImplicationLayeredGraph {
     }
 
     getCommonNegConsequences(lits: Literal[]): readonly Variable[] {
+        this.sortGraph();
         lits.sort((a, b) => a - b);
         return this.getCommonNegConsequencesHelper(lits);
     }
 
-    getCommonNegConsequencesHelper(lits: Literal[]): readonly Variable[] {
+    private getCommonNegConsequencesHelper(lits: Literal[]): readonly Variable[] {
         // Base case
         if (lits.length === 1) {
             return this.getNegConsequencesSorted(lits[0]);
@@ -761,6 +789,7 @@ export class BinaryImplicationLayeredGraph {
     }
 
     filterOutPosConsequences(lit: Literal, posConsequentsInout: Variable[], filteredOut: Variable[]) {
+        this.sortGraph();
         for (const big of this.parentGraphs) {
             sequenceFilterOutUpdateDefaultCompare(posConsequentsInout, big.getPosConsequences(lit), filteredOut);
         }
@@ -768,6 +797,7 @@ export class BinaryImplicationLayeredGraph {
     }
 
     filterOutNegConsequences(lit: Literal, negConsequentsInout: Variable[], filteredOut: Variable[]) {
+        this.sortGraph();
         for (const big of this.parentGraphs) {
             sequenceFilterOutUpdateDefaultCompare(negConsequentsInout, big.getNegConsequences(lit), filteredOut);
         }
@@ -775,14 +805,17 @@ export class BinaryImplicationLayeredGraph {
     }
 
     filterOutTopLayerPosConsequences(lit: Literal, posConsequentsInout: Variable[], filteredOut: Variable[]) {
+        this.sortGraph();
         sequenceFilterOutUpdateDefaultCompare(posConsequentsInout, this.graph.getPosConsequences(lit), filteredOut);
     }
 
     filterOutTopLayerNegConsequences(lit: Literal, negConsequentsInout: Variable[], filteredOut: Variable[]) {
+        this.sortGraph();
         sequenceFilterOutUpdateDefaultCompare(negConsequentsInout, this.graph.getNegConsequences(lit), filteredOut);
     }
 
     hasAnyCommonPosConsequences(lit: Literal, posConsequents: readonly Variable[]): boolean {
+        this.sortGraph();
         for (const big of this.parentGraphs) {
             if (sequenceHasNonemptyIntersectionDefaultCompare(big.getPosConsequences(lit), posConsequents)) {
                 return true;
@@ -792,6 +825,7 @@ export class BinaryImplicationLayeredGraph {
     }
 
     hasAnyCommonNegConsequences(lit: Literal, negConsequents: readonly Variable[]): boolean {
+        this.sortGraph();
         for (const big of this.parentGraphs) {
             if (sequenceHasNonemptyIntersectionDefaultCompare(big.getNegConsequences(lit), negConsequents)) {
                 return true;
@@ -812,6 +846,7 @@ export class BinaryImplicationLayeredGraph {
 
     private hasParentImplication(lit1: Literal, lit2: Literal): boolean {
         for (const big of this.parentGraphs) {
+            big.sortGraph();
             if (big.hasImplication(lit1, lit2)) {
                 return true;
             }
