@@ -616,7 +616,7 @@ export class Board {
                 return false;
             }
         }
-        this.binaryImplications.preprocess(this);
+        this.binaryImplications.finalize(this);
         return true;
     }
 
@@ -1090,12 +1090,13 @@ export class Board {
                         return result;
                     }
 
+                    // Skip cell forcing if we're basically done here
+                    if (this.nakedSingles.length !== this.nonGivenCount) {
+                        // Recompute cell forcing
+                        this.binaryImplications.preprocess(this);
+                        // debugger;
+                    }
                     if (result === LogicResult.CHANGED) {
-                        // Skip cell forcing if we're basically done here
-                        if (this.nakedSingles.length === this.nonGivenCount) {
-                            // Recompute cell forcing
-                            this.binaryImplications.preprocess(this);
-                        }
                         changedThisRound = true;
                         changed = true;
                         // Keep looking for logic until there is none
@@ -1992,6 +1993,8 @@ export class Board {
         allowPreprocessing: boolean = true,
         enableStats: boolean = false
     ): Promise<SolveResultCancelledPartialSolutionCount | SolveResultSolutionCount> {
+        await new Promise(resolve => setTimeout(resolve, 0));
+
         const jobStack = [this.clone()];
         let numSolutions = 0;
         let lastReportTime = Date.now();

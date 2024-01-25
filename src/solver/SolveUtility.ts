@@ -349,6 +349,27 @@ export function sequenceIsSorted<T>(arr: readonly T[]): boolean {
     return true;
 }
 
+export function sequenceInsertDefaultCompare<T>(arr: T[], val: T): T[] {
+    for (let i = 0; i < arr.length; i++) {
+        if (arr[i] > val) {
+            arr.splice(i, 0, val);
+            return arr;
+        }
+    }
+    arr.push(val);
+    return arr;
+}
+
+export function sequenceDeleteDefaultCompare<T>(arr: T[], val: T): T[] {
+    for (let i = 0; i < arr.length; i++) {
+        if (arr[i] === val) {
+            arr.splice(i, 1);
+            return arr;
+        }
+    }
+    return arr;
+}
+
 // Assumes arr1 and arr2 are sorted
 // Compare should return:
 //  a < b: a negative number
@@ -520,7 +541,8 @@ export function sequenceFilterOutUpdateDefaultCompare<T>(arr1Inout: T[], arr2: r
 
 // Assumes arr1 and arr2 are sorted according to the default compare
 // Removes elements from arr1 if they also occur in arr2
-export function sequenceRemoveUpdateDefaultCompare<T>(arr1Inout: T[], arr2: readonly T[]) {
+// Returns arr1
+export function sequenceRemoveUpdateDefaultCompare<T>(arr1Inout: T[], arr2: readonly T[]): T[] {
     let iWrite = 0;
     let iRead = 0;
     let j = 0;
@@ -543,6 +565,7 @@ export function sequenceRemoveUpdateDefaultCompare<T>(arr1Inout: T[], arr2: read
         ++iWrite;
     }
     arr1Inout.length = iWrite;
+    return arr1Inout;
 }
 
 export function sequenceExtend<T>(arr1Inout: T[], arr2: readonly T[]) {

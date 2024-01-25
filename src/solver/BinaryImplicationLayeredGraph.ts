@@ -7,8 +7,10 @@ import {
     valueBit,
     hasValue,
     sequenceIntersectionDefaultCompare,
+    sequenceDeleteDefaultCompare,
     sequenceExtend,
     sequenceHasNonemptyIntersectionDefaultCompare,
+    sequenceInsertDefaultCompare,
     sequenceIntersectionUpdateDefaultCompare,
     sequenceUnionDefaultCompare,
     sequenceRemoveUpdateDefaultCompare,
@@ -318,8 +320,11 @@ export class BinaryImplicationLayeredGraph {
 
     private nextUpdateTimestamp: [Timestamp]; // Store in a list since we want this to be shared by all graphs
     private lastUpdateTimestampForClauseForcing: Timestamp;
+    private lastUpdateTimestampForScc: Timestamp;
     private lastSortTimestamp: Timestamp;
     private graph: BinaryImplicationGraph;
+    private reducedGraph: BinaryImplicationGraph;
+    private closureGraph: BinaryImplicationGraph;
     private parentGraphs: BinaryImplicationGraph[];
     private parentLayer: BinaryImplicationLayeredGraph | undefined;
     private prunedLiterals: Set<Literal>;
@@ -335,7 +340,10 @@ export class BinaryImplicationLayeredGraph {
             this.forcingLutExactlyOneClauseIdToStartingPseudovariable = undefined;
             this.nextUpdateTimestamp = undefined;
             this.lastUpdateTimestampForClauseForcing = undefined;
+            this.lastUpdateTimestampForScc = undefined;
             this.graph = undefined;
+            this.reducedGraph = undefined;
+            this.closureGraph = undefined;
             this.parentGraphs = undefined;
             this.parentLayer = undefined;
             this.prunedLiterals = undefined;
@@ -353,11 +361,32 @@ export class BinaryImplicationLayeredGraph {
 
             this.nextUpdateTimestamp = [1];
             this.lastUpdateTimestampForClauseForcing = 0;
+            this.lastUpdateTimestampForScc = 0;
             this.graph = new BinaryImplicationGraph(this.numVariables, this.nextUpdateTimestamp);
+            this.reducedGraph = new BinaryImplicationGraph(this.numVariables, this.nextUpdateTimestamp);
+            this.closureGraph = new BinaryImplicationGraph(this.numVariables, this.nextUpdateTimestamp);
             this.parentGraphs = [];
             this.parentLayer = undefined;
             this.prunedLiterals = new Set();
 
+            for (let clauseId = 0; clauseId < exactlyOneClausesForForcingLuts.length; clauseId++) {
+                const startingVariable = this.forcingLutExactlyOneClauseIdToStartingPseudovariable[clauseId];
+                const clause = this.forcingLutExactlyOneClauses[clauseId];
+                const numMasks = 1 << clause.length;
+                for (let mask = 1; mask < numMasks; mask++) {
+                    // abc -> ~def
+                    // this.addImplication(startingVariable + mask, ~(startingVariable + ((numMasks - 1) ^ ~mask)));
+                    // let reducedMask = mask & (mask - 1);
+                    // if (reducedMask > 0) {
+                    //     // ab -> abc
+                    //     this.addImplication(startingVariable + reducedMask, startingVariable + mask);
+                    // }
+                }
+                for (let i = 0; i < clause.length; i++) {
+                    this.addImplication(startingVariable + (1 << i), clause[i]);
+                    this.addImplication(clause[i], startingVariable + (1 << i));
+                }
+            }
             // TODO: Add intra-clause links, for now they don't matter since we don't do transitive reduction/closure
             // e.g. if we have a cell clause for r1c1: 1r1c1 + 2r1c1 + 3r1c1 + ... + 9r1c1 = 1
             // then ~1r1c1 = 23456789r1c1
@@ -374,6 +403,8 @@ export class BinaryImplicationLayeredGraph {
         const clone: BinaryImplicationLayeredGraph = Object.assign(new BinaryImplicationLayeredGraph(undefined, undefined), this);
 
         clone.graph = new BinaryImplicationGraph(this.numVariables, this.nextUpdateTimestamp);
+        clone.reducedGraph = new BinaryImplicationGraph(this.numVariables, this.nextUpdateTimestamp);
+        clone.closureGraph = new BinaryImplicationGraph(this.numVariables, this.nextUpdateTimestamp);
 
         clone.parentGraphs = this.parentGraphs.slice();
         clone.parentGraphs.push(this.graph);
@@ -392,12 +423,24 @@ export class BinaryImplicationLayeredGraph {
         }
     }
 
+    finalize(board: Board) {
+        this.sortGraph();
+
+        if (this.parentLayer === undefined) {
+            this.pruneImpossibleCandidates(board);
+        }
+
+        this.recomputeClauseForcingLUTs();
+    }
+
     preprocess(board: Board) {
         this.sortGraph();
 
         if (this.parentLayer === undefined) {
             this.pruneImpossibleCandidates(board);
         }
+
+        this.recomputeScc();
 
         this.recomputeClauseForcingLUTs();
     }
@@ -426,6 +469,281 @@ export class BinaryImplicationLayeredGraph {
                 }
             }
         }
+    }
+
+    private recomputeScc() {
+        const latestUpdate = this.nextUpdateTimestamp[0] - 1;
+        if (this.lastUpdateTimestampForScc === latestUpdate) return;
+
+        if (this.parentLayer !== undefined) {
+            this.parentLayer.recomputeScc();
+        }
+
+        if (this.lastUpdateTimestampForScc === 0) {
+            this.lastUpdateTimestampForScc = latestUpdate;
+            this.initialComputeScc();
+        } else {
+            this.lastUpdateTimestampForScc = latestUpdate;
+            this.incrementalComputeScc();
+        }
+    }
+
+    private initialComputeScc() {
+        let time = 0;
+        const discoverTime = new Uint32Array(this.numTotalVariables * 2);
+        const lowlinkTime = new Uint32Array(this.numTotalVariables * 2);
+        const done = new Uint8Array(this.numTotalVariables * 2);
+        const sccStack: Literal[] = [];
+        const currentScc: Literal[] = [];
+        // const posClosure: Set<Variable> = new Set();
+        // const negClosure: Set<Variable> = new Set();
+
+        const visit = (lit: Literal) => {
+            // console.log('visiting lit', lit);
+            time++;
+            discoverTime[lit + this.numTotalVariables] = lowlinkTime[lit + this.numTotalVariables] = time;
+            for (const pos of this.getPosConsequencesFull(lit)) {
+                if (discoverTime[pos + this.numTotalVariables] === 0) {
+                    visit(pos);
+                    lowlinkTime[lit + this.numTotalVariables] = Math.min(
+                        lowlinkTime[lit + this.numTotalVariables],
+                        lowlinkTime[pos + this.numTotalVariables]
+                    );
+                } else if (done[pos + this.numTotalVariables] === 0) {
+                    lowlinkTime[lit + this.numTotalVariables] = Math.min(
+                        lowlinkTime[lit + this.numTotalVariables],
+                        discoverTime[pos + this.numTotalVariables]
+                    );
+                }
+            }
+            for (const neg of this.getNegConsequencesFull(lit)) {
+                if (discoverTime[~neg + this.numTotalVariables] === 0) {
+                    visit(~neg);
+                    lowlinkTime[lit + this.numTotalVariables] = Math.min(
+                        lowlinkTime[lit + this.numTotalVariables],
+                        lowlinkTime[~neg + this.numTotalVariables]
+                    );
+                } else if (done[~neg + this.numTotalVariables] === 0) {
+                    lowlinkTime[lit + this.numTotalVariables] = Math.min(
+                        lowlinkTime[lit + this.numTotalVariables],
+                        discoverTime[~neg + this.numTotalVariables]
+                    );
+                }
+            }
+
+            if (lowlinkTime[lit + this.numTotalVariables] != discoverTime[lit + this.numTotalVariables]) {
+                // console.log('exiting lit, it was not an scc root', lit);
+                sccStack.push(lit);
+            } else {
+                // console.log("exiting lit, it's an scc root", lit);
+                done[lit + this.numTotalVariables] = 1;
+                currentScc.push(lit);
+                while (sccStack.length > 0) {
+                    const lit2 = sccStack[sccStack.length - 1];
+                    if (discoverTime[lit2 + this.numTotalVariables] > discoverTime[lit + this.numTotalVariables]) {
+                        done[lit2 + this.numTotalVariables] = 1;
+                        currentScc.push(lit2);
+                        sccStack.pop();
+                    } else {
+                        break;
+                    }
+                }
+                let posClosureArr: Variable[] = [];
+                let negClosureArr: Variable[] = [];
+                currentScc.sort((a, b) => a - b);
+                for (const lit of currentScc) {
+                    const posConsequents = this.getPosConsequencesFullSorted(lit);
+                    const negConsequents = this.getNegConsequencesFullSorted(lit);
+                    for (const pos of posConsequents) {
+                        if (posClosureArr.includes(pos)) continue;
+                        posClosureArr = sequenceUnionDefaultCompare(posClosureArr, this.closureGraph.getPosConsequences(pos));
+                        negClosureArr = sequenceUnionDefaultCompare(negClosureArr, this.closureGraph.getNegConsequences(pos));
+                    }
+                    for (const neg of negConsequents) {
+                        if (negClosureArr.includes(neg)) continue;
+                        posClosureArr = sequenceUnionDefaultCompare(posClosureArr, this.closureGraph.getPosConsequences(~neg));
+                        negClosureArr = sequenceUnionDefaultCompare(negClosureArr, this.closureGraph.getNegConsequences(~neg));
+                    }
+                    posClosureArr = sequenceUnionDefaultCompare(posClosureArr, posConsequents);
+                    negClosureArr = sequenceUnionDefaultCompare(negClosureArr, negConsequents);
+                }
+                for (const lit of currentScc) {
+                    if (lit >= 0) {
+                        this.closureGraph.pospos[lit] = posClosureArr.slice();
+                        this.closureGraph.posneg[lit] = negClosureArr.slice();
+                    } else {
+                        this.closureGraph.negpos[~lit] = posClosureArr.slice();
+                        this.closureGraph.negneg[~lit] = negClosureArr.slice();
+                    }
+                }
+                // console.log('scc', currentScc.slice());
+                // console.log('pos', posClosureArr.slice());
+                // console.log('neg', negClosureArr.slice());
+                // let posToReduce: Variable[] = [];
+                // let negToReduce: Variable[] = [];
+                // for (const lit of currentScc) {
+                //     posToReduce = sequenceUnionDefaultCompare(posToReduce, this.getPosConsequencesFullSorted(lit));
+                //     negToReduce = sequenceUnionDefaultCompare(negToReduce, this.getNegConsequencesFullSorted(lit));
+                // }
+                // sequenceRemoveUpdateDefaultCompare(posToReduce, currentScc);
+                // sequenceRemoveUpdateDefaultCompare(negToReduce, currentScc.map(x => ~x).reverse());
+                // while (posToReduce.length > 0) {
+                //     const pos = posToReduce.pop();
+                //     // console.log('removing due to', pos, this.closureGraph.getPosConsequences(pos));
+                //     // console.log('removing due to', pos, this.closureGraph.getNegConsequences(pos));
+                //     sequenceRemoveUpdateDefaultCompare(posClosureArr, this.closureGraph.getPosConsequences(pos));
+                //     sequenceRemoveUpdateDefaultCompare(negClosureArr, this.closureGraph.getNegConsequences(pos));
+                //     sequenceRemoveUpdateDefaultCompare(posToReduce, this.closureGraph.getPosConsequences(pos));
+                //     sequenceRemoveUpdateDefaultCompare(negToReduce, this.closureGraph.getNegConsequences(pos));
+                // }
+                // while (negToReduce.length > 0) {
+                //     const neg = negToReduce.pop();
+                //     // console.log('removing due to', ~neg, this.closureGraph.getPosConsequences(neg));
+                //     // console.log('removing due to', ~neg, this.closureGraph.getNegConsequences(neg));
+                //     sequenceRemoveUpdateDefaultCompare(posClosureArr, this.closureGraph.getPosConsequences(~neg));
+                //     sequenceRemoveUpdateDefaultCompare(negClosureArr, this.closureGraph.getNegConsequences(~neg));
+                //     sequenceRemoveUpdateDefaultCompare(posToReduce, this.closureGraph.getPosConsequences(~neg));
+                //     sequenceRemoveUpdateDefaultCompare(negToReduce, this.closureGraph.getNegConsequences(~neg));
+                // }
+                // // console.log('pos reduced', posClosureArr.slice());
+                // // console.log('neg reduced', negClosureArr.slice());
+                // if (currentScc.length === 1) {
+                //     if (posClosureArr.length > 0) {
+                //         if (lit >= 0) {
+                //             this.reducedGraph.pospos[lit] = posClosureArr.slice();
+                //         } else {
+                //             this.reducedGraph.negpos[~lit] = posClosureArr.slice();
+                //         }
+                //     }
+                //     if (negClosureArr.length > 0) {
+                //         if (lit >= 0) {
+                //             this.reducedGraph.posneg[lit] = negClosureArr.slice();
+                //         } else {
+                //             this.reducedGraph.negneg[~lit] = negClosureArr.slice();
+                //         }
+                //     }
+                // } else {
+                //     for (const lit of currentScc) {
+                //         if (lit >= 0) {
+                //             this.reducedGraph.pospos[lit] = posClosureArr.slice();
+                //             this.reducedGraph.posneg[lit] = negClosureArr.slice();
+                //         } else {
+                //             this.reducedGraph.negpos[~lit] = posClosureArr.slice();
+                //             this.reducedGraph.negneg[~lit] = negClosureArr.slice();
+                //         }
+                //     }
+                //     for (let i = 0; i < currentScc.length; i++) {
+                //         const lit = currentScc[i];
+                //         const nextLit = currentScc[i === currentScc.length - 1 ? 0 : i + 1];
+                //         this.reducedGraph.implicationsArrFor(lit, nextLit).push(toVariable(nextLit));
+                //     }
+                // }
+                posClosureArr.length = 0;
+                negClosureArr.length = 0;
+                currentScc.length = 0;
+            }
+        };
+
+        for (let variable: Variable = 0; variable < this.numVariables; variable++) {
+            // console.log('visiting variable root', variable);
+            if (discoverTime[variable + this.numTotalVariables] === 0) visit(variable);
+            // debugger;
+            if (discoverTime[~variable + this.numTotalVariables] === 0) visit(~variable);
+        }
+
+        // Now closure is computed, do transitive reduction
+        // doesn't work
+        // this.transitiveReduction();
+    }
+
+    // doesn't work
+    private transitiveReduction() {
+        if (this.parentLayer !== undefined) {
+            return;
+        }
+        this.counter = this.counter ?? 0;
+        const maxCounter = 1120;
+        for (let variable: Variable = 0; variable < this.numVariables; variable++) {
+            const pospos = this.graph.pospos[variable];
+            const posneg = this.graph.posneg[variable];
+            if (pospos !== undefined) {
+                for (let i = 0; i < pospos.length; i++) {
+                    if (this.counter > maxCounter) debugger;
+                    const pos = pospos[i];
+                    if (pos >= this.numVariables) break;
+                    // if they're in the same SCC, we can't remove it
+                    if (this.graph.pospos[pos]?.includes(variable)) continue;
+                    // variable -> x -> pos
+                    // if ~pos -> ~x and variable -> x
+                    if (
+                        this.graph.negneg[pos] !== undefined &&
+                        sequenceIntersectionDefaultCompare(this.graph.negneg[pos], pospos).filter(v => v < this.numVariables).length > 0
+                    ) {
+                        console.log(variable, pos, 'because pos', this.graph.negneg[pos].slice(), pospos.slice());
+                        pospos.splice(i, 1);
+                        sequenceDeleteDefaultCompare(this.graph.negneg[pos], variable);
+                        i--;
+                        this.counter++;
+                        continue;
+                    }
+                    // variable -> ~x -> pos
+                    // if ~pos -> x and variable -> ~x
+                    if (
+                        this.graph.negpos[pos] !== undefined &&
+                        posneg !== undefined &&
+                        sequenceIntersectionDefaultCompare(this.graph.negpos[pos], posneg).filter(v => v < this.numVariables).length > 0
+                    ) {
+                        console.log(variable, pos, 'because neg', this.graph.negpos[pos].slice(), posneg.slice());
+                        pospos.splice(i, 1);
+                        sequenceDeleteDefaultCompare(this.graph.negneg[pos], variable);
+                        i--;
+                        this.counter++;
+                        continue;
+                    }
+                }
+            }
+            if (posneg !== undefined) {
+                for (let i = 0; i < posneg.length; i++) {
+                    if (this.counter > maxCounter) debugger;
+                    const neg = posneg[i];
+                    if (neg >= this.numVariables) break;
+                    // if they're in the same SCC, we can't remove it
+                    if (this.graph.negpos[neg]?.includes(variable)) continue;
+                    // variable -> x -> neg
+                    // if ~neg -> ~x and variable -> x
+                    if (
+                        this.graph.posneg[neg] !== undefined &&
+                        pospos !== undefined &&
+                        sequenceIntersectionDefaultCompare(this.graph.posneg[neg], pospos).filter(v => v < this.numVariables).length > 0
+                    ) {
+                        console.log(variable, ~neg, 'because pos', this.graph.posneg[neg].slice(), pospos.slice());
+                        posneg.splice(i, 1);
+                        sequenceDeleteDefaultCompare(this.graph.posneg[neg], variable);
+                        i--;
+                        this.counter++;
+                        continue;
+                    }
+                    // variable -> ~x -> neg
+                    // if ~neg -> x and variable -> ~x
+                    if (
+                        this.graph.pospos[neg] !== undefined &&
+                        sequenceIntersectionDefaultCompare(this.graph.pospos[neg], posneg).filter(v => v < this.numVariables).length > 0
+                    ) {
+                        console.log(variable, ~neg, 'because neg', this.graph.pospos[neg].slice(), posneg.slice());
+                        posneg.splice(i, 1);
+                        sequenceDeleteDefaultCompare(this.graph.posneg[neg], variable);
+                        i--;
+                        this.counter++;
+                        continue;
+                    }
+                }
+            }
+        }
+    }
+
+    private incrementalComputeScc() {
+        // TODO
+        this.initialComputeScc();
     }
 
     private recomputeClauseForcingLUTs() {
@@ -466,6 +784,7 @@ export class BinaryImplicationLayeredGraph {
 
             let posposUpdatedMask = 0;
             let posnegUpdatedMask = 0;
+            let prunedMask = 0;
             for (let i = 0; i < clause.length; i++) {
                 if (lastClauseUpdateTimestamp < this.getPosLastUpdateTimestamp(clause[i])) {
                     posposUpdatedMask |= 1 << i;
@@ -473,7 +792,11 @@ export class BinaryImplicationLayeredGraph {
                 if (lastClauseUpdateTimestamp < this.getNegLastUpdateTimestamp(clause[i])) {
                     posnegUpdatedMask |= 1 << i;
                 }
+                if (this.prunedLiterals.has(clause[i])) {
+                    prunedMask |= 1 << i;
+                }
             }
+            const unprunedMask = (numMasks - 1) ^ prunedMask;
 
             if (posposUpdatedMask === 0 && posnegUpdatedMask === 0) {
                 continue;
@@ -484,6 +807,7 @@ export class BinaryImplicationLayeredGraph {
             const posposMasksByPopcount = Array.from({ length: clause.length + 1 }, () => []);
             const posnegMasksByPopcount = Array.from({ length: clause.length + 1 }, () => []);
             for (let mask = 1; mask < numMasks; mask++) {
+                if ((mask & prunedMask) !== 0) continue;
                 if ((mask & posposUpdatedMask) !== 0) {
                     posposMasksByPopcount[popcount(mask)].push(mask);
                 }
@@ -515,8 +839,10 @@ export class BinaryImplicationLayeredGraph {
                         const firstMask = mask & -mask;
                         const restMask = mask & (mask - 1);
                         // Set type to readonly since we don't want to accidentally mutate this
-                        const firstPos: readonly number[] = this.graph.pospos[startingVariable + firstMask];
-                        const restPos: readonly number[] = this.graph.pospos[startingVariable + restMask];
+                        const firstPos: readonly number[] =
+                            this.closureGraph.pospos[startingVariable + firstMask] ?? this.graph.pospos[startingVariable + firstMask];
+                        const restPos: readonly number[] =
+                            this.closureGraph.pospos[startingVariable + restMask] ?? this.graph.pospos[startingVariable + restMask];
                         if (firstPos !== undefined && restPos !== undefined) {
                             const intersection = sequenceIntersectionDefaultCompare(firstPos, restPos);
                             if (intersection.length > 0) {
@@ -534,8 +860,10 @@ export class BinaryImplicationLayeredGraph {
                         const firstMask = mask & -mask;
                         const restMask = mask & (mask - 1);
                         // Set type to readonly since we don't want to accidentally mutate this
-                        const firstNeg: readonly number[] = this.graph.posneg[startingVariable + firstMask];
-                        const restNeg: readonly number[] = this.graph.posneg[startingVariable + restMask];
+                        const firstNeg: readonly number[] =
+                            this.closureGraph.posneg[startingVariable + firstMask] ?? this.graph.posneg[startingVariable + firstMask];
+                        const restNeg: readonly number[] =
+                            this.closureGraph.posneg[startingVariable + restMask] ?? this.graph.posneg[startingVariable + restMask];
                         if (firstNeg !== undefined && restNeg !== undefined) {
                             const intersection = sequenceIntersectionDefaultCompare(firstNeg, restNeg);
                             if (intersection.length > 0) {
@@ -546,6 +874,21 @@ export class BinaryImplicationLayeredGraph {
                     }
 
                     if (!hadNonzeroIntersection) break;
+                }
+                for (let mask = 1; mask < numMasks; mask++) {
+                    if ((mask & prunedMask) !== 0) continue;
+                    let negatedMask = unprunedMask ^ mask;
+                    if (
+                        (this.graph.pospos[startingVariable + mask]?.length > 0 || this.graph.posneg[startingVariable + mask]?.length > 0) &&
+                        (this.graph.pospos[startingVariable + negatedMask]?.length > 0 ||
+                            this.graph.posneg[startingVariable + negatedMask]?.length > 0)
+                    ) {
+                        if (this.graph.posneg[startingVariable + mask] === undefined) {
+                            this.graph.posneg[startingVariable + mask] = [startingVariable + negatedMask];
+                        } else {
+                            sequenceInsertDefaultCompare(this.graph.posneg[startingVariable + mask], startingVariable + negatedMask);
+                        }
+                    }
                 }
             } else {
                 // We have a parent layer, make sure we handle edges in parent layers as well
@@ -686,10 +1029,10 @@ export class BinaryImplicationLayeredGraph {
         if (this.hasParentImplication(lit1, lit2)) {
             return true;
         }
-        return this.graph.hasImplication(lit1, lit2);
+        return this.closureGraph.hasImplication(lit1, lit2) || this.graph.hasImplication(lit1, lit2);
     }
 
-    getPosConsequences(lit: Literal): Variable[] {
+    getPosConsequencesFull(lit: Literal): Variable[] {
         this.sortGraph();
         const posConsequents = this.graph.getPosConsequences(lit).slice();
         for (const big of this.parentGraphs) {
@@ -698,7 +1041,7 @@ export class BinaryImplicationLayeredGraph {
         return posConsequents;
     }
 
-    getNegConsequences(lit: Literal): Variable[] {
+    getNegConsequencesFull(lit: Literal): Variable[] {
         this.sortGraph();
         const negConsequents = this.graph.getNegConsequences(lit).slice();
         for (const big of this.parentGraphs) {
@@ -707,7 +1050,7 @@ export class BinaryImplicationLayeredGraph {
         return negConsequents;
     }
 
-    getPosConsequencesSorted(lit: Literal): Variable[] {
+    getPosConsequencesFullSorted(lit: Literal): Variable[] {
         this.sortGraph();
         const posConsequents = this.graph.getPosConsequences(lit).slice();
         const oldLength = posConsequents.length;
@@ -718,7 +1061,7 @@ export class BinaryImplicationLayeredGraph {
         return posConsequents;
     }
 
-    getNegConsequencesSorted(lit: Literal): Variable[] {
+    getNegConsequencesFullSorted(lit: Literal): Variable[] {
         this.sortGraph();
         const negConsequents = this.graph.getNegConsequences(lit).slice();
         const oldLength = negConsequents.length;
@@ -729,12 +1072,28 @@ export class BinaryImplicationLayeredGraph {
         return negConsequents;
     }
 
+    getPosConsequences(lit: Literal): Variable[] {
+        return this.getPosConsequencesFull(lit).filter(variable => variable < this.numVariables);
+    }
+
+    getNegConsequences(lit: Literal): Variable[] {
+        return this.getNegConsequencesFull(lit).filter(variable => variable < this.numVariables);
+    }
+
+    getPosConsequencesSorted(lit: Literal): Variable[] {
+        return this.getPosConsequencesFullSorted(lit).filter(variable => variable < this.numVariables);
+    }
+
+    getNegConsequencesSorted(lit: Literal): Variable[] {
+        return this.getNegConsequencesFullSorted(lit).filter(variable => variable < this.numVariables);
+    }
+
     getTopLayerPosConsequences(lit: Literal): readonly Variable[] {
-        return this.graph.getPosConsequences(lit);
+        return this.graph.getPosConsequences(lit).filter(variable => variable < this.numVariables);
     }
 
     getTopLayerNegConsequences(lit: Literal): readonly Variable[] {
-        return this.graph.getNegConsequences(lit);
+        return this.graph.getNegConsequences(lit).filter(variable => variable < this.numVariables);
     }
 
     getPosLastUpdateTimestamp(lit: Literal): Timestamp {
