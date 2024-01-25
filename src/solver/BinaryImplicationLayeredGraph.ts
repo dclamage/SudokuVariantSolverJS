@@ -444,36 +444,52 @@ export class BinaryImplicationLayeredGraph {
 
             const numMasks = 1 << clause.length;
 
-            // Only recompute clauses which have changed
-            let needsUpdate = false;
-
-            const lastClauseUpdateTimestamp = this.graph.posposTimestamp[startingVariable + numMasks - 1] ?? 0;
-            for (const lit of clause) {
-                const litTimestamp = this.graph.getPosLastUpdateTimestamp(lit);
-                if (lastClauseUpdateTimestamp < litTimestamp) {
-                    needsUpdate = true;
-                    break;
-                }
-            }
-            if (!needsUpdate) {
+            // Only recompute clauses which have some implications at our layer
+            // If at top layer, we skip this check because we basically always have implications
+            if (this.parentLayer !== undefined) {
+                let haveImplications = false;
                 for (const lit of clause) {
-                    const litTimestamp = this.graph.getNegLastUpdateTimestamp(lit);
-                    if (lastClauseUpdateTimestamp < litTimestamp) {
-                        needsUpdate = true;
+                    if (this.getTopLayerPosConsequences(lit).length > 0) {
+                        haveImplications = true;
+                        break;
+                    }
+                    if (this.getTopLayerNegConsequences(lit).length > 0) {
+                        haveImplications = true;
                         break;
                     }
                 }
+                if (!haveImplications) continue;
             }
 
-            if (!needsUpdate) {
+            // Only recompute clauses that include a changed literal
+            const lastClauseUpdateTimestamp = this.graph.posposTimestamp[startingVariable + numMasks - 1] ?? 0;
+
+            let posposUpdatedMask = 0;
+            let posnegUpdatedMask = 0;
+            for (let i = 0; i < clause.length; i++) {
+                if (lastClauseUpdateTimestamp < this.getPosLastUpdateTimestamp(clause[i])) {
+                    posposUpdatedMask |= 1 << i;
+                }
+                if (lastClauseUpdateTimestamp < this.getNegLastUpdateTimestamp(clause[i])) {
+                    posnegUpdatedMask |= 1 << i;
+                }
+            }
+
+            if (posposUpdatedMask === 0 && posnegUpdatedMask === 0) {
                 continue;
             }
 
             this.graph.posposTimestamp[startingVariable + numMasks - 1] = latestUpdate;
 
-            const masksByPopcount = Array.from({ length: clause.length + 1 }, () => []);
+            const posposMasksByPopcount = Array.from({ length: clause.length + 1 }, () => []);
+            const posnegMasksByPopcount = Array.from({ length: clause.length + 1 }, () => []);
             for (let mask = 1; mask < numMasks; mask++) {
-                masksByPopcount[popcount(mask)].push(mask);
+                if ((mask & posposUpdatedMask) !== 0) {
+                    posposMasksByPopcount[popcount(mask)].push(mask);
+                }
+                if ((mask & posnegUpdatedMask) !== 0) {
+                    posnegMasksByPopcount[popcount(mask)].push(mask);
+                }
             }
 
             // Initialize 1-hot masks
@@ -493,16 +509,14 @@ export class BinaryImplicationLayeredGraph {
             // Clause subsets of size 2 and above
             // Use simpler algorithm when at root layer
             if (this.parentLayer === undefined) {
-                for (const masks of masksByPopcount.slice(2)) {
+                for (const masks of posposMasksByPopcount.slice(2)) {
                     let hadNonzeroIntersection = false;
                     for (const mask of masks) {
                         const firstMask = mask & -mask;
                         const restMask = mask & (mask - 1);
                         // Set type to readonly since we don't want to accidentally mutate this
                         const firstPos: readonly number[] = this.graph.pospos[startingVariable + firstMask];
-                        const firstNeg: readonly number[] = this.graph.posneg[startingVariable + firstMask];
                         const restPos: readonly number[] = this.graph.pospos[startingVariable + restMask];
-                        const restNeg: readonly number[] = this.graph.posneg[startingVariable + restMask];
                         if (firstPos !== undefined && restPos !== undefined) {
                             const intersection = sequenceIntersectionDefaultCompare(firstPos, restPos);
                             if (intersection.length > 0) {
@@ -510,6 +524,18 @@ export class BinaryImplicationLayeredGraph {
                                 hadNonzeroIntersection = true;
                             }
                         }
+                    }
+
+                    if (!hadNonzeroIntersection) break;
+                }
+                for (const masks of posnegMasksByPopcount.slice(2)) {
+                    let hadNonzeroIntersection = false;
+                    for (const mask of masks) {
+                        const firstMask = mask & -mask;
+                        const restMask = mask & (mask - 1);
+                        // Set type to readonly since we don't want to accidentally mutate this
+                        const firstNeg: readonly number[] = this.graph.posneg[startingVariable + firstMask];
+                        const restNeg: readonly number[] = this.graph.posneg[startingVariable + restMask];
                         if (firstNeg !== undefined && restNeg !== undefined) {
                             const intersection = sequenceIntersectionDefaultCompare(firstNeg, restNeg);
                             if (intersection.length > 0) {
@@ -523,20 +549,16 @@ export class BinaryImplicationLayeredGraph {
                 }
             } else {
                 // We have a parent layer, make sure we handle edges in parent layers as well
-                for (const masks of masksByPopcount.slice(2)) {
+                for (const masks of posposMasksByPopcount.slice(2)) {
                     let hadNonzeroIntersection = false;
                     for (const mask of masks) {
                         const firstMask = mask & -mask;
                         const restMask = mask & (mask - 1);
                         // Set type to readonly since we don't want to accidentally mutate this
                         const firstPos: readonly number[] = this.graph.pospos[startingVariable + firstMask];
-                        const firstNeg: readonly number[] = this.graph.posneg[startingVariable + firstMask];
                         const restPos: readonly number[] = this.graph.pospos[startingVariable + restMask];
-                        const restNeg: readonly number[] = this.graph.posneg[startingVariable + restMask];
-                        const parentFirstPos: readonly number[] = this.graph.pospos[startingVariable + firstMask];
-                        const parentRestPos: readonly number[] = this.graph.pospos[startingVariable + restMask];
-                        const parentFirstNeg: readonly number[] = this.graph.posneg[startingVariable + firstMask];
-                        const parentRestNeg: readonly number[] = this.graph.posneg[startingVariable + restMask];
+                        const parentFirstPos: readonly number[] = this.parentLayer.getPosConsequences(startingVariable + firstMask);
+                        const parentRestPos: readonly number[] = this.parentLayer.getPosConsequences(startingVariable + restMask);
                         if (
                             (firstPos !== undefined && restPos !== undefined) ||
                             (firstPos !== undefined && parentRestPos !== undefined) ||
@@ -546,7 +568,7 @@ export class BinaryImplicationLayeredGraph {
                             // We need to compute:
                             //
                             // ((firstPos | parentFirstPos) & (restPos | parentRestPos)) - parentPos
-                            const parentPos: readonly number[] = this.parentLayer.graph.pospos[startingVariable + mask];
+                            const parentPos: readonly number[] = this.parentLayer.getPosConsequences(startingVariable + mask);
                             const combinedFirstPos =
                                 firstPos !== undefined && parentFirstPos !== undefined
                                     ? sequenceUnionDefaultCompare(firstPos, parentFirstPos)
@@ -570,14 +592,31 @@ export class BinaryImplicationLayeredGraph {
                                 hadNonzeroIntersection = true;
                             }
                         }
+                    }
+
+                    if (!hadNonzeroIntersection) break;
+                }
+                for (const masks of posnegMasksByPopcount.slice(2)) {
+                    let hadNonzeroIntersection = false;
+                    for (const mask of masks) {
+                        const firstMask = mask & -mask;
+                        const restMask = mask & (mask - 1);
+                        // Set type to readonly since we don't want to accidentally mutate this
+                        const firstNeg: readonly number[] = this.graph.posneg[startingVariable + firstMask];
+                        const restNeg: readonly number[] = this.graph.posneg[startingVariable + restMask];
+                        const parentFirstNeg: readonly number[] = this.parentLayer.getNegConsequences(startingVariable + firstMask);
+                        const parentRestNeg: readonly number[] = this.parentLayer.getNegConsequences(startingVariable + restMask);
 
                         if (
                             (firstNeg !== undefined && restNeg !== undefined) ||
                             (firstNeg !== undefined && parentRestNeg !== undefined) ||
                             (restNeg !== undefined && parentFirstNeg !== undefined)
                         ) {
+                            // We'll denote | as union, & as intersection, and - as subtraction.
+                            // We need to compute:
+                            //
                             // ((firstNeg | parentFirstNeg) & (restNeg | parentRestNeg)) - parentNeg
-                            const parentNeg: readonly number[] = this.parentLayer.graph.posneg[startingVariable + mask];
+                            const parentNeg: readonly number[] = this.parentLayer.getNegConsequences(startingVariable + mask);
                             const combinedFirstNeg =
                                 firstNeg !== undefined && parentFirstNeg !== undefined
                                     ? sequenceUnionDefaultCompare(firstNeg, parentFirstNeg)
