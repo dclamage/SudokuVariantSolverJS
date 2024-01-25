@@ -190,7 +190,7 @@ export class OrConstraint extends Constraint {
             board.binaryImplications.filterOutNegConsequences(candidate, newLinks, scratch);
             for (const link of scratch) {
                 for (const subboard of this.subboards) {
-                    subboard.binaryImplications.graph.unsafeRemoveImplication(candidate, ~link);
+                    subboard.binaryImplications.transferImplicationToParent(candidate, ~link);
                 }
             }
             for (const link of newLinks) {
