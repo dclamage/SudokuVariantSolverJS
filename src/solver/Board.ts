@@ -17,6 +17,7 @@ import {
     CellValue,
     CandidateIndex,
     sequenceRemoveUpdateDefaultCompare,
+    valuesList,
 } from './SolveUtility';
 import { NakedSingle } from './LogicalStep/NakedSingle';
 import { HiddenSingle } from './LogicalStep/HiddenSingle';
@@ -1498,32 +1499,84 @@ export class Board {
     }
 
     private discoverBinaryImplications(cellsToProbe: CellIndex[]) {
-        const { size, cells } = this;
-
         let changed = false;
         // Exit the function when we found eliminations -- it's possible we can find naked/hidden singles now.
         // While exiting the function after we find any implications could potentially lead to improving cell forcing
         // which could then lead to more eliminations on the main board, this is heuristically quite rare,
         // so we don't exit early in that case.
         let foundEliminations = false;
-        // const alwaysTrueCandidates: CandidateIndex[] = [];
         while (cellsToProbe.length > 0) {
             const cellIndex = cellsToProbe.pop();
-            const cellMask = cells[cellIndex];
+            const cellMask = this.cells[cellIndex];
             if (this.isGivenMask(cellMask)) {
                 continue;
             }
 
-            // Find truth implications
-            for (let value = 1; value <= size; value++) {
-                if ((cellMask & valueBit(value)) === 0) {
-                    continue;
-                }
-                const candidateIndex = this.candidateIndex(cellIndex, value);
+            // Find implications
+            // First we propagate a false candidate, e.g. -1r1c1. Afterwards, without undoing that candidate,
+            // propagate a true candidate that implies what we already propagated, e.g. 2r1c1. This simulates
+            // the TreeLook algorithm but explicitly taking into account the structure of Sudoku. It's possible
+            // we miss out on potential reuse we could've gotten if we analyzed the BIG, but this is good enough for now.
+            //
+            // If propagating a false candidate finds a contradiction, we immediately set it as given and exit the loop.
+            // If propagating a true candidate finds a contradiction, we clear it on the main board.
+            // On the next iteration, we skip the corresponding false candidate propagation, since it's already applied on the main board.
+            //
+            // For more info on TreeLook, look at the paper: https://www.cs.utexas.edu/~marijn/publications/NHBR.pdf
+            // Citation: Heule, M.J.H., Järvisalo, M., Biere, A. (2013). Revisiting Hyper Binary Resolution.
+            // In: Gomes, C., Sellmann, M. (eds) Integration of AI and OR Techniques in Constraint Programming for Combinatorial Optimization Problems. CPAIOR 2013. Lecture Notes in Computer Science, vol 7874. Springer, Berlin, Heidelberg.
+            // https://doi.org/10.1007/978-3-642-38171-3_6
+            const values = valuesList(cellMask);
+            for (let i = 0; i < values.length; i++) {
+                const falseValue = values[i];
+                const trueValue = values[i === values.length - 1 ? 0 : i + 1];
 
                 const newBoard = this.clone();
-                if (!newBoard.setAsGiven(cellIndex, value)) {
-                    if (!this.clearValue(cellIndex, value)) {
+
+                // Only propagate the false value if it's still possible
+                if ((this.cells[cellIndex] & valueBit(falseValue)) !== 0) {
+                    // Apply false value
+                    if (!newBoard.clearValue(cellIndex, falseValue)) {
+                        // Candidate must be true
+                        if (!this.setAsGiven(cellIndex, falseValue)) {
+                            // But also can't be true! Contradiction
+                            return LogicResult.INVALID;
+                        }
+                        // Break out of the loop since we're done with this cell
+                        foundEliminations = true;
+                        changed = true;
+                        break;
+                    }
+
+                    // Propagate
+                    const bruteForceResult = newBoard.applyBruteForceLogic(false, false);
+                    if (bruteForceResult === LogicResult.INVALID) {
+                        // Candidate must be true
+                        if (!this.setAsGiven(cellIndex, falseValue)) {
+                            // But also can't be true! Contradiction
+                            return LogicResult.INVALID;
+                        }
+                        // Break out of the loop since we're done with this cell
+                        foundEliminations = true;
+                        changed = true;
+                        break;
+                    }
+
+                    // Check for changes after propagation
+                    if (bruteForceResult !== LogicResult.UNCHANGED) {
+                        const candidateIndex = this.candidateIndex(cellIndex, falseValue);
+                        if (this.addBinaryImplicationsFromFalse(candidateIndex, newBoard)) {
+                            this.binaryImplications.sortGraph();
+                            changed = true;
+                        }
+                    }
+                }
+
+                // Apply the true value now, which should imply the false value, so we can reuse the same board.
+                if (!newBoard.setAsGiven(cellIndex, trueValue)) {
+                    // Candidate must be false
+                    if (!this.clearValue(cellIndex, trueValue)) {
+                        // But also can't be false!
                         return LogicResult.INVALID;
                     }
                     foundEliminations = true;
@@ -1531,9 +1584,12 @@ export class Board {
                     continue;
                 }
 
+                // Propagate
                 const bruteForceResult = newBoard.applyBruteForceLogic(false, false);
                 if (bruteForceResult === LogicResult.INVALID) {
-                    if (!this.clearValue(cellIndex, value)) {
+                    // Candidate must be false
+                    if (!this.clearValue(cellIndex, trueValue)) {
+                        // But also can't be false!
                         return LogicResult.INVALID;
                     }
                     foundEliminations = true;
@@ -1541,7 +1597,9 @@ export class Board {
                     continue;
                 }
 
+                // Check for changes after propagation
                 if (bruteForceResult !== LogicResult.UNCHANGED) {
+                    const candidateIndex = this.candidateIndex(cellIndex, trueValue);
                     if (this.addBinaryImplicationsFromTruth(candidateIndex, newBoard)) {
                         this.binaryImplications.sortGraph();
                         changed = true;
@@ -1552,46 +1610,7 @@ export class Board {
             if (foundEliminations) {
                 return LogicResult.CHANGED;
             }
-
-            // Find false implications
-            // Disable this for now, since it seems most puzzles don't benefit from this at all.
-            // If we do want to reenable this, use TreeLook so we share propagations with a true implication
-            // https://www.cs.utexas.edu/~marijn/publications/NHBR.pdf
-            // for (let value = 1; value <= size; value++) {
-            //     if ((cellMask & valueBit(value)) === 0) {
-            //         continue;
-            //     }
-            //     const candidateIndex = this.candidateIndex(cellIndex, value);
-
-            //     const newBoard = this.clone();
-            //     if (!newBoard.clearValue(cellIndex, value)) {
-            //         alwaysTrueCandidates.push(candidateIndex);
-            //         continue;
-            //     }
-
-            //     const bruteForceResult = newBoard.applyBruteForceLogic(false, false);
-            //     if (bruteForceResult === LogicResult.INVALID) {
-            //         alwaysTrueCandidates.push(candidateIndex);
-            //         continue;
-            //     }
-
-            //     if (bruteForceResult !== LogicResult.UNCHANGED) {
-            //         if (this.addBinaryImplicationsFromFalse(candidateIndex, newBoard)) {
-            //             this.binaryImplications.sortGraph();
-            //             addedImplications = true;
-            //         }
-            //     }
-            // }
         }
-
-        // let changed = addedImplications;
-        // for (const alwaysTrueCandidate of alwaysTrueCandidates) {
-        //     const [cellIndex, value] = this.candidateToIndexAndValue(alwaysTrueCandidate);
-        //     if (!this.setAsGiven(cellIndex, value)) {
-        //         return LogicResult.INVALID;
-        //     }
-        //     changed = true;
-        // }
 
         return changed ? LogicResult.CHANGED : LogicResult.UNCHANGED;
     }
