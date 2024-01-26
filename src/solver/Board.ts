@@ -938,10 +938,10 @@ export class Board {
 
         // Start probing from the first cell in order. Probing in order gives better performance than probing randomly.
         // This array is reversed as discoverBinaryImplications pops cellindices from the back.
-        const discoverBinaryImplicationsUnprobedCells: CellIndex[] = Array.from(
-            { length: this.size * this.size },
-            (_, i) => this.size * this.size - 1 - i
-        );
+        const cellsToProbe: CellIndex[] = Array.from({ length: this.size * this.size }, (_, i) => this.size * this.size - 1 - i);
+        // Give cells 1 extra chance at probing if we discovered that they missed an implication
+        const probeCount: number[] = Array.from({ length: this.size * this.size }, () => 0);
+        const probeLimit: number = 2;
 
         while (true) {
             // Just in case, check if the board is completed
@@ -1084,8 +1084,8 @@ export class Board {
             }
 
             if (!changedThisRound && initialNonGivenCount === this.nonGivenCount && this.nakedSingles.length === 0) {
-                if (isInitialPreprocessing && discoverBinaryImplicationsUnprobedCells.length > 0) {
-                    result = this.discoverBinaryImplications(discoverBinaryImplicationsUnprobedCells);
+                if (isInitialPreprocessing && cellsToProbe.length > 0) {
+                    result = this.discoverBinaryImplications(cellsToProbe, probeCount, probeLimit);
                     if (result === LogicResult.INVALID) {
                         return result;
                     }
@@ -1497,7 +1497,7 @@ export class Board {
         return changed ? LogicResult.CHANGED : LogicResult.UNCHANGED;
     }
 
-    private discoverBinaryImplications(cellsToProbe: CellIndex[]) {
+    private discoverBinaryImplications(cellsToProbe: CellIndex[], probeCount: number[], probeLimit: number) {
         const { size, cells } = this;
 
         let changed = false;
@@ -1513,6 +1513,8 @@ export class Board {
             if (this.isGivenMask(cellMask)) {
                 continue;
             }
+
+            probeCount[cellIndex]++;
 
             // Find truth implications
             for (let value = 1; value <= size; value++) {
@@ -1542,9 +1544,22 @@ export class Board {
                 }
 
                 if (bruteForceResult !== LogicResult.UNCHANGED) {
-                    if (this.addBinaryImplicationsFromTruth(candidateIndex, newBoard)) {
+                    const [posConsequents, negConsequents] = this.addBinaryImplicationsFromTruth(candidateIndex, newBoard);
+                    if (posConsequents.length > 0 || negConsequents.length > 0) {
                         this.binaryImplications.sortGraph();
                         changed = true;
+                    }
+
+                    // Re-enqueue any newly added neg consequents
+                    // Queue them at the bottom of the stack so they get processed last
+                    // This is because if a -> ~b, and b was a cell that we already probed (and so is no longer in cellsToProbe),
+                    // It means that somehow we detected a -> ~b, but not b -> ~a. Thus, if we were to probe b again at this point,
+                    // we know it will make more progress than before.
+                    for (const neg of negConsequents) {
+                        const negCellIndex = this.cellIndexFromCandidate(neg);
+                        if (probeCount[negCellIndex] < probeLimit && !cellsToProbe.includes(negCellIndex)) {
+                            cellsToProbe.splice(0, 0, negCellIndex);
+                        }
                     }
                 }
             }
@@ -1596,12 +1611,12 @@ export class Board {
         return changed ? LogicResult.CHANGED : LogicResult.UNCHANGED;
     }
 
-    private addBinaryImplicationsFromTruth(trueCandidateIndex: CandidateIndex, newBoard: Board) {
+    // Returns the newly added pos and neg consequents of trueCandidateIndex
+    private addBinaryImplicationsFromTruth(trueCandidateIndex: CandidateIndex, newBoard: Board): [CandidateIndex[], CandidateIndex[]] {
         const { size, cells, givenBit } = this;
         const { cells: newCells } = newBoard;
         const totalCells = size * size;
 
-        let changed = false;
         const trueCellIndex = this.cellIndexFromCandidate(trueCandidateIndex);
         const posConsequents: CandidateIndex[] = [];
         const negConsequents: CandidateIndex[] = [];
@@ -1646,14 +1661,12 @@ export class Board {
 
         if (posConsequents.length > 0) {
             this.binaryImplications.addPosImplicationsBatchedGuaranteeUniquenessPreserveSortedness(trueCandidateIndex, posConsequents);
-            changed = true;
         }
         if (negConsequents.length > 0) {
             this.binaryImplications.addNegImplicationsBatchedGuaranteeUniquenessPreserveSortedness(trueCandidateIndex, negConsequents);
-            changed = true;
         }
 
-        return changed;
+        return [posConsequents, negConsequents];
     }
 
     private addBinaryImplicationsFromFalse(falseCandidateIndex: CandidateIndex, newBoard: Board) {
