@@ -332,7 +332,7 @@ export function parseEdgeClueCoords(name: string, size: number): DirectionalCoor
     return edgeClueDirectionalCoordsFromRawCellCoords(rawCellCoordsFromName(name), size);
 }
 
-export function sequenceEqual<T>(arr1: T[], arr2: T[]): boolean {
+export function sequenceEqual<T>(arr1: readonly T[], arr2: readonly T[]): boolean {
     if (arr1.length !== arr2.length) {
         return false;
     }

@@ -493,17 +493,37 @@ export class BinaryImplicationLayeredGraph {
                 }
             }
 
+            // Masks for sub clauses that didn't change
+            const posUnchangedMasks = [];
+            const negUnchangedMasks = [];
+
             // Initialize 1-hot masks
             for (let i = 0; i < clause.length; i++) {
                 const mask = 1 << i;
                 const lit = clause[i];
-                const posImplicants = this.getTopLayerPosConsequences(lit).slice();
-                const negImplicants = this.getTopLayerNegConsequences(lit).slice();
-                if (posImplicants.length > 0) {
-                    this.graph.pospos[startingVariable + mask] = posImplicants;
+                const forcingPosConsequents: readonly Variable[] = this.graph.pospos[startingVariable + mask];
+                const forcingNegConsequents: readonly Variable[] = this.graph.posneg[startingVariable + mask];
+                const posConsequents: readonly Variable[] = this.graph.implicationsArrFor(lit, 0);
+                const negConsequents: readonly Variable[] = this.graph.implicationsArrFor(lit, ~0);
+                if (
+                    // both undefined
+                    posConsequents === forcingPosConsequents ||
+                    // both equal
+                    (posConsequents !== undefined && forcingPosConsequents !== undefined && sequenceEqual(posConsequents, forcingPosConsequents))
+                ) {
+                    posUnchangedMasks.push(mask);
+                } else {
+                    this.graph.pospos[startingVariable + mask] = posConsequents?.slice();
                 }
-                if (negImplicants.length > 0) {
-                    this.graph.posneg[startingVariable + mask] = negImplicants;
+                if (
+                    // both undefined
+                    negConsequents === forcingNegConsequents ||
+                    // both equal
+                    (negConsequents !== undefined && forcingNegConsequents !== undefined && sequenceEqual(negConsequents, forcingNegConsequents))
+                ) {
+                    negUnchangedMasks.push(mask);
+                } else {
+                    this.graph.posneg[startingVariable + mask] = negConsequents?.slice();
                 }
             }
 
@@ -518,6 +538,15 @@ export class BinaryImplicationLayeredGraph {
                     let hadNonemptyIntersection = false;
                     let hadChange = false;
                     for (const mask of masks) {
+                        let changedMask = mask;
+                        for (const unchangedMask of posUnchangedMasks) {
+                            if ((unchangedMask & ~mask) === 0) {
+                                changedMask &= ~unchangedMask;
+                            }
+                            if (changedMask === 0) break;
+                        }
+                        if (changedMask === 0) continue;
+
                         const firstMask = mask & -mask;
                         const restMask = mask & (mask - 1);
                         // Set type to readonly since we don't want to accidentally mutate this
@@ -534,7 +563,11 @@ export class BinaryImplicationLayeredGraph {
                             ) {
                                 this.graph.pospos[startingVariable + mask] = intersection;
                                 hadChange = true;
+                            } else {
+                                posUnchangedMasks.push(mask);
                             }
+                        } else {
+                            posUnchangedMasks.push(mask);
                         }
                     }
 
@@ -547,6 +580,15 @@ export class BinaryImplicationLayeredGraph {
                     let hadNonemptyIntersection = false;
                     let hadChange = false;
                     for (const mask of masks) {
+                        let changedMask = mask;
+                        for (const unchangedMask of negUnchangedMasks) {
+                            if ((unchangedMask & ~mask) === 0) {
+                                changedMask &= ~unchangedMask;
+                            }
+                            if (changedMask === 0) break;
+                        }
+                        if (changedMask === 0) continue;
+
                         const firstMask = mask & -mask;
                         const restMask = mask & (mask - 1);
                         // Set type to readonly since we don't want to accidentally mutate this
@@ -563,7 +605,11 @@ export class BinaryImplicationLayeredGraph {
                             ) {
                                 this.graph.posneg[startingVariable + mask] = intersection;
                                 hadChange = true;
+                            } else {
+                                negUnchangedMasks.push(mask);
                             }
+                        } else {
+                            negUnchangedMasks.push(mask);
                         }
                     }
 
