@@ -75,6 +75,14 @@ jobs:
                   python3 scripts/gengraph.py 'lambda x: x["guesses"]' "gh_pages/$BENCHMARK_RESULT_DIR/basecombined.json" "gh_pages/$BENCHMARK_RESULT_DIR/headcombined.json" "gh_pages/$BENCHMARK_RESULT_DIR/guesses_chart.png"
                   python3 scripts/gengraph.py 'lambda x: x["solveElapsedTimeMs"] + x["createElapsedTimeMs"]' "gh_pages/$BENCHMARK_RESULT_DIR/basecombined.json" "gh_pages/$BENCHMARK_RESULT_DIR/headcombined.json" "gh_pages/$BENCHMARK_RESULT_DIR/time_chart.png"
 
+            - name: Generate summary
+              run: |
+                  {
+                    echo 'SUMMARY_TEXT<<EOF'
+                    jq -s 'transpose' <(jq -s 'transpose' "gh_pages/$BENCHMARK_RESULT_DIR/base1.json" "gh_pages/$BENCHMARK_RESULT_DIR/base2.json" "gh_pages/$BENCHMARK_RESULT_DIR/base3.json") <(jq -s 'transpose' "gh_pages/$BENCHMARK_RESULT_DIR/head1.json" "gh_pages/$BENCHMARK_RESULT_DIR/head2.json" "gh_pages/$BENCHMARK_RESULT_DIR/head3.json") | python3 scripts/gensummary.py
+                    echo 'EOF'
+                  } >> "$GITHUB_ENV"
+
             - name: Save in gh_pages
               run: |
                   cd gh_pages
@@ -127,9 +135,12 @@ jobs:
                 body: |
                   # Benchmark results for PR ${{ github.pull_request.number }}
                   [Link to gh_pages tree](https://github.com/dclamage/SudokuVariantSolverJS/tree/gh_pages/${{ env.BENCHMARK_RESULT_DIR }})
-                  ## Guesses
+
+                  ${{ env.SUMMARY_TEXT }}
+
+                  ## Guesses chart
                   ![Guesses chart](https://raw.githubusercontent.com/dclamage/SudokuVariantSolverJS/gh_pages/${{ env.BENCHMARK_RESULT_DIR }}/guesses_chart.png)
-                  ## Time
+                  ## Time chart
                   ![Time chart](https://raw.githubusercontent.com/dclamage/SudokuVariantSolverJS/gh_pages/${{ env.BENCHMARK_RESULT_DIR }}/time_chart.png)
 
 
