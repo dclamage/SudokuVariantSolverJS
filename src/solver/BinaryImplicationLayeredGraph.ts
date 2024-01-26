@@ -12,6 +12,7 @@ import {
     sequenceIntersectionUpdateDefaultCompare,
     sequenceUnionDefaultCompare,
     sequenceRemoveUpdateDefaultCompare,
+    sequenceEqual,
 } from './SolveUtility';
 
 // Table of contents
@@ -492,60 +493,136 @@ export class BinaryImplicationLayeredGraph {
                 }
             }
 
+            // Masks for sub clauses that didn't change
+            const posUnchangedMasks = [];
+            const negUnchangedMasks = [];
+
             // Initialize 1-hot masks
             for (let i = 0; i < clause.length; i++) {
                 const mask = 1 << i;
                 const lit = clause[i];
-                const posImplicants = this.getTopLayerPosConsequences(lit).slice();
-                const negImplicants = this.getTopLayerNegConsequences(lit).slice();
-                if (posImplicants.length > 0) {
-                    this.graph.pospos[startingVariable + mask] = posImplicants;
+                const forcingPosConsequents: readonly Variable[] = this.graph.pospos[startingVariable + mask];
+                const forcingNegConsequents: readonly Variable[] = this.graph.posneg[startingVariable + mask];
+                const posConsequents: readonly Variable[] = this.graph.implicationsArrFor(lit, 0);
+                const negConsequents: readonly Variable[] = this.graph.implicationsArrFor(lit, ~0);
+                if (
+                    // both undefined
+                    posConsequents === forcingPosConsequents ||
+                    // both equal
+                    (posConsequents !== undefined && forcingPosConsequents !== undefined && sequenceEqual(posConsequents, forcingPosConsequents))
+                ) {
+                    posUnchangedMasks.push(mask);
+                } else {
+                    this.graph.pospos[startingVariable + mask] = posConsequents?.slice();
                 }
-                if (negImplicants.length > 0) {
-                    this.graph.posneg[startingVariable + mask] = negImplicants;
+                if (
+                    // both undefined
+                    negConsequents === forcingNegConsequents ||
+                    // both equal
+                    (negConsequents !== undefined && forcingNegConsequents !== undefined && sequenceEqual(negConsequents, forcingNegConsequents))
+                ) {
+                    negUnchangedMasks.push(mask);
+                } else {
+                    this.graph.posneg[startingVariable + mask] = negConsequents?.slice();
                 }
             }
 
             // Clause subsets of size 2 and above
             // Use simpler algorithm when at root layer
+            let minPosUnchanged: number | undefined = undefined;
+            let minNegUnchanged: number | undefined = undefined;
             if (this.parentLayer === undefined) {
-                for (const masks of posposMasksByPopcount.slice(2)) {
-                    let hadNonzeroIntersection = false;
+                for (let i = 2; i < posposMasksByPopcount.length; ++i) {
+                    if (minPosUnchanged && i >= minPosUnchanged * 2) break;
+                    const masks = posposMasksByPopcount[i];
+                    let hadNonemptyIntersection = false;
+                    let hadChange = false;
                     for (const mask of masks) {
-                        const firstMask = mask & -mask;
-                        const restMask = mask & (mask - 1);
+                        let changedMask = mask;
+                        for (const unchangedMask of posUnchangedMasks) {
+                            if ((unchangedMask & ~mask) === 0) {
+                                changedMask &= ~unchangedMask;
+                            }
+                            if (changedMask === 0) break;
+                        }
+                        if (changedMask === 0) continue;
+
+                        let firstMask = mask & -mask;
+                        let restMask = mask & (mask - 1);
+                        if (i >= 4) {
+                            firstMask |= restMask & -restMask;
+                            restMask &= restMask - 1;
+                        }
                         // Set type to readonly since we don't want to accidentally mutate this
                         const firstPos: readonly number[] = this.graph.pospos[startingVariable + firstMask];
                         const restPos: readonly number[] = this.graph.pospos[startingVariable + restMask];
                         if (firstPos !== undefined && restPos !== undefined) {
                             const intersection = sequenceIntersectionDefaultCompare(firstPos, restPos);
-                            if (intersection.length > 0) {
+                            hadNonemptyIntersection = intersection.length > 0 || hadNonemptyIntersection;
+                            if (
+                                intersection.length > 0 &&
+                                (minPosUnchanged !== undefined ||
+                                    this.graph.pospos[startingVariable + mask] === undefined ||
+                                    !sequenceEqual(this.graph.pospos[startingVariable + mask], intersection))
+                            ) {
                                 this.graph.pospos[startingVariable + mask] = intersection;
-                                hadNonzeroIntersection = true;
+                                hadChange = true;
+                            } else {
+                                posUnchangedMasks.push(mask);
                             }
+                        } else {
+                            posUnchangedMasks.push(mask);
                         }
                     }
 
-                    if (!hadNonzeroIntersection) break;
+                    if (!hadNonemptyIntersection) break;
+                    if (!hadChange && minPosUnchanged === undefined) minPosUnchanged = i;
                 }
-                for (const masks of posnegMasksByPopcount.slice(2)) {
-                    let hadNonzeroIntersection = false;
+                for (let i = 2; i < posnegMasksByPopcount.length; ++i) {
+                    if (minNegUnchanged && i >= minNegUnchanged * 2) break;
+                    const masks = posnegMasksByPopcount[i];
+                    let hadNonemptyIntersection = false;
+                    let hadChange = false;
                     for (const mask of masks) {
-                        const firstMask = mask & -mask;
-                        const restMask = mask & (mask - 1);
+                        let changedMask = mask;
+                        for (const unchangedMask of negUnchangedMasks) {
+                            if ((unchangedMask & ~mask) === 0) {
+                                changedMask &= ~unchangedMask;
+                            }
+                            if (changedMask === 0) break;
+                        }
+                        if (changedMask === 0) continue;
+
+                        let firstMask = mask & -mask;
+                        let restMask = mask & (mask - 1);
+                        if (i >= 4) {
+                            firstMask |= restMask & -restMask;
+                            restMask &= restMask - 1;
+                        }
                         // Set type to readonly since we don't want to accidentally mutate this
                         const firstNeg: readonly number[] = this.graph.posneg[startingVariable + firstMask];
                         const restNeg: readonly number[] = this.graph.posneg[startingVariable + restMask];
                         if (firstNeg !== undefined && restNeg !== undefined) {
                             const intersection = sequenceIntersectionDefaultCompare(firstNeg, restNeg);
-                            if (intersection.length > 0) {
+                            hadNonemptyIntersection = intersection.length > 0 || hadNonemptyIntersection;
+                            if (
+                                intersection.length > 0 &&
+                                (minNegUnchanged !== undefined ||
+                                    this.graph.posneg[startingVariable + mask] === undefined ||
+                                    !sequenceEqual(this.graph.posneg[startingVariable + mask], intersection))
+                            ) {
                                 this.graph.posneg[startingVariable + mask] = intersection;
-                                hadNonzeroIntersection = true;
+                                hadChange = true;
+                            } else {
+                                negUnchangedMasks.push(mask);
                             }
+                        } else {
+                            negUnchangedMasks.push(mask);
                         }
                     }
 
-                    if (!hadNonzeroIntersection) break;
+                    if (!hadNonemptyIntersection) break;
+                    if (!hadChange && minNegUnchanged === undefined) minNegUnchanged = i;
                 }
             } else {
                 // We have a parent layer, make sure we handle edges in parent layers as well
