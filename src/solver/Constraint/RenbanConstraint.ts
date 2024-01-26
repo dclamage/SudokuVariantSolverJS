@@ -123,15 +123,12 @@ class RenbanConstraint extends Constraint {
         }
 
         let changed = ConstraintResult.UNCHANGED;
-        for (const cell of this.cells) {
-            const result = board.keepCellMask(cell, expand);
-            if (result === ConstraintResult.INVALID) {
-                return ConstraintResult.INVALID;
-            }
-            if (result === ConstraintResult.CHANGED) {
-                changed = ConstraintResult.CHANGED;
-            }
-        }
+        const result = board.newApplyCellMasks(
+            this.cells,
+            Array.from({ length: this.cells.length }, () => expand)
+        );
+        if (result === ConstraintResult.INVALID) return ConstraintResult.INVALID;
+        if (result === ConstraintResult.CHANGED) changed = ConstraintResult.CHANGED;
         return changed;
     }
 }

@@ -32,8 +32,13 @@ export class OrConstraint extends Constraint {
     init(board: Board): InitResult {
         this.subboards = this.subboards.filter(subboard => {
             // Copy state downwards
-            for (let cellIndex = 0; cellIndex < this.numCells; ++cellIndex) {
-                subboard.keepCellMask(cellIndex, board.cells[cellIndex]);
+            if (
+                subboard.newApplyCellMasks(
+                    Array.from({ length: this.numCells }, (_, i) => i),
+                    board.cells
+                ) === ConstraintResult.INVALID
+            ) {
+                return false;
             }
             for (const { name, fromConstraint, type, cells } of board.regions) {
                 subboard.addRegion(name, cells, type, fromConstraint, false);
@@ -74,7 +79,7 @@ export class OrConstraint extends Constraint {
         this.subboardsChanged = true;
         let invalidSubboards: Board[] | null = null;
         for (const subboard of this.subboards) {
-            if (!subboard.setAsGiven(cellIndex, value)) {
+            if (subboard.newApplySingle(board.candidateIndex(cellIndex, value)) === ConstraintResult.INVALID) {
                 if (invalidSubboards === null) {
                     invalidSubboards = [];
                 }
@@ -93,7 +98,7 @@ export class OrConstraint extends Constraint {
         this.subboardsChanged = true;
         let invalidSubboards: Board[] | null = null;
         for (const subboard of this.subboards) {
-            if (!subboard.clearValue(cellIndex, value)) {
+            if (subboard.newApplyElim(board.candidateIndex(cellIndex, value)) === ConstraintResult.INVALID) {
                 if (invalidSubboards === null) {
                     invalidSubboards = [];
                 }
@@ -255,22 +260,19 @@ export class OrConstraint extends Constraint {
         this.subboardsChanged = false;
 
         // Transfer deductions shared by all subboards upward
-        let changed = ConstraintResult.UNCHANGED;
+        const sharedMasks = [];
         for (let cellIndex = 0; cellIndex < this.numCells; ++cellIndex) {
             let cellMask = 0;
             for (const subboard of this.subboards) {
                 cellMask |= subboard.cells[cellIndex];
             }
-            const result = board.keepCellMask(cellIndex, cellMask);
-            if (result === ConstraintResult.INVALID) {
-                return ConstraintResult.INVALID;
-            }
-            if (result === ConstraintResult.CHANGED) {
-                changed = ConstraintResult.CHANGED;
-            }
+            sharedMasks.push(cellMask);
         }
 
-        return changed;
+        return board.newApplyCellMasks(
+            Array.from({ length: this.numCells }, (_, i) => i),
+            sharedMasks
+        );
     }
 }
 

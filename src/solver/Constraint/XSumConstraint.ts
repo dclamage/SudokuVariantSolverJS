@@ -19,7 +19,7 @@ export function register(constraintBuilder: ConstraintBuilder) {
             const subboard = board.subboardClone();
 
             // In the ith branch, the first cell of the xsum has value i
-            subboard.keepCellMask(initialCellIndex, valueBit(digit));
+            subboard.newApplyCellMask(initialCellIndex, valueBit(digit));
             // And the first i cells sum to the given total
             subboard.addConstraint(
                 new FixedSumConstraint(`Hypothetical X-Sum`, `Hypothetical X-Sum ${params.value} at ${params.cell} if X = ${digit}`, subboard, {

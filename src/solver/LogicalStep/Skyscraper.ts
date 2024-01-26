@@ -1,4 +1,5 @@
 import { Board } from '../Board';
+import { ConstraintResult } from '../Constraint/Constraint';
 import { LogicResult } from '../Enums/LogicResult';
 import { combinations, ctz, popcount, valueBit } from '../SolveUtility';
 import { LogicalStep } from './LogicalStep';
@@ -42,8 +43,8 @@ export class Skyscraper extends LogicalStep {
                                     ? board.candidateIndexRC(rows[1].row, col1, value)
                                     : board.candidateIndexRC(col1, rows[1].row, value);
                             const elims = board.calcElimsForCandidateIndices([candidate0, candidate1]);
-                            const result = board.performElims(elims);
-                            if (result !== LogicResult.UNCHANGED) {
+                            const result = board.newApplyElims(elims);
+                            if (result !== ConstraintResult.UNCHANGED) {
                                 if (desc) {
                                     const sharedCol = ctz(rowMask0 & rowMask1);
                                     const sharedCandidate0 =
@@ -63,7 +64,7 @@ export class Skyscraper extends LogicalStep {
                                         ])} => ${board.describeElims(elims)}`
                                     );
                                 }
-                                return result;
+                                return result as number as LogicResult;
                             }
                         }
                     }

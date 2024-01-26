@@ -348,14 +348,7 @@ export class SumGroup {
     }
 
     applySumResult(board: Board, resultMasks: CellMask[]): boolean {
-        for (let cellIndex = 0; cellIndex < this.cells.length; cellIndex++) {
-            const cell = this.cells[cellIndex];
-            if (board.keepCellMask(cell, resultMasks[cellIndex]) === ConstraintResult.INVALID) {
-                return false;
-            }
-        }
-
-        return true;
+        return board.newApplyCellMasks(this.cells, resultMasks) !== ConstraintResult.INVALID;
     }
 
     possibleSums(board: Board): number[] {

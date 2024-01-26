@@ -159,17 +159,10 @@ export class Constraint {
         if (deductions.invalid) {
             return ConstraintResult.INVALID;
         }
-        if (deductions.singles && deductions.singles.length > 0) {
-            if (!board.enforceCandidates(deductions.singles)) {
-                return ConstraintResult.INVALID;
-            }
-            changed = ConstraintResult.CHANGED;
-        }
-        if (deductions.eliminations && deductions.eliminations.length > 0) {
-            if (!board.clearCandidates(deductions.eliminations)) {
-                return ConstraintResult.INVALID;
-            }
-            changed = ConstraintResult.CHANGED;
+        if ((deductions.singles && deductions.singles.length > 0) || (deductions.eliminations && deductions.eliminations.length > 0)) {
+            const result = board.applyAndPropagate(deductions.eliminations ?? [], deductions.singles ?? []);
+            if (result === ConstraintResult.INVALID) return ConstraintResult.INVALID;
+            if (result === ConstraintResult.CHANGED) changed = ConstraintResult.CHANGED;
         }
         // Don't apply any weak links or constraint modifications in bruteForceStep since that's not allowed here
 
@@ -197,17 +190,10 @@ export class Constraint {
         if (deductions.invalid) {
             return ConstraintResult.INVALID;
         }
-        if (deductions.singles && deductions.singles.length > 0) {
-            if (!board.enforceCandidates(deductions.singles)) {
-                return ConstraintResult.INVALID;
-            }
-            changed = ConstraintResult.CHANGED;
-        }
-        if (deductions.eliminations && deductions.eliminations.length > 0) {
-            if (!board.clearCandidates(deductions.eliminations)) {
-                return ConstraintResult.INVALID;
-            }
-            changed = ConstraintResult.CHANGED;
+        if ((deductions.singles && deductions.singles.length > 0) || (deductions.eliminations && deductions.eliminations.length > 0)) {
+            const result = board.applyAndPropagate(deductions.eliminations ?? [], deductions.singles ?? []);
+            if (result === ConstraintResult.INVALID) return ConstraintResult.INVALID;
+            if (result === ConstraintResult.CHANGED) changed = ConstraintResult.CHANGED;
         }
 
         return {
