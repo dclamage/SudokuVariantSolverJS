@@ -12,6 +12,7 @@ import {
     sequenceIntersectionUpdateDefaultCompare,
     sequenceUnionDefaultCompare,
     sequenceRemoveUpdateDefaultCompare,
+    sequenceEqual,
 } from './SolveUtility';
 
 // Table of contents
@@ -508,9 +509,14 @@ export class BinaryImplicationLayeredGraph {
 
             // Clause subsets of size 2 and above
             // Use simpler algorithm when at root layer
+            let minPosUnchanged: number | undefined = undefined;
+            let minNegUnchanged: number | undefined = undefined;
             if (this.parentLayer === undefined) {
-                for (const masks of posposMasksByPopcount.slice(2)) {
-                    let hadNonzeroIntersection = false;
+                for (let i = 2; i < posposMasksByPopcount.length; ++i) {
+                    if (minPosUnchanged && i >= minPosUnchanged * 2) break;
+                    const masks = posposMasksByPopcount[i];
+                    let hadNonemptyIntersection = false;
+                    let hadChange = false;
                     for (const mask of masks) {
                         const firstMask = mask & -mask;
                         const restMask = mask & (mask - 1);
@@ -519,17 +525,27 @@ export class BinaryImplicationLayeredGraph {
                         const restPos: readonly number[] = this.graph.pospos[startingVariable + restMask];
                         if (firstPos !== undefined && restPos !== undefined) {
                             const intersection = sequenceIntersectionDefaultCompare(firstPos, restPos);
-                            if (intersection.length > 0) {
+                            hadNonemptyIntersection = intersection.length > 0 || hadNonemptyIntersection;
+                            if (
+                                intersection.length > 0 &&
+                                (minPosUnchanged !== undefined ||
+                                    this.graph.pospos[startingVariable + mask] === undefined ||
+                                    !sequenceEqual(this.graph.pospos[startingVariable + mask], intersection))
+                            ) {
                                 this.graph.pospos[startingVariable + mask] = intersection;
-                                hadNonzeroIntersection = true;
+                                hadChange = true;
                             }
                         }
                     }
 
-                    if (!hadNonzeroIntersection) break;
+                    if (!hadNonemptyIntersection) break;
+                    if (!hadChange && minPosUnchanged === undefined) minPosUnchanged = i;
                 }
-                for (const masks of posnegMasksByPopcount.slice(2)) {
-                    let hadNonzeroIntersection = false;
+                for (let i = 2; i < posnegMasksByPopcount.length; ++i) {
+                    if (minNegUnchanged && i >= minNegUnchanged * 2) break;
+                    const masks = posnegMasksByPopcount[i];
+                    let hadNonemptyIntersection = false;
+                    let hadChange = false;
                     for (const mask of masks) {
                         const firstMask = mask & -mask;
                         const restMask = mask & (mask - 1);
@@ -538,14 +554,21 @@ export class BinaryImplicationLayeredGraph {
                         const restNeg: readonly number[] = this.graph.posneg[startingVariable + restMask];
                         if (firstNeg !== undefined && restNeg !== undefined) {
                             const intersection = sequenceIntersectionDefaultCompare(firstNeg, restNeg);
-                            if (intersection.length > 0) {
+                            hadNonemptyIntersection = intersection.length > 0 || hadNonemptyIntersection;
+                            if (
+                                intersection.length > 0 &&
+                                (minNegUnchanged !== undefined ||
+                                    this.graph.posneg[startingVariable + mask] === undefined ||
+                                    !sequenceEqual(this.graph.posneg[startingVariable + mask], intersection))
+                            ) {
                                 this.graph.posneg[startingVariable + mask] = intersection;
-                                hadNonzeroIntersection = true;
+                                hadChange = true;
                             }
                         }
                     }
 
-                    if (!hadNonzeroIntersection) break;
+                    if (!hadNonemptyIntersection) break;
+                    if (!hadChange && minNegUnchanged === undefined) minNegUnchanged = i;
                 }
             } else {
                 // We have a parent layer, make sure we handle edges in parent layers as well
