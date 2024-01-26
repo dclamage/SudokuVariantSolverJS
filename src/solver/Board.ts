@@ -208,7 +208,7 @@ export class Board {
     invalidInit: boolean;
     nonGivenCount: number;
     reducedCells: CellIndex[];
-    reducedCellsBoolean: Uint8Array;
+    cellIsReduced: Uint8Array;
     binaryImplications: BinaryImplicationLayeredGraph;
     regions: Region[];
     constraints: Constraint[];
@@ -231,7 +231,7 @@ export class Board {
             this.invalidInit = false;
             this.nonGivenCount = size * size;
             this.reducedCells = [];
-            this.reducedCellsBoolean = new Uint8Array(size * size);
+            this.cellIsReduced = new Uint8Array(size * size);
             this.binaryImplications = new BinaryImplicationLayeredGraph(
                 size * size * size,
                 Array.from({ length: size * size }, (_, cellIndex) => Array.from({ length: size }, (_, i) => cellIndex * size + i))
@@ -286,7 +286,7 @@ export class Board {
         clone.invalidInit = this.invalidInit;
         clone.nonGivenCount = this.nonGivenCount;
         clone.reducedCells = this.reducedCells.slice(); // Deep copy
-        clone.reducedCellsBoolean = new Uint8Array(this.reducedCellsBoolean);
+        clone.cellIsReduced = new Uint8Array(this.cellIsReduced);
         clone.binaryImplications = this.binaryImplications;
         clone.regions = this.regions;
         clone.constraints = this.constraints.map(constraint => constraint.clone()); // Clone constraints that need backtracking state
@@ -319,7 +319,7 @@ export class Board {
         clone.invalidInit = this.invalidInit;
         clone.nonGivenCount = this.nonGivenCount;
         clone.reducedCells = this.reducedCells.slice(); // Deep copy
-        clone.reducedCellsBoolean = new Uint8Array(this.reducedCellsBoolean);
+        clone.cellIsReduced = new Uint8Array(this.cellIsReduced);
         clone.binaryImplications = this.binaryImplications.subboardClone(); // Deep copy
         clone.regions = this.regions.slice(); // Deep copy
         clone.constraints = []; // Don't inherit constraints
@@ -707,9 +707,9 @@ export class Board {
         this.solveStats.masksEnforced++;
 
         if ((cellMask & (cellMask - 1)) !== 0) {
-            if (!this.reducedCellsBoolean[cellIndex]) {
+            if (!this.cellIsReduced[cellIndex]) {
                 this.reducedCells.push(cellIndex);
-                this.reducedCellsBoolean[cellIndex] = 1;
+                this.cellIsReduced[cellIndex] = 1;
             }
         }
 
@@ -1351,7 +1351,7 @@ export class Board {
 
         while (this.reducedCells.length > 0) {
             const cellIndex = this.reducedCells.pop();
-            this.reducedCellsBoolean[cellIndex] = 0;
+            this.cellIsReduced[cellIndex] = 0;
 
             const mask = this.cells[cellIndex] & this.allValues;
             const count = popcount(mask);
