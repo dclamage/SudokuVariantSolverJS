@@ -207,7 +207,6 @@ export class Board {
     cells64: BigUint64Array | null;
     invalidInit: boolean;
     nonGivenCount: number;
-    nakedSingles: CellIndex[];
     reducedCells: CellIndex[];
     reducedCellsBoolean: Uint8Array;
     binaryImplications: BinaryImplicationLayeredGraph;
@@ -231,7 +230,6 @@ export class Board {
             this.cells.fill(this.allValues);
             this.invalidInit = false;
             this.nonGivenCount = size * size;
-            this.nakedSingles = [];
             this.reducedCells = [];
             this.reducedCellsBoolean = new Uint8Array(size * size);
             this.binaryImplications = new BinaryImplicationLayeredGraph(
@@ -287,7 +285,6 @@ export class Board {
 
         clone.invalidInit = this.invalidInit;
         clone.nonGivenCount = this.nonGivenCount;
-        clone.nakedSingles = this.nakedSingles.slice(); // Deep copy
         clone.reducedCells = this.reducedCells.slice(); // Deep copy
         clone.reducedCellsBoolean = new Uint8Array(this.reducedCellsBoolean);
         clone.binaryImplications = this.binaryImplications;
@@ -321,7 +318,6 @@ export class Board {
 
         clone.invalidInit = this.invalidInit;
         clone.nonGivenCount = this.nonGivenCount;
-        clone.nakedSingles = this.nakedSingles.slice(); // Deep copy
         clone.reducedCells = this.reducedCells.slice(); // Deep copy
         clone.reducedCellsBoolean = new Uint8Array(this.reducedCellsBoolean);
         clone.binaryImplications = this.binaryImplications.subboardClone(); // Deep copy
@@ -710,9 +706,7 @@ export class Board {
 
         this.solveStats.masksEnforced++;
 
-        if (popcount(cellMask) === 1) {
-            this.nakedSingles.push(cellIndex);
-        } else {
+        if ((cellMask & (cellMask - 1)) !== 0) {
             if (!this.reducedCellsBoolean[cellIndex]) {
                 this.reducedCells.push(cellIndex);
                 this.reducedCellsBoolean[cellIndex] = 1;
@@ -994,13 +988,12 @@ export class Board {
             result = this.applyPairs();
             if (result !== LogicResult.UNCHANGED) continue;
 
-            if (initialNonGivenCount !== this.nonGivenCount || this.nakedSingles.length !== 0)
-                throw new Error('Constraints/Tactics all report unchanged, but board changed');
+            if (initialNonGivenCount !== this.nonGivenCount) throw new Error('Constraints/Tactics all report unchanged, but board changed');
 
             if (isInitialPreprocessing && discoverBinaryImplicationsUnprobedCells.length > 0) {
                 result = this.discoverBinaryImplications(discoverBinaryImplicationsUnprobedCells);
                 // Recompute cell forcing if something changed, unless we're basically done here
-                if (result === LogicResult.CHANGED && this.nakedSingles.length !== this.nonGivenCount) {
+                if (result === LogicResult.CHANGED) {
                     // Recompute cell forcing
                     this.binaryImplications.preprocess(this);
                 }
@@ -1225,14 +1218,20 @@ export class Board {
 
     private applyNakedSingles() {
         let changed = false;
-        while (this.nakedSingles.length > 0) {
-            const cellIndex = this.nakedSingles.pop();
-            const value = this.getValue(cellIndex);
-
-            if (!this.setAsGiven(cellIndex, value)) {
-                return LogicResult.INVALID;
+        while (true) {
+            let changedThisRound = false;
+            for (let cellIndex = 0; cellIndex < this.size * this.size; cellIndex++) {
+                const mask = this.cells[cellIndex];
+                if ((mask & (mask - 1)) !== 0) continue;
+                if (!this.setAsGiven(cellIndex, minValue(mask))) {
+                    return LogicResult.INVALID;
+                }
+                changed = true;
+                changedThisRound = true;
             }
-            changed = true;
+            if (!changedThisRound) {
+                break;
+            }
         }
 
         return this.nonGivenCount === 0 ? LogicResult.COMPLETE : changed ? LogicResult.CHANGED : LogicResult.UNCHANGED;
@@ -1283,7 +1282,6 @@ export class Board {
 
     private applyConstraintsBruteForce(): LogicResult {
         const initialNonGivenCount = this.nonGivenCount;
-        if (this.nakedSingles.length !== 0) throw new Error('Should not be applying constraints if there are naked singles to find');
 
         for (const constraint of this.constraints) {
             const result = constraint.bruteForceStep(this);
@@ -1293,15 +1291,13 @@ export class Board {
             }
         }
 
-        if (initialNonGivenCount !== this.nonGivenCount || this.nakedSingles.length !== 0)
-            throw new Error('Constraints all report unchanged, but board changed');
+        if (initialNonGivenCount !== this.nonGivenCount) throw new Error('Constraints all report unchanged, but board changed');
 
         return LogicResult.UNCHANGED;
     }
 
     private applyConstraintsPreprocessing(): LogicResult {
         const initialNonGivenCount = this.nonGivenCount;
-        if (this.nakedSingles.length !== 0) throw new Error('Should not be applying constraints if there are naked singles to find');
 
         for (const constraint of this.constraints.slice()) {
             const result = constraint.preprocessingStep(this);
@@ -1345,8 +1341,7 @@ export class Board {
             }
         }
 
-        if (initialNonGivenCount !== this.nonGivenCount || this.nakedSingles.length !== 0)
-            throw new Error('Constraints all report unchanged, but board changed');
+        if (initialNonGivenCount !== this.nonGivenCount) throw new Error('Constraints all report unchanged, but board changed');
 
         return LogicResult.UNCHANGED;
     }

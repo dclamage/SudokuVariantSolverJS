@@ -433,9 +433,6 @@ class SudokuVariantSolver {
             board.setAsGiven(given, value);
         }
 
-        // Clean up any naked singles which are alreay set as given
-        board.nakedSingles = board.nakedSingles.filter(cellIndex => !board.isGiven(cellIndex));
-
         return board;
     }
 
