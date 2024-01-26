@@ -547,8 +547,12 @@ export class BinaryImplicationLayeredGraph {
                         }
                         if (changedMask === 0) continue;
 
-                        const firstMask = mask & -mask;
-                        const restMask = mask & (mask - 1);
+                        let firstMask = mask & -mask;
+                        let restMask = mask & (mask - 1);
+                        if (i >= 4) {
+                            firstMask |= restMask & -restMask;
+                            restMask &= restMask - 1;
+                        }
                         // Set type to readonly since we don't want to accidentally mutate this
                         const firstPos: readonly number[] = this.graph.pospos[startingVariable + firstMask];
                         const restPos: readonly number[] = this.graph.pospos[startingVariable + restMask];
@@ -589,8 +593,12 @@ export class BinaryImplicationLayeredGraph {
                         }
                         if (changedMask === 0) continue;
 
-                        const firstMask = mask & -mask;
-                        const restMask = mask & (mask - 1);
+                        let firstMask = mask & -mask;
+                        let restMask = mask & (mask - 1);
+                        if (i >= 4) {
+                            firstMask |= restMask & -restMask;
+                            restMask &= restMask - 1;
+                        }
                         // Set type to readonly since we don't want to accidentally mutate this
                         const firstNeg: readonly number[] = this.graph.posneg[startingVariable + firstMask];
                         const restNeg: readonly number[] = this.graph.posneg[startingVariable + restMask];
