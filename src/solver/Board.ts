@@ -934,8 +934,6 @@ export class Board {
             this.solveStats.bruteForcePasses++;
         }
 
-        let changed = false;
-
         // Start probing from the first cell in order. Probing in order gives better performance than probing randomly.
         // This array is reversed as discoverBinaryImplications pops cellindices from the back.
         const discoverBinaryImplicationsUnprobedCells: CellIndex[] = Array.from(
@@ -943,169 +941,74 @@ export class Board {
             (_, i) => this.size * this.size - 1 - i
         );
 
-        while (true) {
+        let prevResult = LogicResult.UNCHANGED;
+        let result = LogicResult.UNCHANGED;
+        // Loop until result is not "CHANGED"
+        // do-while because we always want to run at least once
+        do {
+            // below: while (result === LogicResult.CHANGED);
+            prevResult = result;
+
             // Just in case, check if the board is completed
             if (this.nonGivenCount === 0) {
                 return LogicResult.COMPLETE;
             }
 
-            const initialNonGivenCount = this.nonGivenCount;
-            let changedThisRound = false;
-            let result = this.applyNakedSingles();
+            result = this.applyNakedSingles();
             if (result === LogicResult.INVALID || result === LogicResult.COMPLETE) {
-                return result;
+                break;
             }
+            // Continue on to hidden singles because naked singles apply
+            // Until there are no more naked singles
             if (result === LogicResult.CHANGED) {
-                changedThisRound = true;
-                changed = true;
-                // Continue on to hidden singles because naked singles apply
-                // Until there are no more naked singles
+                prevResult = result;
             }
+
+            const initialNonGivenCount = this.nonGivenCount;
 
             result = this.applyCellForcing();
-            if (result === LogicResult.INVALID) {
-                return result;
-            }
-
-            if (result === LogicResult.CHANGED) {
-                changedThisRound = true;
-                changed = true;
-                // Keep looking for logic until there is none
-                continue;
-            }
+            if (result !== LogicResult.UNCHANGED) continue;
 
             result = this.applyHiddenSingles();
-            if (result === LogicResult.INVALID || result === LogicResult.COMPLETE) {
-                return result;
-            }
-
-            if (result === LogicResult.CHANGED) {
-                changedThisRound = true;
-                changed = true;
-                // Keep looking for logic until there is none
-                continue;
-            }
+            if (result !== LogicResult.UNCHANGED) continue;
 
             if (doExpensiveSteps) {
                 // Look for expensive brute force steps
                 for (const step of this.bruteForceExpensiveSteps) {
                     result = step.step(this, null);
-                    if (result === LogicResult.INVALID || result === LogicResult.COMPLETE) {
-                        return result;
-                    }
-
-                    if (result === LogicResult.CHANGED) {
-                        changedThisRound = true;
-                        changed = true;
-                        // Keep looking for logic until there is none
-                        continue;
-                    }
+                    if (result !== LogicResult.UNCHANGED) continue;
                 }
             } else {
                 // If we get here, then there are no more singles to find
                 // Allow constraints to apply their logic
                 if (!isDepth0) {
-                    for (const constraint of this.constraints) {
-                        const result = constraint.bruteForceStep(this);
-                        this.solveStats.bruteForceSteps++;
-                        if (result === ConstraintResult.INVALID) {
-                            return LogicResult.INVALID;
-                        }
-                        if (result === ConstraintResult.CHANGED) {
-                            changedThisRound = true;
-                            changed = true;
-                            break;
-                        }
-                    }
+                    result = this.applyConstraintsBruteForce();
+                    if (result !== LogicResult.UNCHANGED) continue;
                 } else {
-                    for (const constraint of this.constraints.slice()) {
-                        const result = constraint.preprocessingStep(this);
-                        this.solveStats.preprocessingSteps++;
-                        const payload = typeof result === 'object' ? result : null;
-                        const constraintResult = typeof result === 'object' ? result.result : result;
-                        if (constraintResult === ConstraintResult.INVALID) {
-                            return LogicResult.INVALID;
-                        }
-                        if (constraintResult === ConstraintResult.CHANGED) {
-                            changedThisRound = true;
-                            changed = true;
-                        }
-                        if (payload) {
-                            if (payload.addConstraints && payload.addConstraints.length > 0) {
-                                for (const constraint of payload.addConstraints) {
-                                    this.constraints.push(constraint);
-                                    this.initSingleConstraint(constraint);
-                                }
-                                changedThisRound = true;
-                                changed = true;
-                            }
-                            if (payload.deleteConstraints && payload.deleteConstraints.length > 0) {
-                                this.constraints = this.constraints.filter(constraint => !payload.deleteConstraints.includes(constraint));
-                            }
-                            if (payload.weakLinks && payload.weakLinks.length > 0) {
-                                for (const [index1, index2] of payload.weakLinks) {
-                                    this.addWeakLink(index1, index2);
-                                }
-                                this.binaryImplications.sortGraph();
-                                changedThisRound = true;
-                                changed = true;
-                            }
-                            if (payload.implications && payload.implications.length > 0) {
-                                for (const [index1, index2] of payload.implications) {
-                                    this.binaryImplications.addImplication(index1, index2);
-                                }
-                                changedThisRound = true;
-                                changed = true;
-                            }
-                        }
-                        if (changedThisRound) {
-                            break;
-                        }
-                    }
-                }
-
-                if (changedThisRound || initialNonGivenCount !== this.nonGivenCount || this.nakedSingles.length !== 0) {
-                    // Keep looking for logic until there is none
-                    continue;
+                    result = this.applyConstraintsPreprocessing();
+                    if (result !== LogicResult.UNCHANGED) continue;
                 }
             }
 
             // Look for pairs (fast brute-force method)
             result = this.applyPairs();
-            if (result === LogicResult.INVALID) {
-                return result;
-            }
+            if (result !== LogicResult.UNCHANGED) continue;
 
-            if (result === LogicResult.CHANGED) {
-                changedThisRound = true;
-                changed = true;
-                // Keep looking for logic until there is none
-                continue;
-            }
+            if (initialNonGivenCount !== this.nonGivenCount || this.nakedSingles.length !== 0)
+                throw new Error('Constraints/Tactics all report unchanged, but board changed');
 
-            if (!changedThisRound && initialNonGivenCount === this.nonGivenCount && this.nakedSingles.length === 0) {
-                if (isInitialPreprocessing && discoverBinaryImplicationsUnprobedCells.length > 0) {
-                    result = this.discoverBinaryImplications(discoverBinaryImplicationsUnprobedCells);
-                    if (result === LogicResult.INVALID) {
-                        return result;
-                    }
-
-                    if (result === LogicResult.CHANGED) {
-                        // Skip cell forcing if we're basically done here
-                        if (this.nakedSingles.length !== this.nonGivenCount) {
-                            // Recompute cell forcing
-                            this.binaryImplications.preprocess(this);
-                        }
-                        changedThisRound = true;
-                        changed = true;
-                        // Keep looking for logic until there is none
-                        continue;
-                    }
+            if (isInitialPreprocessing && discoverBinaryImplicationsUnprobedCells.length > 0) {
+                result = this.discoverBinaryImplications(discoverBinaryImplicationsUnprobedCells);
+                // Recompute cell forcing if something changed, unless we're basically done here
+                if (result === LogicResult.CHANGED && this.nakedSingles.length !== this.nonGivenCount) {
+                    // Recompute cell forcing
+                    this.binaryImplications.preprocess(this);
                 }
-
-                return changed ? LogicResult.CHANGED : LogicResult.UNCHANGED;
+                if (result !== LogicResult.UNCHANGED) continue;
             }
-        }
+        } while (result === LogicResult.CHANGED);
+
+        return result === LogicResult.UNCHANGED ? prevResult : result;
     }
 
     canPlaceDigits(cells: CellIndex[], values: CellValue[]) {
@@ -1378,8 +1281,77 @@ export class Board {
         return this.nonGivenCount === 0 ? LogicResult.COMPLETE : changed ? LogicResult.CHANGED : LogicResult.UNCHANGED;
     }
 
+    private applyConstraintsBruteForce(): LogicResult {
+        const initialNonGivenCount = this.nonGivenCount;
+        if (this.nakedSingles.length !== 0) throw new Error('Should not be applying constraints if there are naked singles to find');
+
+        for (const constraint of this.constraints) {
+            const result = constraint.bruteForceStep(this);
+            this.solveStats.bruteForceSteps++;
+            if (result !== ConstraintResult.UNCHANGED) {
+                return result as number as LogicResult;
+            }
+        }
+
+        if (initialNonGivenCount !== this.nonGivenCount || this.nakedSingles.length !== 0)
+            throw new Error('Constraints all report unchanged, but board changed');
+
+        return LogicResult.UNCHANGED;
+    }
+
+    private applyConstraintsPreprocessing(): LogicResult {
+        const initialNonGivenCount = this.nonGivenCount;
+        if (this.nakedSingles.length !== 0) throw new Error('Should not be applying constraints if there are naked singles to find');
+
+        for (const constraint of this.constraints.slice()) {
+            const result = constraint.preprocessingStep(this);
+            this.solveStats.preprocessingSteps++;
+            const payload = typeof result === 'object' ? result : null;
+            const constraintResult = typeof result === 'object' ? result.result : result;
+            if (constraintResult === ConstraintResult.INVALID) {
+                return LogicResult.INVALID;
+            }
+            let changed = false;
+            if (constraintResult === ConstraintResult.CHANGED) {
+                changed = true;
+            }
+            if (payload) {
+                if (payload.addConstraints && payload.addConstraints.length > 0) {
+                    for (const constraint of payload.addConstraints) {
+                        this.constraints.push(constraint);
+                        this.initSingleConstraint(constraint);
+                    }
+                    changed = true;
+                }
+                if (payload.deleteConstraints && payload.deleteConstraints.length > 0) {
+                    this.constraints = this.constraints.filter(constraint => !payload.deleteConstraints.includes(constraint));
+                }
+                if (payload.weakLinks && payload.weakLinks.length > 0) {
+                    for (const [index1, index2] of payload.weakLinks) {
+                        this.addWeakLink(index1, index2);
+                    }
+                    this.binaryImplications.sortGraph();
+                    changed = true;
+                }
+                if (payload.implications && payload.implications.length > 0) {
+                    for (const [index1, index2] of payload.implications) {
+                        this.binaryImplications.addImplication(index1, index2);
+                    }
+                    changed = true;
+                }
+            }
+            if (changed) {
+                return LogicResult.CHANGED;
+            }
+        }
+
+        if (initialNonGivenCount !== this.nonGivenCount || this.nakedSingles.length !== 0)
+            throw new Error('Constraints all report unchanged, but board changed');
+
+        return LogicResult.UNCHANGED;
+    }
+
     private applyCellForcing(): LogicResult {
-        // throw new Error('Clause forcing is disabled');
         let changed = false;
 
         while (this.reducedCells.length > 0) {
