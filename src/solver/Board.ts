@@ -213,6 +213,7 @@ export class Board {
     binaryImplications: BinaryImplicationLayeredGraph;
     regions: Region[];
     constraints: Constraint[];
+    constraintsWithEnforceCandidateElim: Constraint[];
     constraintStates: Cloneable[];
     constraintStateIsCloned: (undefined | true)[];
     memos: Map<string, unknown>;
@@ -239,6 +240,7 @@ export class Board {
             );
             this.regions = [];
             this.constraints = [];
+            this.constraintsWithEnforceCandidateElim = [];
             this.constraintStates = [];
             this.constraintStateIsCloned = [];
             this.memos = new Map();
@@ -291,6 +293,9 @@ export class Board {
         clone.binaryImplications = this.binaryImplications;
         clone.regions = this.regions;
         clone.constraints = this.constraints.map(constraint => constraint.clone()); // Clone constraints that need backtracking state
+        clone.constraintsWithEnforceCandidateElim = clone.constraints.filter((_, i) =>
+            this.constraintsWithEnforceCandidateElim.includes(this.constraints[i])
+        );
         clone.constraintStates = this.constraintStates.slice();
         clone.constraintStateIsCloned = [];
         // We can't mutate `this` state either as there may be a clone which references it
@@ -324,6 +329,7 @@ export class Board {
         clone.binaryImplications = this.binaryImplications.subboardClone(); // Deep copy
         clone.regions = this.regions.slice(); // Deep copy
         clone.constraints = []; // Don't inherit constraints
+        clone.constraintsWithEnforceCandidateElim = []; // Don't inherit constraints
         clone.constraintStates = [];
         clone.memos = new Map(); // Don't inherit memos
         clone.logicalSteps = this.logicalSteps;
@@ -500,6 +506,9 @@ export class Board {
 
     addConstraint(constraint: Constraint) {
         this.constraints.push(constraint);
+        if (constraint.enforceCandidateElim !== Constraint.prototype.enforceCandidateElim) {
+            this.constraintsWithEnforceCandidateElim.push(constraint);
+        }
     }
 
     // Calls `func` on all constraints in a loop
@@ -540,6 +549,9 @@ export class Board {
         }
         if (deduction.deleteConstraints && deduction.deleteConstraints.length > 0) {
             this.constraints = this.constraints.filter(constraint => !deduction.deleteConstraints.includes(constraint));
+            this.constraintsWithEnforceCandidateElim = this.constraintsWithEnforceCandidateElim.filter(
+                constraint => !deduction.deleteConstraints.includes(constraint)
+            );
             haveChange = true;
         }
         if (deduction.weakLinks && deduction.weakLinks.length > 0) {
@@ -587,11 +599,16 @@ export class Board {
                     this.binaryImplications.sortGraph();
                 }
                 if (payload.addConstraints && payload.addConstraints.length > 0) {
-                    this.constraints.push(...payload.addConstraints);
+                    for (const constraint of payload.addConstraints) {
+                        this.addConstraint(constraint);
+                    }
                     uninitedConstraints.push(...payload.addConstraints);
                 }
                 if (payload.deleteConstraints && payload.deleteConstraints.length > 0) {
                     this.constraints = this.constraints.filter(constraint => !payload.deleteConstraints.includes(constraint));
+                    this.constraintsWithEnforceCandidateElim = this.constraintsWithEnforceCandidateElim.filter(
+                        constraint => !payload.deleteConstraints.includes(constraint)
+                    );
                 }
             }
         }
@@ -756,6 +773,7 @@ export class Board {
                 const elim = elims.pop();
                 this.solveStats.masksEnforced++;
 
+                // Disable propagating negative literals
                 // for (const newElim of this.binaryImplications.getNegConsequences(~elim)) {
                 //     if (!this.addElim(newElim, elims)) return ConstraintResult.INVALID;
                 // }
@@ -764,7 +782,7 @@ export class Board {
                 // }
 
                 const [cellIndex, value] = this.candidateToIndexAndValue(elim);
-                for (const constraint of this.constraints) {
+                for (const constraint of this.constraintsWithEnforceCandidateElim) {
                     this.solveStats.constraintEliminationsEnforced++;
                     if (!constraint.enforceCandidateElim(this, cellIndex, value)) {
                         return ConstraintResult.INVALID;
@@ -1313,13 +1331,16 @@ export class Board {
             if (payload) {
                 if (payload.addConstraints && payload.addConstraints.length > 0) {
                     for (const constraint of payload.addConstraints) {
-                        this.constraints.push(constraint);
+                        this.addConstraint(constraint);
                         this.initSingleConstraint(constraint);
                     }
                     changed = true;
                 }
                 if (payload.deleteConstraints && payload.deleteConstraints.length > 0) {
                     this.constraints = this.constraints.filter(constraint => !payload.deleteConstraints.includes(constraint));
+                    this.constraintsWithEnforceCandidateElim = this.constraintsWithEnforceCandidateElim.filter(
+                        constraint => !payload.deleteConstraints.includes(constraint)
+                    );
                 }
                 if (payload.weakLinks && payload.weakLinks.length > 0) {
                     for (const [index1, index2] of payload.weakLinks) {
