@@ -1,4 +1,5 @@
 import { Board } from '../Board';
+import { ConstraintResult } from '../Constraint/Constraint';
 import { LogicResult } from '../Enums/LogicResult';
 import { cellName, minValue } from '../SolveUtility';
 import { LogicalStep } from './LogicalStep';
@@ -16,7 +17,7 @@ export class NakedSingle extends LogicalStep {
             const mask = board.cells[cellIndex];
             if (mask & (mask - 1)) continue;
             const value = minValue(mask);
-            if (!board.setAsGiven(cellIndex, value)) {
+            if (board.newApplySingle(board.candidateIndex(cellIndex, value)) === ConstraintResult.INVALID) {
                 if (desc) {
                     desc.push(`Naked Single: ${cellName(cellIndex, size)} cannot be set to ${value}.`);
                 }

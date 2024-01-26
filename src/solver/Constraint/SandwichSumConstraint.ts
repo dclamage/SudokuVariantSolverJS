@@ -1,6 +1,7 @@
 import { Board } from '../Board';
 import ConstraintBuilder from '../ConstraintBuilder';
 import { CellIndex, parseEdgeClueCoords, valueBit } from '../SolveUtility';
+import { ConstraintResult } from './Constraint';
 import { FPuzzlesCell } from './FPuzzlesInterfaces';
 import { FixedSumConstraint } from './FixedSumConstraint';
 import { OrConstraint } from './OrConstraint';
@@ -24,8 +25,14 @@ export function register(constraintBuilder: ConstraintBuilder) {
                 // in the (i,j) branch, cells i and j can only be 1 and size, and 2-(size-1) otherwise
                 // we are helping out the subboard by doing naked pair logic for them because tactics aren't run on subboards by default
                 // so it will not see this without our help. doing the naked pair logic lets subboards be pruned during a solve.
-                for (let i = 0; i < board.size; ++i) {
-                    subboard.keepCellMask(allCells[i], i === firstPos || i === secondPos ? crustsMask : nonCrustsMask);
+                if (
+                    subboard.newApplyCellMasks(
+                        allCells,
+                        allCells.map((_, i) => (i === firstPos || i === secondPos ? crustsMask : nonCrustsMask))
+                    ) === ConstraintResult.INVALID
+                ) {
+                    subboard.release();
+                    continue;
                 }
 
                 // cells in between the crusts must sum to the given total

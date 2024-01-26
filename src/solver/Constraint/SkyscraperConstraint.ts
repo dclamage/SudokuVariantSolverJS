@@ -60,7 +60,7 @@ export class SkyscraperConstraint extends Constraint {
         if (this.clue === 1) {
             const keepMask = valueBit(board.size);
             return {
-                result: board.keepCellMask(this.cells[0], keepMask) ? ConstraintResult.CHANGED : ConstraintResult.UNCHANGED,
+                result: board.newApplyCellMask(this.cells[0], keepMask),
                 deleteConstraints: [this],
             };
         }
@@ -71,7 +71,7 @@ export class SkyscraperConstraint extends Constraint {
         if (this.clue === board.size) {
             for (let v = 1; v <= board.size; ++v) {
                 const keepMask = valueBit(v);
-                const result = board.keepCellMask(this.cells[v - 1], keepMask);
+                const result = board.newApplyCellMask(this.cells[v - 1], keepMask);
                 if (result === ConstraintResult.INVALID) {
                     return ConstraintResult.INVALID;
                 }
@@ -85,7 +85,7 @@ export class SkyscraperConstraint extends Constraint {
                 const maxValue = board.size - this.clue + 1 + cellIndex;
                 if (maxValue < board.size) {
                     const keepMask = maskLowerOrEqual(maxValue);
-                    const result = board.keepCellMask(cell, keepMask);
+                    const result = board.newApplyCellMask(cell, keepMask);
                     if (result === ConstraintResult.INVALID) {
                         return ConstraintResult.INVALID;
                     }
@@ -311,18 +311,7 @@ export class SkyscraperConstraint extends Constraint {
             }
         }
 
-        let changed = ConstraintResult.UNCHANGED;
-        for (let cellIndex = 0; cellIndex < this.cells.length; ++cellIndex) {
-            const result = board.keepCellMask(this.cells[cellIndex], keepMasks[cellIndex]);
-            if (result === ConstraintResult.INVALID) {
-                return ConstraintResult.INVALID;
-            }
-            if (result === ConstraintResult.CHANGED) {
-                changed = ConstraintResult.CHANGED;
-            }
-        }
-
-        return changed;
+        return board.newApplyCellMasks(this.cells, keepMasks);
     }
 
     static seenCount(values: CellValue[]): number {

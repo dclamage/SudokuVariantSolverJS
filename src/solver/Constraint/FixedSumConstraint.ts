@@ -32,7 +32,7 @@ export class FixedSumConstraint extends Constraint {
 
             const cell = this.cells[0];
             return {
-                result: board.keepCellMask(cell, valueBit(this.sum)),
+                result: board.newApplyCellMask(cell, valueBit(this.sum)),
                 deleteConstraints: [this],
             };
         }

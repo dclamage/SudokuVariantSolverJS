@@ -57,7 +57,7 @@ export class ArrowSumConstraint extends Constraint {
             const subboards = [];
             for (let tensDigit = 1; tensDigit <= board.size; ++tensDigit) {
                 const subboard = board.subboardClone();
-                subboard.keepCellMask(this.circleCells[0], valueBit(tensDigit));
+                subboard.newApplyCellMask(this.circleCells[0], valueBit(tensDigit));
                 subboard.addConstraint(
                     new EqualSumConstraint(
                         `Hypothetical ${this.toString()}`,
@@ -79,7 +79,7 @@ export class ArrowSumConstraint extends Constraint {
     }
 
     // eslint-disable-next-line no-unused-vars
-    initPill(board: Board) {
+    initPill(board: Board): ConstraintResult {
         const [sumMin, sumMax] = this.arrowCellsSum.sumRange(board);
         const sumMinLength = sumMin.toString().length;
         const sumMaxLength = sumMax.toString().length;
@@ -105,8 +105,7 @@ export class ArrowSumConstraint extends Constraint {
             }
 
             const firstCircleCell = this.circleCells[0];
-            const keepResult = board.keepCellMask(firstCircleCell, board.maskBetweenInclusive(minSumLeadingDigit, maxSumLeadingDigit));
-            return keepResult;
+            return board.newApplyCellMask(firstCircleCell, board.maskBetweenInclusive(minSumLeadingDigit, maxSumLeadingDigit));
         }
 
         const maxDigitLength = board.size.toString().length;

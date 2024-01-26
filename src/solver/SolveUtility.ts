@@ -545,10 +545,11 @@ export function sequenceRemoveUpdateDefaultCompare<T>(arr1Inout: T[], arr2: read
     arr1Inout.length = iWrite;
 }
 
-export function sequenceExtend<T>(arr1Inout: T[], arr2: readonly T[]) {
+export function sequenceExtend<T>(arr1Inout: T[], arr2: readonly T[]): T[] {
     for (const elem of arr2) {
         arr1Inout.push(elem);
     }
+    return arr1Inout;
 }
 
 // Assumes arr is sorted
