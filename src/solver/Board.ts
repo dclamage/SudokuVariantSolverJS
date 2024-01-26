@@ -1092,7 +1092,7 @@ export class Board {
 
                     if (result === LogicResult.CHANGED) {
                         // Skip cell forcing if we're basically done here
-                        if (this.nakedSingles.length === this.nonGivenCount) {
+                        if (this.nakedSingles.length !== this.nonGivenCount) {
                             // Recompute cell forcing
                             this.binaryImplications.preprocess(this);
                         }
