@@ -754,33 +754,13 @@ export class Board {
         pendingCellForcing.push(cellIndex);
     }
 
-    // initialElims / initialSingles should not have been applied on the board yet
-    // Applies the given elims/singles and also ensures transitive implications are enforced and applied
-    applyAndPropagate(initialElims: CandidateIndex[], initialSingles: CandidateIndex[]): ConstraintResult {
-        // Invariants:
-        // - If a single is added while `this.cells` still has other values for it, those elims are added and processed before the single is
-        // - Masks in `this.cells` are always reduced before the corresponding elim/single is popped
-        // - All elims and singles must be processed before any cell is processed for cell forcing, which ensures we never unnecessarily process cell forcing twice
-        if (initialElims.length === 0 && initialSingles.length === 0) return ConstraintResult.UNCHANGED;
-
-        const elims: CandidateIndex[] = [];
-        const singles: CandidateIndex[] = [];
+    private applyAndPropagateMainLoop(
+        elims: CandidateIndex[],
+        singles: CandidateIndex[],
+        isPendingCellForcing: (undefined | 0 | 1)[] | undefined,
+        pendingCellForcing: CandidateIndex[] | undefined
+    ): ConstraintResult.CHANGED | ConstraintResult.INVALID {
         const { runningInBruteForce, solveStats, binaryImplications, cells, constraints, givenBit, constraintsWithEnforceCandidateElim } = this;
-        const isPendingCellForcing: (undefined | 0 | 1)[] | undefined = runningInBruteForce ? [] : undefined;
-        const pendingCellForcing: CellIndex[] = runningInBruteForce ? [] : undefined;
-        for (const elim of initialElims) {
-            switch (this.addElim(elim, elims, singles)) {
-                case ConstraintResult.INVALID:
-                    return ConstraintResult.INVALID;
-                case ConstraintResult.CHANGED:
-                    runningInBruteForce && this.addForcing(elim, isPendingCellForcing, pendingCellForcing);
-            }
-        }
-        for (const single of initialSingles) {
-            if (!this.addSingle(single, elims, singles)) return ConstraintResult.INVALID;
-        }
-
-        if (elims.length === 0 && singles.length === 0) return ConstraintResult.UNCHANGED;
 
         while (elims.length > 0 || singles.length > 0 || (runningInBruteForce && pendingCellForcing.length > 0)) {
             while (elims.length > 0) {
@@ -864,6 +844,37 @@ export class Board {
         return ConstraintResult.CHANGED;
     }
 
+    // initialElims / initialSingles should not have been applied on the board yet
+    // Applies the given elims/singles and also ensures transitive implications are enforced and applied
+    applyAndPropagate(initialElims: CandidateIndex[], initialSingles: CandidateIndex[]): ConstraintResult {
+        // Invariants:
+        // - If a single is added while `this.cells` still has other values for it, those elims are added and processed before the single is
+        // - Masks in `this.cells` are always reduced before the corresponding elim/single is popped
+        // - All elims and singles must be processed before any cell is processed for cell forcing, which ensures we never unnecessarily process cell forcing twice
+        if (initialElims.length === 0 && initialSingles.length === 0) return ConstraintResult.UNCHANGED;
+
+        const elims: CandidateIndex[] = [];
+        const singles: CandidateIndex[] = [];
+        const { runningInBruteForce } = this;
+        const isPendingCellForcing: (undefined | 0 | 1)[] | undefined = runningInBruteForce ? [] : undefined;
+        const pendingCellForcing: CellIndex[] | undefined = runningInBruteForce ? [] : undefined;
+        for (const elim of initialElims) {
+            switch (this.addElim(elim, elims, singles)) {
+                case ConstraintResult.INVALID:
+                    return ConstraintResult.INVALID;
+                case ConstraintResult.CHANGED:
+                    runningInBruteForce && this.addForcing(elim, isPendingCellForcing, pendingCellForcing);
+            }
+        }
+        for (const single of initialSingles) {
+            if (!this.addSingle(single, elims, singles)) return ConstraintResult.INVALID;
+        }
+
+        if (elims.length === 0 && singles.length === 0) return ConstraintResult.UNCHANGED;
+
+        return this.applyAndPropagateMainLoop(elims, singles, isPendingCellForcing, pendingCellForcing);
+    }
+
     newApplySingle(single: CandidateIndex): ConstraintResult {
         return this.applyAndPropagate([], [single]);
     }
@@ -881,23 +892,92 @@ export class Board {
     }
 
     newApplyCellMask(cellIndex: CellIndex, newMask: CellMask): ConstraintResult {
-        const elims = [];
+        if ((this.cells[cellIndex] & ~newMask & this.allValues) === 0) return ConstraintResult.UNCHANGED;
+        if ((this.cells[cellIndex] & newMask & this.allValues) === 0) return ConstraintResult.INVALID;
+
+        const elims: CandidateIndex[] = [];
+        const singles: CandidateIndex[] = [];
+        const { runningInBruteForce } = this;
+        const isPendingCellForcing: (undefined | 0 | 1)[] | undefined = runningInBruteForce ? [] : undefined;
+        const pendingCellForcing: CellIndex[] | undefined = runningInBruteForce ? [] : undefined;
+
         for (let elimsMask = this.cells[cellIndex] & ~newMask & this.allValues; elimsMask !== 0; elimsMask &= elimsMask - 1) {
-            const value = minValue(elimsMask);
-            elims.push(this.candidateIndex(cellIndex, value));
+            const elimValue = minValue(elimsMask);
+            const elim = this.candidateIndex(cellIndex, elimValue);
+            elims.push(elim);
         }
-        return this.newApplyElims(elims);
+
+        const mask = (this.cells[cellIndex] &= newMask);
+
+        // Check for naked single while we're here
+        if (this.runningInBruteForce && (mask & (mask - 1)) === 0) {
+            const singleValue = minValue(mask);
+            const single = this.candidateIndex(cellIndex, singleValue);
+            this.cells[cellIndex] = mask | this.givenBit;
+            this.nonGivenCount--;
+            singles.push(single);
+        }
+
+        if (runningInBruteForce && isPendingCellForcing[cellIndex] !== 1) {
+            isPendingCellForcing[cellIndex] = 1;
+            pendingCellForcing.push(cellIndex);
+        }
+
+        if (elims.length === 0) {
+            console.log('wat');
+            throw 1;
+        }
+
+        return this.applyAndPropagateMainLoop(elims, singles, isPendingCellForcing, pendingCellForcing);
     }
 
     newApplyCellMasks(cellIndices: CellIndex[], newMasks: CellMask[] | Uint16Array | Uint32Array): ConstraintResult {
-        const elims = [];
+        let i = 0;
+        for (; i < cellIndices.length; i++) {
+            const cellIndex = cellIndices[i];
+            const newMask = newMasks[i];
+            if ((this.cells[cellIndex] & ~newMask & this.allValues) === 0) continue;
+            if ((this.cells[cellIndex] & newMask & this.allValues) === 0) return ConstraintResult.INVALID;
+            break;
+        }
+
+        if (i === cellIndices.length) return ConstraintResult.UNCHANGED;
+
+        const elims: CandidateIndex[] = [];
+        const singles: CandidateIndex[] = [];
+        const { runningInBruteForce } = this;
+        const isPendingCellForcing: (undefined | 0 | 1)[] | undefined = runningInBruteForce ? [] : undefined;
+        const pendingCellForcing: CellIndex[] | undefined = runningInBruteForce ? [] : undefined;
         for (let i = 0; i < cellIndices.length; i++) {
-            for (let elimsMask = this.cells[cellIndices[i]] & ~newMasks[i] & this.allValues; elimsMask !== 0; elimsMask &= elimsMask - 1) {
+            const cellIndex = cellIndices[i];
+            const newMask = newMasks[i];
+            if ((this.cells[cellIndex] & ~newMask & this.allValues) === 0) continue;
+            if ((this.cells[cellIndex] & newMask & this.allValues) === 0) return ConstraintResult.INVALID;
+
+            for (let elimsMask = this.cells[cellIndex] & ~newMask & this.allValues; elimsMask !== 0; elimsMask &= elimsMask - 1) {
                 const value = minValue(elimsMask);
-                elims.push(this.candidateIndex(cellIndices[i], value));
+                const elim = this.candidateIndex(cellIndex, value);
+                elims.push(elim);
+            }
+
+            const mask = (this.cells[cellIndex] &= newMask);
+
+            // Check for naked single while we're here
+            if (this.runningInBruteForce && (mask & (mask - 1)) === 0) {
+                const singleValue = minValue(mask);
+                const single = this.candidateIndex(cellIndex, singleValue);
+                this.cells[cellIndex] = mask | this.givenBit;
+                this.nonGivenCount--;
+                singles.push(single);
+            }
+
+            if (runningInBruteForce && isPendingCellForcing[cellIndex] !== 1) {
+                isPendingCellForcing[cellIndex] = 1;
+                pendingCellForcing.push(cellIndex);
             }
         }
-        return this.newApplyElims(elims);
+
+        return this.applyAndPropagateMainLoop(elims, singles, isPendingCellForcing, pendingCellForcing);
     }
 
     // TODO: Move this into BIG and possibly cache cliques there
