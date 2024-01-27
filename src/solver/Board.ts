@@ -749,12 +749,62 @@ export class Board {
         return true;
     }
 
+    private applyAndPropagateMainLoop(elims: CandidateIndex[], singles: CandidateIndex[]): ConstraintResult.CHANGED | ConstraintResult.INVALID {
+        const { solveStats, binaryImplications, constraints, constraintsWithEnforceCandidateElim } = this;
+
+        while (elims.length > 0 || singles.length > 0) {
+            while (elims.length > 0) {
+                const elim = elims.pop();
+                solveStats.masksEnforced++;
+
+                // Disable propagating negative literals
+                // for (const newElim of binaryImplications.getNegConsequences(~elim)) {
+                //     if (!this.addElim(newElim, elims)) return ConstraintResult.INVALID;
+                // }
+                // for (const newSingle of binaryImplications.getPosConsequences(~elim)) {
+                //     if (!this.addSingle(newSingle, elims, singles)) return ConstraintResult.INVALID;
+                // }
+
+                const [cellIndex, value] = this.candidateToIndexAndValue(elim);
+                for (const constraint of constraintsWithEnforceCandidateElim) {
+                    solveStats.constraintEliminationsEnforced++;
+                    if (!constraint.enforceCandidateElim(this, cellIndex, value)) {
+                        return ConstraintResult.INVALID;
+                    }
+                }
+            }
+
+            if (singles.length > 0) {
+                const single = singles.pop();
+                solveStats.masksEnforced++;
+
+                for (const newElim of binaryImplications.getNegConsequences(single)) {
+                    if (!this.addElim(newElim, elims)) return ConstraintResult.INVALID;
+                }
+                for (const newSingle of binaryImplications.getPosConsequences(single)) {
+                    if (!this.addSingle(newSingle, elims, singles)) return ConstraintResult.INVALID;
+                }
+
+                const [cellIndex, value] = this.candidateToIndexAndValue(single);
+                for (const constraint of constraints) {
+                    solveStats.constraintSinglesEnforced++;
+                    if (!constraint.enforce(this, cellIndex, value)) {
+                        return ConstraintResult.INVALID;
+                    }
+                }
+            }
+        }
+
+        return ConstraintResult.CHANGED;
+    }
+
     // initialElims / initialSingles should not have been applied on the board yet
     // Applies the given elims/singles and also ensures transitive implications are enforced and applied
     applyAndPropagate(initialElims: CandidateIndex[], initialSingles: CandidateIndex[]): ConstraintResult {
         // Invariants:
-        // - If a single is added while `this.cells` still has other values for it, those elims are added and processed before the single is.
+        // - If a single is added while `this.cells` still has other values for it, those elims are added and processed before the single is
         // - Masks in `this.cells` are always reduced before the corresponding elim/single is popped
+        // - All elims and singles must be processed before any cell is processed for cell forcing, which ensures we never unnecessarily process cell forcing twice
         if (initialElims.length === 0 && initialSingles.length === 0) return ConstraintResult.UNCHANGED;
 
         const elims: CandidateIndex[] = [];
@@ -768,50 +818,7 @@ export class Board {
 
         if (elims.length === 0 && singles.length === 0) return ConstraintResult.UNCHANGED;
 
-        while (elims.length > 0 || singles.length > 0) {
-            while (elims.length > 0) {
-                const elim = elims.pop();
-                this.solveStats.masksEnforced++;
-
-                // Disable propagating negative literals
-                // for (const newElim of this.binaryImplications.getNegConsequences(~elim)) {
-                //     if (!this.addElim(newElim, elims)) return ConstraintResult.INVALID;
-                // }
-                // for (const newSingle of this.binaryImplications.getPosConsequences(~elim)) {
-                //     if (!this.addSingle(newSingle, elims, singles)) return ConstraintResult.INVALID;
-                // }
-
-                const [cellIndex, value] = this.candidateToIndexAndValue(elim);
-                for (const constraint of this.constraintsWithEnforceCandidateElim) {
-                    this.solveStats.constraintEliminationsEnforced++;
-                    if (!constraint.enforceCandidateElim(this, cellIndex, value)) {
-                        return ConstraintResult.INVALID;
-                    }
-                }
-            }
-
-            if (singles.length > 0) {
-                const single = singles.pop();
-                this.solveStats.masksEnforced++;
-
-                for (const newElim of this.binaryImplications.getNegConsequences(single)) {
-                    if (!this.addElim(newElim, elims)) return ConstraintResult.INVALID;
-                }
-                for (const newSingle of this.binaryImplications.getPosConsequences(single)) {
-                    if (!this.addSingle(newSingle, elims, singles)) return ConstraintResult.INVALID;
-                }
-
-                const [cellIndex, value] = this.candidateToIndexAndValue(single);
-                for (const constraint of this.constraints) {
-                    this.solveStats.constraintSinglesEnforced++;
-                    if (!constraint.enforce(this, cellIndex, value)) {
-                        return ConstraintResult.INVALID;
-                    }
-                }
-            }
-        }
-
-        return ConstraintResult.CHANGED;
+        return this.applyAndPropagateMainLoop(elims, singles);
     }
 
     newApplySingle(single: CandidateIndex): ConstraintResult {
@@ -831,23 +838,63 @@ export class Board {
     }
 
     newApplyCellMask(cellIndex: CellIndex, newMask: CellMask): ConstraintResult {
-        const elims = [];
+        if ((this.cells[cellIndex] & ~newMask & this.allValues) === 0) return ConstraintResult.UNCHANGED;
+        if ((this.cells[cellIndex] & newMask & this.allValues) === 0) return ConstraintResult.INVALID;
+
+        const elims: CandidateIndex[] = [];
+        const singles: CandidateIndex[] = [];
+
         for (let elimsMask = this.cells[cellIndex] & ~newMask & this.allValues; elimsMask !== 0; elimsMask &= elimsMask - 1) {
-            const value = minValue(elimsMask);
-            elims.push(this.candidateIndex(cellIndex, value));
+            const elimValue = minValue(elimsMask);
+            const elim = this.candidateIndex(cellIndex, elimValue);
+            elims.push(elim);
         }
-        return this.newApplyElims(elims);
+
+        this.cells[cellIndex] &= newMask | this.givenBit;
+
+        if (!this.cellIsReduced[cellIndex]) {
+            this.reducedCells.push(cellIndex);
+            this.cellIsReduced[cellIndex] = 1;
+        }
+
+        return this.applyAndPropagateMainLoop(elims, singles);
     }
 
     newApplyCellMasks(cellIndices: CellIndex[], newMasks: CellMask[] | Uint16Array | Uint32Array): ConstraintResult {
-        const elims = [];
+        let i = 0;
+        for (; i < cellIndices.length; i++) {
+            const cellIndex = cellIndices[i];
+            const newMask = newMasks[i];
+            if ((this.cells[cellIndex] & ~newMask & this.allValues) === 0) continue;
+            if ((this.cells[cellIndex] & newMask & this.allValues) === 0) return ConstraintResult.INVALID;
+            break;
+        }
+
+        if (i === cellIndices.length) return ConstraintResult.UNCHANGED;
+
+        const elims: CandidateIndex[] = [];
+        const singles: CandidateIndex[] = [];
         for (let i = 0; i < cellIndices.length; i++) {
-            for (let elimsMask = this.cells[cellIndices[i]] & ~newMasks[i] & this.allValues; elimsMask !== 0; elimsMask &= elimsMask - 1) {
+            const cellIndex = cellIndices[i];
+            const newMask = newMasks[i];
+            if ((this.cells[cellIndex] & ~newMask & this.allValues) === 0) continue;
+            if ((this.cells[cellIndex] & newMask & this.allValues) === 0) return ConstraintResult.INVALID;
+
+            for (let elimsMask = this.cells[cellIndex] & ~newMask & this.allValues; elimsMask !== 0; elimsMask &= elimsMask - 1) {
                 const value = minValue(elimsMask);
-                elims.push(this.candidateIndex(cellIndices[i], value));
+                const elim = this.candidateIndex(cellIndex, value);
+                elims.push(elim);
+            }
+
+            this.cells[cellIndex] &= newMask | this.givenBit;
+
+            if (!this.cellIsReduced[cellIndex]) {
+                this.reducedCells.push(cellIndex);
+                this.cellIsReduced[cellIndex] = 1;
             }
         }
-        return this.newApplyElims(elims);
+
+        return this.applyAndPropagateMainLoop(elims, singles);
     }
 
     // TODO: Move this into BIG and possibly cache cliques there
