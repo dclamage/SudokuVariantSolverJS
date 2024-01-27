@@ -217,7 +217,8 @@ export class Board {
     memos: Map<string, unknown>;
     logicalSteps: LogicalStep[];
     bruteForceExpensiveSteps: LogicalStep[];
-    needsExpensiveBruteForceSteps: boolean = false;
+    runningInBruteForce: boolean;
+    needsExpensiveBruteForceSteps: boolean;
     solveStats: SolveStats;
 
     constructor(size: number | undefined = undefined, allowedLogicalSteps: string[] | undefined = undefined) {
@@ -241,15 +242,6 @@ export class Board {
             this.constraintStateIsCloned = [];
             this.memos = new Map();
 
-            this.bruteForceExpensiveSteps = [
-                new ConstraintLogic(),
-                new NakedTupleAndPointing(),
-                new Fish([2]),
-                new Skyscraper(),
-                new Fish([3]),
-                new SimpleContradiction(),
-            ];
-
             const alwaysEnabledLogicalSteps = [new NakedSingle(), new HiddenSingle(), new ConstraintLogic()];
             this.logicalSteps = [
                 new CellForcing(),
@@ -264,6 +256,18 @@ export class Board {
                 this.logicalSteps = this.logicalSteps.filter(step => allowedLogicalSteps.includes(step.name));
             }
             this.logicalSteps = [...alwaysEnabledLogicalSteps, ...this.logicalSteps];
+
+            this.bruteForceExpensiveSteps = [
+                new ConstraintLogic(),
+                new NakedTupleAndPointing(),
+                new Fish([2]),
+                new Skyscraper(),
+                new Fish([3]),
+                new SimpleContradiction(),
+            ];
+
+            this.runningInBruteForce = false;
+            this.needsExpensiveBruteForceSteps = false;
 
             this.solveStats = new SolveStats();
         }
@@ -297,6 +301,8 @@ export class Board {
         clone.memos = this.memos;
         clone.logicalSteps = this.logicalSteps;
         clone.bruteForceExpensiveSteps = this.bruteForceExpensiveSteps;
+        clone.runningInBruteForce = this.runningInBruteForce;
+        clone.needsExpensiveBruteForceSteps = this.needsExpensiveBruteForceSteps;
         clone.solveStats = this.solveStats;
         return clone;
     }
@@ -326,6 +332,8 @@ export class Board {
         clone.memos = new Map(); // Don't inherit memos
         clone.logicalSteps = this.logicalSteps;
         clone.bruteForceExpensiveSteps = this.bruteForceExpensiveSteps;
+        clone.runningInBruteForce = this.runningInBruteForce;
+        clone.needsExpensiveBruteForceSteps = this.needsExpensiveBruteForceSteps;
         clone.solveStats = this.solveStats;
         return clone;
     }
@@ -695,17 +703,17 @@ export class Board {
         this.memos.set(key, val);
     }
 
-    private addElim(elim: CandidateIndex, elims: CandidateIndex[]): boolean {
+    private addElim(elim: CandidateIndex, elims: CandidateIndex[]): ConstraintResult {
         const [cellIndex, value] = this.candidateToIndexAndValue(elim);
 
         const valueMask = valueBit(value);
-        if ((this.cells[cellIndex] & valueMask) === 0) return true;
+        if ((this.cells[cellIndex] & valueMask) === 0) return ConstraintResult.UNCHANGED;
 
         this.cells[cellIndex] &= ~valueMask;
-        if ((this.cells[cellIndex] & this.allValues) === 0) return false;
+        if ((this.cells[cellIndex] & this.allValues) === 0) return ConstraintResult.INVALID;
 
         elims.push(elim);
-        return true;
+        return ConstraintResult.CHANGED;
     }
 
     private addSingle(single: CandidateIndex, elims: CandidateIndex[], singles: CandidateIndex[]): boolean {
@@ -729,18 +737,34 @@ export class Board {
         return true;
     }
 
+    private addForcing(elim: CandidateIndex, isPendingCellForcing: (undefined | 0 | 1)[], pendingCellForcing: CellIndex[]): void {
+        const cellIndex = this.cellIndexFromCandidate(elim);
+        if (isPendingCellForcing[cellIndex] === 1) return;
+        isPendingCellForcing[cellIndex] = 1;
+        pendingCellForcing.push(cellIndex);
+    }
+
     // initialElims / initialSingles should not have been applied on the board yet
     // Applies the given elims/singles and also ensures transitive implications are enforced and applied
     applyAndPropagate(initialElims: CandidateIndex[], initialSingles: CandidateIndex[]): ConstraintResult {
         // Invariants:
-        // - If a single is added while `this.cells` still has other values for it, those elims are added and processed before the single is.
+        // - If a single is added while `this.cells` still has other values for it, those elims are added and processed before the single is
         // - Masks in `this.cells` are always reduced before the corresponding elim/single is popped
+        // - All elims and singles must be processed before any cell is processed for cell forcing, which ensures we never unnecessarily process cell forcing twice
         if (initialElims.length === 0 && initialSingles.length === 0) return ConstraintResult.UNCHANGED;
 
         const elims: CandidateIndex[] = [];
         const singles: CandidateIndex[] = [];
+        const { runningInBruteForce, solveStats, binaryImplications, cells, constraints, allValues, constraintsWithEnforceCandidateElim } = this;
+        const isPendingCellForcing: (undefined | 0 | 1)[] | undefined = runningInBruteForce ? [] : undefined;
+        const pendingCellForcing: CellIndex[] = runningInBruteForce ? [] : undefined;
         for (const elim of initialElims) {
-            if (!this.addElim(elim, elims)) return ConstraintResult.INVALID;
+            switch (this.addElim(elim, elims)) {
+                case ConstraintResult.INVALID:
+                    return ConstraintResult.INVALID;
+                case ConstraintResult.CHANGED:
+                    runningInBruteForce && this.addForcing(elim, isPendingCellForcing, pendingCellForcing);
+            }
         }
         for (const single of initialSingles) {
             if (!this.addSingle(single, elims, singles)) return ConstraintResult.INVALID;
@@ -748,22 +772,27 @@ export class Board {
 
         if (elims.length === 0 && singles.length === 0) return ConstraintResult.UNCHANGED;
 
-        while (elims.length > 0 || singles.length > 0) {
+        while (elims.length > 0 || singles.length > 0 || (runningInBruteForce && pendingCellForcing.length > 0)) {
             while (elims.length > 0) {
                 const elim = elims.pop();
-                this.solveStats.masksEnforced++;
+                solveStats.masksEnforced++;
 
                 // Disable propagating negative literals
-                // for (const newElim of this.binaryImplications.getNegConsequences(~elim)) {
-                //     if (!this.addElim(newElim, elims)) return ConstraintResult.INVALID;
+                // for (const newElim of binaryImplications.getNegConsequences(~elim)) {
+                //     switch (this.addElim(newElim, elims)) {
+                //         case ConstraintResult.INVALID:
+                //             return ConstraintResult.INVALID;
+                //         case ConstraintResult.CHANGED:
+                //             runningInBruteForce && this.addForcing(newElim, isPendingCellForcing, pendingCellForcing);
+                //     }
                 // }
-                // for (const newSingle of this.binaryImplications.getPosConsequences(~elim)) {
+                // for (const newSingle of binaryImplications.getPosConsequences(~elim)) {
                 //     if (!this.addSingle(newSingle, elims, singles)) return ConstraintResult.INVALID;
                 // }
 
                 const [cellIndex, value] = this.candidateToIndexAndValue(elim);
-                for (const constraint of this.constraintsWithEnforceCandidateElim) {
-                    this.solveStats.constraintEliminationsEnforced++;
+                for (const constraint of constraintsWithEnforceCandidateElim) {
+                    solveStats.constraintEliminationsEnforced++;
                     if (!constraint.enforceCandidateElim(this, cellIndex, value)) {
                         return ConstraintResult.INVALID;
                     }
@@ -772,21 +801,48 @@ export class Board {
 
             if (singles.length > 0) {
                 const single = singles.pop();
-                this.solveStats.masksEnforced++;
+                solveStats.masksEnforced++;
 
-                for (const newElim of this.binaryImplications.getNegConsequences(single)) {
-                    if (!this.addElim(newElim, elims)) return ConstraintResult.INVALID;
+                for (const newElim of binaryImplications.getNegConsequences(single)) {
+                    switch (this.addElim(newElim, elims)) {
+                        case ConstraintResult.INVALID:
+                            return ConstraintResult.INVALID;
+                        case ConstraintResult.CHANGED:
+                            runningInBruteForce && this.addForcing(newElim, isPendingCellForcing, pendingCellForcing);
+                    }
                 }
-                for (const newSingle of this.binaryImplications.getPosConsequences(single)) {
+                for (const newSingle of binaryImplications.getPosConsequences(single)) {
                     if (!this.addSingle(newSingle, elims, singles)) return ConstraintResult.INVALID;
                 }
 
                 const [cellIndex, value] = this.candidateToIndexAndValue(single);
-                for (const constraint of this.constraints) {
-                    this.solveStats.constraintSinglesEnforced++;
+                for (const constraint of constraints) {
+                    solveStats.constraintSinglesEnforced++;
                     if (!constraint.enforce(this, cellIndex, value)) {
                         return ConstraintResult.INVALID;
                     }
+                }
+
+                continue;
+            }
+
+            if (runningInBruteForce && pendingCellForcing.length > 0) {
+                const cellIndex = pendingCellForcing.pop();
+                isPendingCellForcing[cellIndex] = 0;
+                const mask = cells[cellIndex] & allValues;
+                if ((mask & (mask - 1)) === 0) continue;
+                // Cell clauses are registered with clauseId = cellIndex
+                const cellForcingVariable = binaryImplications.clauseIdAndMaskToVariable(cellIndex, mask);
+                for (const newElim of binaryImplications.getNegConsequences(cellForcingVariable)) {
+                    switch (this.addElim(newElim, elims)) {
+                        case ConstraintResult.INVALID:
+                            return ConstraintResult.INVALID;
+                        case ConstraintResult.CHANGED:
+                            this.addForcing(newElim, isPendingCellForcing, pendingCellForcing);
+                    }
+                }
+                for (const newSingle of binaryImplications.getPosConsequences(cellForcingVariable)) {
+                    if (!this.addSingle(newSingle, elims, singles)) return ConstraintResult.INVALID;
                 }
             }
         }
@@ -970,8 +1026,8 @@ export class Board {
 
             const initialNonGivenCount = this.nonGivenCount;
 
-            result = this.applyCellForcing();
-            if (result !== LogicResult.UNCHANGED) continue;
+            // result = this.applyCellForcing();
+            // if (result !== LogicResult.UNCHANGED) continue;
 
             result = this.applyHiddenSingles();
             if (result !== LogicResult.UNCHANGED) continue;
@@ -1683,6 +1739,8 @@ export class Board {
         const jobStack = [this.clone()];
         let lastCancelCheckTime = Date.now();
 
+        jobStack[0].runningInBruteForce = true;
+
         let isInitialPreprocessing = true;
         if (enableStats) {
             this.solveStats.solveStartTimeMs = Date.now();
@@ -1850,6 +1908,8 @@ export class Board {
         let numSolutions = 0;
         let lastReportTime = Date.now();
         const wantReportProgress = reportProgress || isCancelled;
+
+        jobStack[0].runningInBruteForce = true;
 
         let isInitialPreprocessing = true;
         if (enableStats) {
@@ -2080,6 +2140,8 @@ export class Board {
         let lastReportTime = Date.now();
         const wantReportProgress = reportProgress || isCancelled;
         let isInitialPreprocessing = true;
+
+        jobStack[0].runningInBruteForce = true;
 
         const trueCandidatesEntry = this.cellsPool.get();
         const trueCandidates = trueCandidatesEntry.array;
