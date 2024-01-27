@@ -272,6 +272,7 @@ class BinaryImplicationGraph {
     // This could be ok if maybe:
     //  - No preprocessing has been done yet, so removing this implication doesn't invalidate any transitive implications.
     //  - We're transferring an implication to a parent, so the semantics of the graph have not actually changed at all.
+    //  - We're removing a transitive implication, so the graph is semantically the same.
     unsafeRemoveImplication(lit1: Literal, lit2: Literal): boolean {
         const forward = this.implicationsArrFor(lit1, lit2);
         const var2 = toVariable(lit2);
@@ -283,6 +284,22 @@ class BinaryImplicationGraph {
         // Preserves sortedness, no need to add to unsortedArr
         sequenceFilterOutUpdateDefaultCompare(forward, [var2], []);
         sequenceFilterOutUpdateDefaultCompare(backward, [var1], []);
+        return true;
+    }
+
+    // Be careful! Only call this if you know it doesn't invalidate the rest of the graph.
+    // This could be ok if maybe:
+    //  - No preprocessing has been done yet, so removing this implication doesn't invalidate any transitive implications.
+    //  - We're transferring an implication to a parent, so the semantics of the graph have not actually changed at all.
+    //  - We're removing a transitive implication, so the graph is semantically the same.
+    unsafeRemoveImplicationOneway(lit1: Literal, lit2: Literal): boolean {
+        const forward = this.implicationsArrFor(lit1, lit2);
+        const var2 = toVariable(lit2);
+        if (!forward?.includes(var2)) {
+            return false;
+        }
+        // Preserves sortedness, no need to add to unsortedArr
+        sequenceFilterOutUpdateDefaultCompare(forward, [var2], []);
         return true;
     }
 
@@ -747,6 +764,24 @@ export class BinaryImplicationLayeredGraph {
     // Undefined behaviour if implications already exist.
     addNegImplicationsBatchedGuaranteeUniquenessPreserveSortedness(lit1: Literal, vars2: readonly Variable[]) {
         return this.graph.addNegImplicationsBatchedGuaranteeUniquenessPreserveSortedness(lit1, vars2);
+    }
+
+    // Be careful! Only call this if you know it doesn't invalidate the rest of the graph.
+    // This could be ok if maybe:
+    //  - No preprocessing has been done yet, so removing this implication doesn't invalidate any transitive implications.
+    //  - We're transferring an implication to a parent, so the semantics of the graph have not actually changed at all.
+    //  - We're removing a transitive implication, so the graph is semantically the same.
+    unsafeRemoveImplication(lit1: Literal, lit2: Literal): boolean {
+        return this.graph.unsafeRemoveImplication(lit1, lit2);
+    }
+
+    // Be careful! Only call this if you know it doesn't invalidate the rest of the graph.
+    // This could be ok if maybe:
+    //  - No preprocessing has been done yet, so removing this implication doesn't invalidate any transitive implications.
+    //  - We're transferring an implication to a parent, so the semantics of the graph have not actually changed at all.
+    //  - We're removing a transitive implication, so the graph is semantically the same.
+    unsafeRemoveImplicationOneway(lit1: Literal, lit2: Literal): boolean {
+        return this.graph.unsafeRemoveImplicationOneway(lit1, lit2);
     }
 
     transferImplicationToParent(lit1: Literal, lit2: Literal): boolean {

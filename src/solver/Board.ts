@@ -18,6 +18,7 @@ import {
     CandidateIndex,
     sequenceRemoveUpdateDefaultCompare,
     sequenceExtend,
+    CandidateLiteral,
 } from './SolveUtility';
 import { NakedSingle } from './LogicalStep/NakedSingle';
 import { HiddenSingle } from './LogicalStep/HiddenSingle';
@@ -206,6 +207,8 @@ export class Board {
     cellsPoolEntry: TypedArrayEntry<Uint16Array | Uint32Array> | null;
     cells: Uint16Array | Uint32Array | null;
     cells64: BigUint64Array | null;
+    transitiveConsequents: CandidateLiteral[] | null;
+    removedTransitiveImplications: Map<CandidateIndex, CandidateLiteral[]>;
     invalidInit: boolean;
     nonGivenCount: number;
     reducedCells: CellIndex[];
@@ -230,6 +233,8 @@ export class Board {
             this.cellsPool = new TypedArrayPool(size * size, size < 16 ? 2 : 4);
             this.allocateCells();
             this.cells.fill(this.allValues);
+            this.transitiveConsequents = null;
+            this.removedTransitiveImplications = new Map();
             this.invalidInit = false;
             this.nonGivenCount = size * size;
             this.reducedCells = [];
@@ -261,7 +266,7 @@ export class Board {
                 new Fish([2]),
                 new Skyscraper(),
                 new Fish(Array.from({ length: Math.floor(size / 2) }, (_, i) => i + 3)),
-                new SimpleContradiction(),
+                // new SimpleContradiction(),
             ];
 
             if (Array.isArray(allowedLogicalSteps)) {
@@ -285,6 +290,8 @@ export class Board {
         // Deep copy cells
         clone.allocateCells();
         clone.cells64.set(this.cells64);
+        clone.transitiveConsequents = this.transitiveConsequents;
+        clone.removedTransitiveImplications = this.removedTransitiveImplications;
 
         clone.invalidInit = this.invalidInit;
         clone.nonGivenCount = this.nonGivenCount;
@@ -321,6 +328,8 @@ export class Board {
         // Deep copy cells
         clone.allocateCells();
         clone.cells64.set(this.cells64);
+        clone.transitiveConsequents = null; // Don't mark subboard deductions as transitive
+        clone.removedTransitiveImplications = new Map();
 
         clone.invalidInit = this.invalidInit;
         clone.nonGivenCount = this.nonGivenCount;
@@ -703,14 +712,14 @@ export class Board {
         this.memos.set(key, val);
     }
 
-    private addElim(elim: CandidateIndex, elims: CandidateIndex[]): boolean {
+    private addElim(elim: CandidateIndex, elims: CandidateIndex[]): ConstraintResult {
         const [cellIndex, value] = this.candidateToIndexAndValue(elim);
 
         const valueMask = valueBit(value);
-        if ((this.cells[cellIndex] & valueMask) === 0) return true;
+        if ((this.cells[cellIndex] & valueMask) === 0) return ConstraintResult.UNCHANGED;
 
         this.cells[cellIndex] &= ~valueMask;
-        if ((this.cells[cellIndex] & this.allValues) === 0) return false;
+        if ((this.cells[cellIndex] & this.allValues) === 0) return ConstraintResult.INVALID;
 
         // TODO: get rid of this
         if (!this.cellIsReduced[cellIndex]) {
@@ -719,18 +728,18 @@ export class Board {
         }
 
         elims.push(elim);
-        return true;
+        return ConstraintResult.CHANGED;
     }
 
-    private addSingle(single: CandidateIndex, elims: CandidateIndex[], singles: CandidateIndex[]): boolean {
+    private addSingle(single: CandidateIndex, elims: CandidateIndex[], singles: CandidateIndex[]): ConstraintResult {
         const [cellIndex, value] = this.candidateToIndexAndValue(single);
         const mask = this.cells[cellIndex];
 
         const valueMask = valueBit(value);
-        if ((mask & valueMask) === 0) return false;
+        if ((mask & valueMask) === 0) return ConstraintResult.INVALID;
 
         const givenValueMask = this.givenBit | valueMask;
-        if (mask === givenValueMask) return true;
+        if (mask === givenValueMask) return ConstraintResult.UNCHANGED;
 
         this.cells[cellIndex] = givenValueMask;
         this.nonGivenCount--;
@@ -740,7 +749,7 @@ export class Board {
             elims.push(this.candidateIndex(cellIndex, elimValue));
         }
         singles.push(single);
-        return true;
+        return ConstraintResult.CHANGED;
     }
 
     private applyAndPropagateMainLoop(elims: CandidateIndex[], singles: CandidateIndex[]): ConstraintResult.CHANGED | ConstraintResult.INVALID {
@@ -753,10 +762,20 @@ export class Board {
 
                 // Disable propagating negative literals
                 // for (const newElim of binaryImplications.getNegConsequences(~elim)) {
-                //     if (!this.addElim(newElim, elims)) return ConstraintResult.INVALID;
+                //     switch (this.addElim(newElim, elims)) {
+                //         case ConstraintResult.INVALID:
+                //             return ConstraintResult.INVALID;
+                //         case ConstraintResult.CHANGED:
+                //             if (this.transitiveConsequents !== null) this.transitiveConsequents.push(~newElim);
+                //     }
                 // }
                 // for (const newSingle of binaryImplications.getPosConsequences(~elim)) {
-                //     if (!this.addSingle(newSingle, elims, singles)) return ConstraintResult.INVALID;
+                //     switch (this.addSingle(newSingle, elims, singles)) {
+                //         case ConstraintResult.INVALID:
+                //             return ConstraintResult.INVALID;
+                //         case ConstraintResult.CHANGED:
+                //             if (this.transitiveConsequents !== null) this.transitiveConsequents.push(newSingle);
+                //     }
                 // }
 
                 const [cellIndex, value] = this.candidateToIndexAndValue(elim);
@@ -773,10 +792,20 @@ export class Board {
                 solveStats.masksEnforced++;
 
                 for (const newElim of binaryImplications.getNegConsequences(single)) {
-                    if (!this.addElim(newElim, elims)) return ConstraintResult.INVALID;
+                    switch (this.addElim(newElim, elims)) {
+                        case ConstraintResult.INVALID:
+                            return ConstraintResult.INVALID;
+                        case ConstraintResult.CHANGED:
+                            if (this.transitiveConsequents !== null) this.transitiveConsequents.push(~newElim);
+                    }
                 }
                 for (const newSingle of binaryImplications.getPosConsequences(single)) {
-                    if (!this.addSingle(newSingle, elims, singles)) return ConstraintResult.INVALID;
+                    switch (this.addSingle(newSingle, elims, singles)) {
+                        case ConstraintResult.INVALID:
+                            return ConstraintResult.INVALID;
+                        case ConstraintResult.CHANGED:
+                            if (this.transitiveConsequents !== null) this.transitiveConsequents.push(newSingle);
+                    }
                 }
 
                 const [cellIndex, value] = this.candidateToIndexAndValue(single);
@@ -804,10 +833,10 @@ export class Board {
         const elims: CandidateIndex[] = [];
         const singles: CandidateIndex[] = [];
         for (const elim of initialElims) {
-            if (!this.addElim(elim, elims)) return ConstraintResult.INVALID;
+            if (this.addElim(elim, elims) === ConstraintResult.INVALID) return ConstraintResult.INVALID;
         }
         for (const single of initialSingles) {
-            if (!this.addSingle(single, elims, singles)) return ConstraintResult.INVALID;
+            if (this.addSingle(single, elims, singles) === ConstraintResult.INVALID) return ConstraintResult.INVALID;
         }
 
         if (elims.length === 0 && singles.length === 0) return ConstraintResult.UNCHANGED;
@@ -999,12 +1028,20 @@ export class Board {
             this.solveStats.bruteForcePasses++;
         }
 
+        // Re-add any implications we previously removed temporarily
+        if (isDepth0) {
+            for (const [trueCandidateIndex, consequents] of this.removedTransitiveImplications) {
+                for (const consequent of consequents) {
+                    this.binaryImplications.addImplication(trueCandidateIndex, consequent);
+                }
+            }
+        }
+
         // Start probing from the first cell in order. Probing in order gives better performance than probing randomly.
         // This array is reversed as discoverBinaryImplications pops cellindices from the back.
-        const discoverBinaryImplicationsUnprobedCells: CellIndex[] = Array.from(
-            { length: this.size * this.size },
-            (_, i) => this.size * this.size - 1 - i
-        );
+        const cellsToProbe: CellIndex[] = isInitialPreprocessing
+            ? Array.from({ length: this.size * this.size }, (_, i) => this.size * this.size - 1 - i)
+            : undefined;
 
         let prevResult = LogicResult.UNCHANGED;
         let result = LogicResult.UNCHANGED;
@@ -1016,7 +1053,8 @@ export class Board {
 
             // Just in case, check if the board is completed
             if (this.nonGivenCount === 0) {
-                return LogicResult.COMPLETE;
+                result = LogicResult.COMPLETE;
+                break;
             }
 
             result = this.applyNakedSingles();
@@ -1061,8 +1099,8 @@ export class Board {
 
             if (initialNonGivenCount !== this.nonGivenCount) throw new Error('Constraints/Tactics all report unchanged, but board changed');
 
-            if (isInitialPreprocessing && discoverBinaryImplicationsUnprobedCells.length > 0) {
-                result = this.discoverBinaryImplications(discoverBinaryImplicationsUnprobedCells);
+            if (isInitialPreprocessing && cellsToProbe.length > 0) {
+                result = this.discoverBinaryImplications(cellsToProbe);
                 // Recompute cell forcing if something changed, unless we're basically done here
                 if (result === LogicResult.CHANGED) {
                     // Recompute cell forcing
@@ -1071,6 +1109,15 @@ export class Board {
                 if (result !== LogicResult.UNCHANGED) continue;
             }
         } while (result === LogicResult.CHANGED);
+
+        if (isDepth0) {
+            // Remove transitive implications
+            for (const [trueCandidateIndex, consequents] of this.removedTransitiveImplications.entries()) {
+                for (const consequent of consequents) {
+                    this.binaryImplications.unsafeRemoveImplicationOneway(trueCandidateIndex, consequent);
+                }
+            }
+        }
 
         return result === LogicResult.UNCHANGED ? prevResult : result;
     }
@@ -1522,8 +1569,11 @@ export class Board {
                 const candidateIndex = this.candidateIndex(cellIndex, value);
 
                 const newBoard = this.clone();
+                newBoard.transitiveConsequents = [];
+
                 if (newBoard.newApplySingle(candidateIndex) === ConstraintResult.INVALID) {
                     if (this.newApplyElim(candidateIndex) === ConstraintResult.INVALID) {
+                        newBoard.release();
                         return LogicResult.INVALID;
                     }
                     foundEliminations = true;
@@ -1534,6 +1584,7 @@ export class Board {
                 const bruteForceResult = newBoard.applyBruteForceLogic(false, false);
                 if (bruteForceResult === LogicResult.INVALID) {
                     if (this.newApplyElim(candidateIndex) === ConstraintResult.INVALID) {
+                        newBoard.release();
                         return LogicResult.INVALID;
                     }
                     foundEliminations = true;
@@ -1541,12 +1592,28 @@ export class Board {
                     continue;
                 }
 
+                newBoard.transitiveConsequents.sort((a, b) => a - b);
+                sequenceRemoveUpdateDefaultCompare(
+                    newBoard.transitiveConsequents,
+                    this.binaryImplications.getPosConsequencesSorted(candidateIndex).sort((a, b) => a - b)
+                );
+                sequenceRemoveUpdateDefaultCompare(
+                    newBoard.transitiveConsequents,
+                    this.binaryImplications
+                        .getNegConsequencesSorted(candidateIndex)
+                        .map(x => ~x)
+                        .sort((a, b) => a - b)
+                );
+                this.removedTransitiveImplications.set(candidateIndex, newBoard.transitiveConsequents);
+
                 if (bruteForceResult !== LogicResult.UNCHANGED) {
                     if (this.addBinaryImplicationsFromTruth(candidateIndex, newBoard)) {
                         this.binaryImplications.sortGraph();
                         changed = true;
                     }
                 }
+
+                newBoard.release();
             }
 
             if (foundEliminations) {
