@@ -1100,9 +1100,7 @@ export class Board {
 
         if (isInitialPreprocessing) {
             result = this.applyNakedSingles();
-            if (result === LogicResult.INVALID || result === LogicResult.COMPLETE) {
-                return result;
-            }
+            if (result === LogicResult.INVALID || result === LogicResult.COMPLETE) return result;
         }
 
         // Loop until result is not "CHANGED"
@@ -1127,14 +1125,6 @@ export class Board {
             // }
 
             const initialNonGivenCount = this.nonGivenCount;
-
-            // During initial preprocessing, run cell forcing every loop since there could be deductions to be made even with a full mask.
-            // Re running cell forcing is also required after recomputing cell forcing LUTs.
-            // Note that we run this even when "isDepth0" is false because that indicates we're in probing, where cell forcing LUTs can change.
-            if (isInitialPreprocessing) {
-                result = this.applyCellForcing();
-                if (result !== LogicResult.UNCHANGED) continue;
-            }
 
             result = this.applyHiddenSingles();
             if (result !== LogicResult.UNCHANGED) continue;
@@ -1169,6 +1159,8 @@ export class Board {
                 if (result === LogicResult.CHANGED) {
                     // Recompute cell forcing
                     this.binaryImplications.preprocess(this);
+                    const result = this.applyCellForcing();
+                    if (result === LogicResult.INVALID || result === LogicResult.COMPLETE) return result;
                 }
                 if (result !== LogicResult.UNCHANGED) continue;
             }
