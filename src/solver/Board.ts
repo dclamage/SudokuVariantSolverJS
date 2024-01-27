@@ -780,7 +780,7 @@ export class Board {
         // regions pending hidden single propagation
         let pendingHiddenSingle: bigint = BigInt(0);
         const noPending = BigInt(0);
-        let nextRegionToLookAt = 0;
+        const pairs: CellIndex[] = [];
 
         while (
             elims.length > 0 ||
@@ -877,15 +877,16 @@ export class Board {
                 // Do all hidden singles that have updated in one go
                 if (pendingHiddenSingle !== noPending) {
                     for (let i = 0; i < this.fullSizeRegions.length; i++) {
-                        const regionId = nextRegionToLookAt;
-                        nextRegionToLookAt = (nextRegionToLookAt + 1) % this.fullSizeRegions.length;
-                        const regionMask = BigInt(1) << BigInt(regionId);
-                        if ((pendingHiddenSingle & regionMask) === noPending) {
-                            continue;
-                        }
+                        const regionMask = BigInt(1) << BigInt(i);
+                        if ((pendingHiddenSingle & regionMask) === noPending) continue;
                         pendingHiddenSingle &= ~regionMask;
-                        const region = this.regions[regionId];
+                        const region = this.regions[i];
                         const regionCells = region.cells;
+                        if (regionCells.length !== this.size) continue;
+
+                        let changed = false;
+
+                        pairs.length = 0;
 
                         let atLeastOnce = 0;
                         let moreThanOnce = 0;
@@ -897,6 +898,42 @@ export class Board {
                             } else {
                                 moreThanOnce |= atLeastOnce & cellMask;
                                 atLeastOnce |= cellMask;
+
+                                const cellMaskMinus1 = cellMask & (cellMask - 1);
+                                const cellMaskMinus2 = cellMaskMinus1 & (cellMaskMinus1 - 1);
+                                if (cellMaskMinus2 === 0 && cellMaskMinus1 !== 0) {
+                                    if (pairs[cellMask] === undefined) {
+                                        pairs[cellMask] = cellIndex;
+                                    } else {
+                                        const mask1 = cellMask & ~cellMaskMinus1;
+                                        const mask2 = cellMaskMinus1;
+                                        const value1 = minValue(cellMask);
+                                        const value2 = minValue(cellMaskMinus1);
+                                        for (const cellToEliminate of regionCells) {
+                                            if (cellToEliminate === cellIndex || cellToEliminate === pairs[cellMask]) continue;
+                                            if ((cells[cellToEliminate] & mask1) !== 0) {
+                                                const candidate = this.candidateIndex(cellToEliminate, value1);
+                                                switch (this.addElim(candidate, elims, singles)) {
+                                                    case ConstraintResult.INVALID:
+                                                        return ConstraintResult.INVALID;
+                                                    case ConstraintResult.CHANGED:
+                                                        this.addForcing(candidate, isPendingCellForcing, pendingCellForcing);
+                                                        changed = true;
+                                                }
+                                            }
+                                            if ((cells[cellToEliminate] & mask2) !== 0) {
+                                                const candidate = this.candidateIndex(cellToEliminate, value2);
+                                                switch (this.addElim(candidate, elims, singles)) {
+                                                    case ConstraintResult.INVALID:
+                                                        return ConstraintResult.INVALID;
+                                                    case ConstraintResult.CHANGED:
+                                                        this.addForcing(candidate, isPendingCellForcing, pendingCellForcing);
+                                                        changed = true;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                         givenMask &= ~givenBit;
@@ -917,6 +954,8 @@ export class Board {
                             }
                             break;
                         }
+
+                        if (changed) break;
                     }
                 }
             }
