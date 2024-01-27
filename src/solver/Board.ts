@@ -210,6 +210,8 @@ export class Board {
     nonGivenCount: number;
     binaryImplications: BinaryImplicationLayeredGraph;
     regions: Region[];
+    fullSizeRegions: Region[];
+    cellIndexToFullSizeRegions: bigint[];
     constraints: Constraint[];
     constraintsWithEnforceCandidateElim: Constraint[];
     constraintStates: Cloneable[];
@@ -236,6 +238,8 @@ export class Board {
                 Array.from({ length: size * size }, (_, cellIndex) => Array.from({ length: size }, (_, i) => cellIndex * size + i))
             );
             this.regions = [];
+            this.fullSizeRegions = [];
+            this.cellIndexToFullSizeRegions = Array.from({ length: size * size }, () => BigInt(0));
             this.constraints = [];
             this.constraintsWithEnforceCandidateElim = [];
             this.constraintStates = [];
@@ -290,6 +294,8 @@ export class Board {
         clone.nonGivenCount = this.nonGivenCount;
         clone.binaryImplications = this.binaryImplications;
         clone.regions = this.regions;
+        clone.fullSizeRegions = this.fullSizeRegions;
+        clone.cellIndexToFullSizeRegions = this.cellIndexToFullSizeRegions;
         clone.constraints = this.constraints.map(constraint => constraint.clone()); // Clone constraints that need backtracking state
         clone.constraintsWithEnforceCandidateElim = clone.constraints.filter((_, i) =>
             this.constraintsWithEnforceCandidateElim.includes(this.constraints[i])
@@ -326,6 +332,8 @@ export class Board {
         clone.nonGivenCount = this.nonGivenCount;
         clone.binaryImplications = this.binaryImplications.subboardClone(); // Deep copy
         clone.regions = this.regions.slice(); // Deep copy
+        clone.fullSizeRegions = this.fullSizeRegions.slice(); // Deep copy
+        clone.cellIndexToFullSizeRegions = this.cellIndexToFullSizeRegions.slice(); // Deep copy
         clone.constraints = []; // Don't inherit constraints
         clone.constraintsWithEnforceCandidateElim = []; // Don't inherit constraints
         clone.constraintStates = [];
@@ -481,6 +489,13 @@ export class Board {
             cells: cells.toSorted((a, b) => a - b),
         };
         this.regions.push(newRegion);
+
+        if (cells.length === this.size) {
+            this.fullSizeRegions.push(newRegion);
+            for (const cellIndex of cells) {
+                this.cellIndexToFullSizeRegions[cellIndex] |= BigInt(1) << BigInt(this.fullSizeRegions.length - 1);
+            }
+        }
 
         if (addWeakLinks) {
             for (let i0 = 0; i0 < cells.length - 1; i0++) {
@@ -762,7 +777,16 @@ export class Board {
     ): ConstraintResult.CHANGED | ConstraintResult.INVALID {
         const { runningInBruteForce, solveStats, binaryImplications, cells, constraints, givenBit, constraintsWithEnforceCandidateElim } = this;
 
-        while (elims.length > 0 || singles.length > 0 || (runningInBruteForce && pendingCellForcing.length > 0)) {
+        // regions pending hidden single propagation
+        let pendingHiddenSingle: bigint = BigInt(0);
+        const noPending = BigInt(0);
+        let nextRegionToLookAt = 0;
+
+        while (
+            elims.length > 0 ||
+            singles.length > 0 ||
+            (runningInBruteForce && (pendingCellForcing.length > 0 || pendingHiddenSingle !== noPending))
+        ) {
             while (elims.length > 0) {
                 const elim = elims.pop();
                 solveStats.masksEnforced++;
@@ -813,29 +837,86 @@ export class Board {
                     }
                 }
 
+                if (runningInBruteForce) {
+                    pendingHiddenSingle |= this.cellIndexToFullSizeRegions[cellIndex];
+                }
+
                 continue;
             }
 
             if (runningInBruteForce) {
                 // Do cell forcing (and stop after the first one)
-                while (pendingCellForcing.length > 0 && singles.length === 0 && elims.length === 0) {
+                if (pendingCellForcing.length > 0) {
                     const cellIndex = pendingCellForcing.pop();
                     isPendingCellForcing[cellIndex] = 0;
                     const mask = cells[cellIndex];
-                    if ((mask & givenBit) !== 0) continue;
 
-                    // Cell clauses are registered with clauseId = cellIndex
-                    const cellForcingVariable = binaryImplications.clauseIdAndMaskToVariable(cellIndex, mask);
-                    for (const newElim of binaryImplications.getNegConsequences(cellForcingVariable)) {
-                        switch (this.addElim(newElim, elims, singles)) {
-                            case ConstraintResult.INVALID:
-                                return ConstraintResult.INVALID;
-                            case ConstraintResult.CHANGED:
-                                this.addForcing(newElim, isPendingCellForcing, pendingCellForcing);
+                    // We only bother with cell forcing for non-given cells
+                    if ((mask & givenBit) === 0) {
+                        // Cell clauses are registered with clauseId = cellIndex
+                        const cellForcingVariable = binaryImplications.clauseIdAndMaskToVariable(cellIndex, mask);
+                        for (const newElim of binaryImplications.getNegConsequences(cellForcingVariable)) {
+                            switch (this.addElim(newElim, elims, singles)) {
+                                case ConstraintResult.INVALID:
+                                    return ConstraintResult.INVALID;
+                                case ConstraintResult.CHANGED:
+                                    this.addForcing(newElim, isPendingCellForcing, pendingCellForcing);
+                            }
+                        }
+                        for (const newSingle of binaryImplications.getPosConsequences(cellForcingVariable)) {
+                            if (!this.addSingle(newSingle, elims, singles)) return ConstraintResult.INVALID;
                         }
                     }
-                    for (const newSingle of binaryImplications.getPosConsequences(cellForcingVariable)) {
-                        if (!this.addSingle(newSingle, elims, singles)) return ConstraintResult.INVALID;
+
+                    // Queue up regions that could now have a hidden single
+                    pendingHiddenSingle |= this.cellIndexToFullSizeRegions[cellIndex];
+
+                    continue;
+                }
+
+                // Do all hidden singles that have updated in one go
+                if (pendingHiddenSingle !== noPending) {
+                    for (let i = 0; i < this.fullSizeRegions.length; i++) {
+                        const regionId = nextRegionToLookAt;
+                        nextRegionToLookAt = (nextRegionToLookAt + 1) % this.fullSizeRegions.length;
+                        const regionMask = BigInt(1) << BigInt(regionId);
+                        if ((pendingHiddenSingle & regionMask) === noPending) {
+                            continue;
+                        }
+                        pendingHiddenSingle &= ~regionMask;
+                        const region = this.regions[regionId];
+                        const regionCells = region.cells;
+
+                        let atLeastOnce = 0;
+                        let moreThanOnce = 0;
+                        let givenMask = 0;
+                        for (const cellIndex of regionCells) {
+                            const cellMask = cells[cellIndex];
+                            if ((cellMask & givenBit) !== 0) {
+                                givenMask |= cellMask;
+                            } else {
+                                moreThanOnce |= atLeastOnce & cellMask;
+                                atLeastOnce |= cellMask;
+                            }
+                        }
+                        givenMask &= ~givenBit;
+
+                        if ((atLeastOnce | givenMask) !== this.allValues) {
+                            // Puzzle is invalid: Not all values are present in the region
+                            return ConstraintResult.INVALID;
+                        }
+
+                        const exactlyOnce = atLeastOnce & ~moreThanOnce;
+                        if (exactlyOnce) {
+                            for (const cellIndex of regionCells) {
+                                const cellMask = cells[cellIndex] & exactlyOnce;
+                                if (cellMask) {
+                                    const single = this.candidateIndex(cellIndex, minValue(cellMask));
+                                    if (!this.addSingle(single, elims, singles)) return ConstraintResult.INVALID;
+                                }
+                            }
+                            break;
+                        }
                     }
                 }
             }
@@ -1101,6 +1182,9 @@ export class Board {
         if (isInitialPreprocessing) {
             result = this.applyNakedSingles();
             if (result === LogicResult.INVALID || result === LogicResult.COMPLETE) return result;
+            if (result === LogicResult.CHANGED) prevResult = result;
+            result = this.applyHiddenSingles();
+            if (result === LogicResult.INVALID || result === LogicResult.COMPLETE) return result;
         }
 
         // Loop until result is not "CHANGED"
@@ -1114,20 +1198,7 @@ export class Board {
                 return LogicResult.COMPLETE;
             }
 
-            // result = this.applyNakedSingles();
-            // if (result === LogicResult.INVALID || result === LogicResult.COMPLETE) {
-            //     break;
-            // }
-            // // Continue on to hidden singles because naked singles apply
-            // // Until there are no more naked singles
-            // if (result === LogicResult.CHANGED) {
-            //     prevResult = result;
-            // }
-
             const initialNonGivenCount = this.nonGivenCount;
-
-            result = this.applyHiddenSingles();
-            if (result !== LogicResult.UNCHANGED) continue;
 
             if (doExpensiveSteps) {
                 // Look for expensive brute force steps
