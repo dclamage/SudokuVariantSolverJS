@@ -827,24 +827,43 @@ export class Board {
             }
 
             if (runningInBruteForce) {
-                while (pendingCellForcing.length > 0) {
+                // Run naked singles / cell forcing
+                // We want to try our ultimate best to avoid running cell forcing
+                // While the lookup is fast, it tends to contain literals that have already been eliminated
+                // Furthermore, when any cell causes eliminations in cells that are already in the queue,
+                // That's 1 iteration of cell forcing saved. On the other hand, running cell forcing first
+                // doesn't save any iterations we will definitely have to do in the singles/elims loops.
+
+                // "Filter out" naked singles and givens
+                {
+                    let iWrite = 0;
+                    for (let i = 0; i < pendingCellForcing.length; i++) {
+                        const cellIndex = pendingCellForcing[i];
+                        const mask = cells[cellIndex];
+                        if ((mask & givenBit) !== 0) continue;
+                        if ((mask & (mask - 1)) === 0) {
+                            const value = minValue(mask);
+                            const single = this.candidateIndex(cellIndex, value);
+                            this.cells[cellIndex] = mask | this.givenBit;
+                            this.nonGivenCount--;
+                            singles.push(single);
+                            continue;
+                        }
+                        pendingCellForcing[iWrite] = cellIndex;
+                        iWrite++;
+                    }
+                    pendingCellForcing.length = iWrite;
+                    if (singles.length > 0) {
+                        // Propagate the singles we found
+                        continue;
+                    }
+                }
+
+                // There are no singles or givens anymore, do cell forcing (and stop after the first one)
+                while (pendingCellForcing.length > 0 && singles.length === 0 && elims.length === 0) {
                     const cellIndex = pendingCellForcing.pop();
                     isPendingCellForcing[cellIndex] = 0;
                     const mask = cells[cellIndex];
-                    // Skip if given
-                    if ((mask & givenBit) !== 0) continue;
-
-                    if ((mask & (mask - 1)) === 0) {
-                        // Non-given singleton
-                        const value = minValue(mask);
-                        const single = this.candidateIndex(cellIndex, value);
-                        this.cells[cellIndex] = mask | this.givenBit;
-                        this.nonGivenCount--;
-                        singles.push(single);
-                        break;
-                    }
-
-                    // more than 1, run cell forcing
 
                     // Cell clauses are registered with clauseId = cellIndex
                     const cellForcingVariable = binaryImplications.clauseIdAndMaskToVariable(cellIndex, mask);
