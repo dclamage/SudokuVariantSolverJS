@@ -1802,6 +1802,9 @@ export class Board {
         options: SolveOptions | null | undefined,
         isCancelled: (() => boolean) | undefined
     ): Promise<SolveResultCancelled | SolveResultBoard | SolveResultNoSolution> {
+        // Put the profiling stats for everything under the same top level node (Timer Fired)
+        await new Promise(resolve => setTimeout(resolve, 0));
+
         const { random = false, allowPreprocessing = true, enableStats = false } = options || {};
         const jobStack = [this.clone()];
         let lastCancelCheckTime = Date.now();
@@ -1964,6 +1967,9 @@ export class Board {
         allowPreprocessing: boolean = true,
         enableStats: boolean = false
     ): Promise<SolveResultCancelledPartialSolutionCount | SolveResultSolutionCount> {
+        // Put the profiling stats for everything under the same top level node (Timer Fired)
+        await new Promise(resolve => setTimeout(resolve, 0));
+
         const jobStack = [this.clone()];
         let numSolutions = 0;
         let lastReportTime = Date.now();
@@ -2184,6 +2190,9 @@ export class Board {
         isCancelled: (() => boolean) | null | undefined,
         reportProgress: ((definiteCandidates: CellMask[], potentialCandidates: CellMask[]) => void) | null | undefined = null
     ): Promise<SolveResultTrueCandidates | SolveResultTrueCandidatesWithCount | SolveResultNoSolution | SolveResultCancelled> {
+        // Put the profiling stats for everything under the same top level node (Timer Fired)
+        await new Promise(resolve => setTimeout(resolve, 0));
+
         const { size, allValues } = this;
         const totalCells = size * size;
         const totalCandidates = totalCells * size;
