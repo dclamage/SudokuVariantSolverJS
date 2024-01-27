@@ -1042,8 +1042,12 @@ export class Board {
 
             const initialNonGivenCount = this.nonGivenCount;
 
-            // result = this.applyCellForcing();
-            // if (result !== LogicResult.UNCHANGED) continue;
+            // At depth 0, run cell forcing every loop since there could be deductions to be made even with a full mask
+            // Re running cell forcing is also required after recomputing cell forcing LUTs.
+            if (isDepth0) {
+                result = this.applyCellForcing();
+                if (result !== LogicResult.UNCHANGED) continue;
+            }
 
             result = this.applyHiddenSingles();
             if (result !== LogicResult.UNCHANGED) continue;
