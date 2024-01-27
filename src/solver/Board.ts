@@ -1019,6 +1019,7 @@ export class Board {
 
         let prevResult = LogicResult.UNCHANGED;
         let result = LogicResult.UNCHANGED;
+
         // Loop until result is not "CHANGED"
         // do-while because we always want to run at least once
         do {
@@ -1042,9 +1043,17 @@ export class Board {
 
             const initialNonGivenCount = this.nonGivenCount;
 
-            // At depth 0, run cell forcing every loop since there could be deductions to be made even with a full mask
+            // During initial preprocessing, run cell forcing every loop since there could be deductions to be made even with a full mask.
             // Re running cell forcing is also required after recomputing cell forcing LUTs.
-            if (isDepth0) {
+            // Note that we run this even when "isDepth0" is false because that indicates we're in probing, where cell forcing LUTs can change.
+            if (isInitialPreprocessing) {
+                result = this.applyNakedSingles();
+                if (result === LogicResult.INVALID || result === LogicResult.COMPLETE) {
+                    return result;
+                }
+                if (result === LogicResult.CHANGED) {
+                    prevResult = result;
+                }
                 result = this.applyCellForcing();
                 if (result !== LogicResult.UNCHANGED) continue;
             }
@@ -1076,7 +1085,7 @@ export class Board {
 
             if (initialNonGivenCount !== this.nonGivenCount) throw new Error('Constraints/Tactics all report unchanged, but board changed');
 
-            if (isInitialPreprocessing && discoverBinaryImplicationsUnprobedCells.length > 0) {
+            if (isDepth0 && isInitialPreprocessing && discoverBinaryImplicationsUnprobedCells.length > 0) {
                 result = this.discoverBinaryImplications(discoverBinaryImplicationsUnprobedCells);
                 // Recompute cell forcing if something changed, unless we're basically done here
                 if (result === LogicResult.CHANGED) {
@@ -1543,7 +1552,7 @@ export class Board {
                     continue;
                 }
 
-                if (newBoard.applyBruteForceLogic(false, false) === LogicResult.INVALID) {
+                if (newBoard.applyBruteForceLogic(false, true) === LogicResult.INVALID) {
                     if (this.newApplyElim(candidateIndex) === ConstraintResult.INVALID) {
                         return LogicResult.INVALID;
                     }
