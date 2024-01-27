@@ -92,6 +92,10 @@ jobs:
                       else continue
                     fi
                   done
+                  {
+                    echo -n 'BENCHMARK_RESULT_GIT_HASH='
+                    git rev-parse gh_pages
+                  } >> "$GITHUB_ENV"
 
             - name: Find Comment
               uses: peter-evans/find-comment@v1
@@ -108,11 +112,11 @@ jobs:
                 issue-number: ${{ github.event.pull_request.number }}
                 body: |
                   # Benchmark results for PR ${{ github.pull_request.number }}
-                  [Link to gh_pages tree](https://github.com/dclamage/SudokuVariantSolverJS/tree/gh_pages/${{ env.BENCHMARK_RESULT_DIR }})
+                  [Link to gh_pages tree](https://github.com/dclamage/SudokuVariantSolverJS/tree/${{ env.BENCHMARK_RESULT_GIT_HASH }}/${{ env.BENCHMARK_RESULT_DIR }})
                   ## Guesses
-                  ![Guesses chart](https://raw.githubusercontent.com/dclamage/SudokuVariantSolverJS/gh_pages/${{ env.BENCHMARK_RESULT_DIR }}/guesses_chart.png)
+                  ![Guesses chart](https://raw.githubusercontent.com/dclamage/SudokuVariantSolverJS/${{ env.BENCHMARK_RESULT_GIT_HASH }}/${{ env.BENCHMARK_RESULT_DIR }}/guesses_chart.png)
                   ## Time
-                  ![Time chart](https://raw.githubusercontent.com/dclamage/SudokuVariantSolverJS/gh_pages/${{ env.BENCHMARK_RESULT_DIR }}/time_chart.png)
+                  ![Time chart](https://raw.githubusercontent.com/dclamage/SudokuVariantSolverJS/${{ env.BENCHMARK_RESULT_GIT_HASH }}/${{ env.BENCHMARK_RESULT_DIR }}/time_chart.png)
 
             - name: Update comment
               if: steps.fc.outputs.comment-id != ''
@@ -122,13 +126,13 @@ jobs:
                 edit-mode: replace
                 body: |
                   # Benchmark results for PR ${{ github.pull_request.number }}
-                  [Link to gh_pages tree](https://github.com/dclamage/SudokuVariantSolverJS/tree/gh_pages/${{ env.BENCHMARK_RESULT_DIR }})
+                  [Link to gh_pages tree](https://github.com/dclamage/SudokuVariantSolverJS/tree/${{ env.BENCHMARK_RESULT_GIT_HASH }}/${{ env.BENCHMARK_RESULT_DIR }})
 
                   ${{ env.SUMMARY_TEXT }}
 
                   ## Guesses chart
-                  ![Guesses chart](https://raw.githubusercontent.com/dclamage/SudokuVariantSolverJS/gh_pages/${{ env.BENCHMARK_RESULT_DIR }}/guesses_chart.png)
+                  ![Guesses chart](https://raw.githubusercontent.com/dclamage/SudokuVariantSolverJS/${{ env.BENCHMARK_RESULT_GIT_HASH }}/${{ env.BENCHMARK_RESULT_DIR }}/guesses_chart.png)
                   ## Time chart
-                  ![Time chart](https://raw.githubusercontent.com/dclamage/SudokuVariantSolverJS/gh_pages/${{ env.BENCHMARK_RESULT_DIR }}/time_chart.png)
+                  ![Time chart](https://raw.githubusercontent.com/dclamage/SudokuVariantSolverJS/${{ env.BENCHMARK_RESULT_GIT_HASH }}/${{ env.BENCHMARK_RESULT_DIR }}/time_chart.png)
 
 
