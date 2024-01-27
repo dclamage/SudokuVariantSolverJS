@@ -735,12 +735,6 @@ export class Board {
         this.cells[cellIndex] = givenValueMask;
         this.nonGivenCount--;
 
-        // TODO: get rid of this
-        if (!this.cellIsReduced[cellIndex]) {
-            this.reducedCells.push(cellIndex);
-            this.cellIsReduced[cellIndex] = 1;
-        }
-
         for (let elimsMask = mask & ~valueMask; elimsMask !== 0; elimsMask &= elimsMask - 1) {
             const elimValue = minValue(elimsMask);
             elims.push(this.candidateIndex(cellIndex, elimValue));
