@@ -1543,8 +1543,7 @@ export class Board {
                     continue;
                 }
 
-                const bruteForceResult = newBoard.applyBruteForceLogic(false, false);
-                if (bruteForceResult === LogicResult.INVALID) {
+                if (newBoard.applyBruteForceLogic(false, false) === LogicResult.INVALID) {
                     if (this.newApplyElim(candidateIndex) === ConstraintResult.INVALID) {
                         return LogicResult.INVALID;
                     }
@@ -1553,11 +1552,9 @@ export class Board {
                     continue;
                 }
 
-                if (bruteForceResult !== LogicResult.UNCHANGED) {
-                    if (this.addBinaryImplicationsFromTruth(candidateIndex, newBoard)) {
-                        this.binaryImplications.sortGraph();
-                        changed = true;
-                    }
+                if (this.addBinaryImplicationsFromTruth(candidateIndex, newBoard)) {
+                    this.binaryImplications.sortGraph();
+                    changed = true;
                 }
             }
 
