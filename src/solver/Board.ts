@@ -755,7 +755,7 @@ export class Board {
 
         const elims: CandidateIndex[] = [];
         const singles: CandidateIndex[] = [];
-        const { runningInBruteForce, solveStats, binaryImplications, cells, constraints, allValues, constraintsWithEnforceCandidateElim } = this;
+        const { runningInBruteForce, solveStats, binaryImplications, cells, constraints, givenBit, constraintsWithEnforceCandidateElim } = this;
         const isPendingCellForcing: (undefined | 0 | 1)[] | undefined = runningInBruteForce ? [] : undefined;
         const pendingCellForcing: CellIndex[] = runningInBruteForce ? [] : undefined;
         for (const elim of initialElims) {
@@ -826,23 +826,39 @@ export class Board {
                 continue;
             }
 
-            if (runningInBruteForce && pendingCellForcing.length > 0) {
-                const cellIndex = pendingCellForcing.pop();
-                isPendingCellForcing[cellIndex] = 0;
-                const mask = cells[cellIndex] & allValues;
-                if ((mask & (mask - 1)) === 0) continue;
-                // Cell clauses are registered with clauseId = cellIndex
-                const cellForcingVariable = binaryImplications.clauseIdAndMaskToVariable(cellIndex, mask);
-                for (const newElim of binaryImplications.getNegConsequences(cellForcingVariable)) {
-                    switch (this.addElim(newElim, elims)) {
-                        case ConstraintResult.INVALID:
-                            return ConstraintResult.INVALID;
-                        case ConstraintResult.CHANGED:
-                            this.addForcing(newElim, isPendingCellForcing, pendingCellForcing);
+            if (runningInBruteForce) {
+                while (pendingCellForcing.length > 0) {
+                    const cellIndex = pendingCellForcing.pop();
+                    isPendingCellForcing[cellIndex] = 0;
+                    const mask = cells[cellIndex];
+                    // Skip if given
+                    if ((mask & givenBit) !== 0) continue;
+
+                    if ((mask & (mask - 1)) === 0) {
+                        // Non-given singleton
+                        const value = minValue(mask);
+                        const single = this.candidateIndex(cellIndex, value);
+                        this.cells[cellIndex] = mask | this.givenBit;
+                        this.nonGivenCount--;
+                        singles.push(single);
+                        break;
                     }
-                }
-                for (const newSingle of binaryImplications.getPosConsequences(cellForcingVariable)) {
-                    if (!this.addSingle(newSingle, elims, singles)) return ConstraintResult.INVALID;
+
+                    // more than 1, run cell forcing
+
+                    // Cell clauses are registered with clauseId = cellIndex
+                    const cellForcingVariable = binaryImplications.clauseIdAndMaskToVariable(cellIndex, mask);
+                    for (const newElim of binaryImplications.getNegConsequences(cellForcingVariable)) {
+                        switch (this.addElim(newElim, elims)) {
+                            case ConstraintResult.INVALID:
+                                return ConstraintResult.INVALID;
+                            case ConstraintResult.CHANGED:
+                                this.addForcing(newElim, isPendingCellForcing, pendingCellForcing);
+                        }
+                    }
+                    for (const newSingle of binaryImplications.getPosConsequences(cellForcingVariable)) {
+                        if (!this.addSingle(newSingle, elims, singles)) return ConstraintResult.INVALID;
+                    }
                 }
             }
         }
@@ -1014,15 +1030,15 @@ export class Board {
                 return LogicResult.COMPLETE;
             }
 
-            result = this.applyNakedSingles();
-            if (result === LogicResult.INVALID || result === LogicResult.COMPLETE) {
-                break;
-            }
-            // Continue on to hidden singles because naked singles apply
-            // Until there are no more naked singles
-            if (result === LogicResult.CHANGED) {
-                prevResult = result;
-            }
+            // result = this.applyNakedSingles();
+            // if (result === LogicResult.INVALID || result === LogicResult.COMPLETE) {
+            //     break;
+            // }
+            // // Continue on to hidden singles because naked singles apply
+            // // Until there are no more naked singles
+            // if (result === LogicResult.CHANGED) {
+            //     prevResult = result;
+            // }
 
             const initialNonGivenCount = this.nonGivenCount;
 
