@@ -703,16 +703,26 @@ export class Board {
         this.memos.set(key, val);
     }
 
-    private addElim(elim: CandidateIndex, elims: CandidateIndex[]): ConstraintResult {
+    private addElim(elim: CandidateIndex, elims: CandidateIndex[], singles: CandidateIndex[]): ConstraintResult {
         const [cellIndex, value] = this.candidateToIndexAndValue(elim);
 
         const valueMask = valueBit(value);
         if ((this.cells[cellIndex] & valueMask) === 0) return ConstraintResult.UNCHANGED;
 
-        this.cells[cellIndex] &= ~valueMask;
-        if ((this.cells[cellIndex] & this.allValues) === 0) return ConstraintResult.INVALID;
+        const mask = (this.cells[cellIndex] &= ~valueMask);
+        if ((mask & this.allValues) === 0) return ConstraintResult.INVALID;
 
         elims.push(elim);
+
+        // Check for naked single while we're here
+        if (this.runningInBruteForce && (mask & (mask - 1)) === 0) {
+            const singleValue = minValue(mask);
+            const single = this.candidateIndex(cellIndex, singleValue);
+            this.cells[cellIndex] = mask | this.givenBit;
+            this.nonGivenCount--;
+            singles.push(single);
+        }
+
         return ConstraintResult.CHANGED;
     }
 
@@ -759,7 +769,7 @@ export class Board {
         const isPendingCellForcing: (undefined | 0 | 1)[] | undefined = runningInBruteForce ? [] : undefined;
         const pendingCellForcing: CellIndex[] = runningInBruteForce ? [] : undefined;
         for (const elim of initialElims) {
-            switch (this.addElim(elim, elims)) {
+            switch (this.addElim(elim, elims, singles)) {
                 case ConstraintResult.INVALID:
                     return ConstraintResult.INVALID;
                 case ConstraintResult.CHANGED:
@@ -804,7 +814,7 @@ export class Board {
                 solveStats.masksEnforced++;
 
                 for (const newElim of binaryImplications.getNegConsequences(single)) {
-                    switch (this.addElim(newElim, elims)) {
+                    switch (this.addElim(newElim, elims, singles)) {
                         case ConstraintResult.INVALID:
                             return ConstraintResult.INVALID;
                         case ConstraintResult.CHANGED:
@@ -827,48 +837,17 @@ export class Board {
             }
 
             if (runningInBruteForce) {
-                // Run naked singles / cell forcing
-                // We want to try our ultimate best to avoid running cell forcing
-                // While the lookup is fast, it tends to contain literals that have already been eliminated
-                // Furthermore, when any cell causes eliminations in cells that are already in the queue,
-                // That's 1 iteration of cell forcing saved. On the other hand, running cell forcing first
-                // doesn't save any iterations we will definitely have to do in the singles/elims loops.
-
-                // "Filter out" naked singles and givens
-                {
-                    let iWrite = 0;
-                    for (let i = 0; i < pendingCellForcing.length; i++) {
-                        const cellIndex = pendingCellForcing[i];
-                        const mask = cells[cellIndex];
-                        if ((mask & givenBit) !== 0) continue;
-                        if ((mask & (mask - 1)) === 0) {
-                            const value = minValue(mask);
-                            const single = this.candidateIndex(cellIndex, value);
-                            this.cells[cellIndex] = mask | this.givenBit;
-                            this.nonGivenCount--;
-                            singles.push(single);
-                            continue;
-                        }
-                        pendingCellForcing[iWrite] = cellIndex;
-                        iWrite++;
-                    }
-                    pendingCellForcing.length = iWrite;
-                    if (singles.length > 0) {
-                        // Propagate the singles we found
-                        continue;
-                    }
-                }
-
-                // There are no singles or givens anymore, do cell forcing (and stop after the first one)
+                // Do cell forcing (and stop after the first one)
                 while (pendingCellForcing.length > 0 && singles.length === 0 && elims.length === 0) {
                     const cellIndex = pendingCellForcing.pop();
                     isPendingCellForcing[cellIndex] = 0;
                     const mask = cells[cellIndex];
+                    if ((mask & givenBit) !== 0) continue;
 
                     // Cell clauses are registered with clauseId = cellIndex
                     const cellForcingVariable = binaryImplications.clauseIdAndMaskToVariable(cellIndex, mask);
                     for (const newElim of binaryImplications.getNegConsequences(cellForcingVariable)) {
-                        switch (this.addElim(newElim, elims)) {
+                        switch (this.addElim(newElim, elims, singles)) {
                             case ConstraintResult.INVALID:
                                 return ConstraintResult.INVALID;
                             case ConstraintResult.CHANGED:
