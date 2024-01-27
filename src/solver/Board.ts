@@ -1098,6 +1098,13 @@ export class Board {
         let prevResult = LogicResult.UNCHANGED;
         let result = LogicResult.UNCHANGED;
 
+        if (isInitialPreprocessing) {
+            result = this.applyNakedSingles();
+            if (result === LogicResult.INVALID || result === LogicResult.COMPLETE) {
+                return result;
+            }
+        }
+
         // Loop until result is not "CHANGED"
         // do-while because we always want to run at least once
         do {
@@ -1125,13 +1132,6 @@ export class Board {
             // Re running cell forcing is also required after recomputing cell forcing LUTs.
             // Note that we run this even when "isDepth0" is false because that indicates we're in probing, where cell forcing LUTs can change.
             if (isInitialPreprocessing) {
-                result = this.applyNakedSingles();
-                if (result === LogicResult.INVALID || result === LogicResult.COMPLETE) {
-                    return result;
-                }
-                if (result === LogicResult.CHANGED) {
-                    prevResult = result;
-                }
                 result = this.applyCellForcing();
                 if (result !== LogicResult.UNCHANGED) continue;
             }
