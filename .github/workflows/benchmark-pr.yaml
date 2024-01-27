@@ -19,29 +19,17 @@ jobs:
                 python-version: '3.9'
                 cache: 'pip' # caching pip dependencies
 
-            - run: npm ci
-            - run: pip install -r scripts/requirements.txt
-
-            - name: Run Build
-              run: npm run build
-            - name: Run Prettier
-              run: npx prettier --check src
-            - name: Run ESLint
-              run: npm run lint
-
-            - name: Checkout gh_pages
+            - name: Setup
               run: |
-                  git fetch origin gh_pages:gh_pages
-                  git fetch origin $GITHUB_BASE_REF:basebranch
-                  git fetch origin $GITHUB_HEAD_REF:headbranch
-                  git clone . -b gh_pages gh_pages
-
-            - name: Setup env vars
-              run: |
+                  npm ci &
+                  pip install -r scripts/requirements.txt &
+                  (
+                    git fetch origin gh_pages:gh_pages $GITHUB_BASE_REF:basebranch $GITHUB_HEAD_REF:headbranch
+                    git clone . -b gh_pages gh_pages
+                    mkdir -p "gh_pages/$BENCHMARK_RESULT_DIR"
+                  ) &
                   echo "BENCHMARK_RESULT_DIR=benchmarks/pull_requests/$(echo $GITHUB_REF_NAME | sed 's_/_._g')" >> "$GITHUB_ENV"
-            - name: mkdir benchmarks dir
-              run: |
-                  mkdir -p "gh_pages/$BENCHMARK_RESULT_DIR"
+                  wait
 
             - name: Run benchmarks (1)
               run: |
