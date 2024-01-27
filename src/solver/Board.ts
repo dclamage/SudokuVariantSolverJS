@@ -208,8 +208,6 @@ export class Board {
     cells64: BigUint64Array | null;
     invalidInit: boolean;
     nonGivenCount: number;
-    reducedCells: CellIndex[];
-    cellIsReduced: Uint8Array;
     binaryImplications: BinaryImplicationLayeredGraph;
     regions: Region[];
     constraints: Constraint[];
@@ -232,8 +230,6 @@ export class Board {
             this.cells.fill(this.allValues);
             this.invalidInit = false;
             this.nonGivenCount = size * size;
-            this.reducedCells = [];
-            this.cellIsReduced = new Uint8Array(size * size);
             this.binaryImplications = new BinaryImplicationLayeredGraph(
                 size * size * size,
                 Array.from({ length: size * size }, (_, cellIndex) => Array.from({ length: size }, (_, i) => cellIndex * size + i))
@@ -288,8 +284,6 @@ export class Board {
 
         clone.invalidInit = this.invalidInit;
         clone.nonGivenCount = this.nonGivenCount;
-        clone.reducedCells = this.reducedCells.slice(); // Deep copy
-        clone.cellIsReduced = new Uint8Array(this.cellIsReduced);
         clone.binaryImplications = this.binaryImplications;
         clone.regions = this.regions;
         clone.constraints = this.constraints.map(constraint => constraint.clone()); // Clone constraints that need backtracking state
@@ -324,8 +318,6 @@ export class Board {
 
         clone.invalidInit = this.invalidInit;
         clone.nonGivenCount = this.nonGivenCount;
-        clone.reducedCells = this.reducedCells.slice(); // Deep copy
-        clone.cellIsReduced = new Uint8Array(this.cellIsReduced);
         clone.binaryImplications = this.binaryImplications.subboardClone(); // Deep copy
         clone.regions = this.regions.slice(); // Deep copy
         clone.constraints = []; // Don't inherit constraints
@@ -712,12 +704,6 @@ export class Board {
         this.cells[cellIndex] &= ~valueMask;
         if ((this.cells[cellIndex] & this.allValues) === 0) return false;
 
-        // TODO: get rid of this
-        if (!this.cellIsReduced[cellIndex]) {
-            this.reducedCells.push(cellIndex);
-            this.cellIsReduced[cellIndex] = 1;
-        }
-
         elims.push(elim);
         return true;
     }
@@ -734,12 +720,6 @@ export class Board {
 
         this.cells[cellIndex] = givenValueMask;
         this.nonGivenCount--;
-
-        // TODO: get rid of this
-        if (!this.cellIsReduced[cellIndex]) {
-            this.reducedCells.push(cellIndex);
-            this.cellIsReduced[cellIndex] = 1;
-        }
 
         for (let elimsMask = mask & ~valueMask; elimsMask !== 0; elimsMask &= elimsMask - 1) {
             const elimValue = minValue(elimsMask);
@@ -1369,10 +1349,7 @@ export class Board {
     private applyCellForcing(): LogicResult {
         let changed = false;
 
-        while (this.reducedCells.length > 0) {
-            const cellIndex = this.reducedCells.pop();
-            this.cellIsReduced[cellIndex] = 0;
-
+        for (let cellIndex = 0; cellIndex < this.size * this.size; cellIndex++) {
             const mask = this.cells[cellIndex] & this.allValues;
             const count = popcount(mask);
             if (count === 0) return LogicResult.INVALID;
