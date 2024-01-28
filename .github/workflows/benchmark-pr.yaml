@@ -58,10 +58,8 @@ jobs:
 
             - name: Generate chart
               run: |
-                  jq '[.[], input[], input[]]' "gh_pages/$BENCHMARK_RESULT_DIR/base1.json" "gh_pages/$BENCHMARK_RESULT_DIR/base2.json" "gh_pages/$BENCHMARK_RESULT_DIR/base3.json" > "gh_pages/$BENCHMARK_RESULT_DIR/basecombined.json"
-                  jq '[.[], input[], input[]]' "gh_pages/$BENCHMARK_RESULT_DIR/head1.json" "gh_pages/$BENCHMARK_RESULT_DIR/head2.json" "gh_pages/$BENCHMARK_RESULT_DIR/head3.json" > "gh_pages/$BENCHMARK_RESULT_DIR/headcombined.json"
-                  python3 scripts/gengraph.py 'lambda x: x["guesses"]' "gh_pages/$BENCHMARK_RESULT_DIR/basecombined.json" "gh_pages/$BENCHMARK_RESULT_DIR/headcombined.json" "gh_pages/$BENCHMARK_RESULT_DIR/guesses_chart.png"
-                  python3 scripts/gengraph.py 'lambda x: x["solveElapsedTimeMs"] + x["createElapsedTimeMs"]' "gh_pages/$BENCHMARK_RESULT_DIR/basecombined.json" "gh_pages/$BENCHMARK_RESULT_DIR/headcombined.json" "gh_pages/$BENCHMARK_RESULT_DIR/time_chart.png"
+                  jq -s 'transpose' <(jq -s 'transpose' "gh_pages/$BENCHMARK_RESULT_DIR/base1.json" "gh_pages/$BENCHMARK_RESULT_DIR/base2.json" "gh_pages/$BENCHMARK_RESULT_DIR/base3.json") <(jq -s 'transpose' "gh_pages/$BENCHMARK_RESULT_DIR/head1.json" "gh_pages/$BENCHMARK_RESULT_DIR/head2.json" "gh_pages/$BENCHMARK_RESULT_DIR/head3.json") | python3 scripts/gengraph.py 'lambda x: x["guesses"]' "gh_pages/$BENCHMARK_RESULT_DIR/guesses_chart.png"
+                  jq -s 'transpose' <(jq -s 'transpose' "gh_pages/$BENCHMARK_RESULT_DIR/base1.json" "gh_pages/$BENCHMARK_RESULT_DIR/base2.json" "gh_pages/$BENCHMARK_RESULT_DIR/base3.json") <(jq -s 'transpose' "gh_pages/$BENCHMARK_RESULT_DIR/head1.json" "gh_pages/$BENCHMARK_RESULT_DIR/head2.json" "gh_pages/$BENCHMARK_RESULT_DIR/head3.json") | python3 scripts/gengraph.py 'lambda x: x["solveElapsedTimeMs"] + x["createElapsedTimeMs"]' "gh_pages/$BENCHMARK_RESULT_DIR/time_chart.png"
 
             - name: Generate summary
               run: |
