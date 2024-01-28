@@ -20,7 +20,7 @@ export function register(constraintBuilder: ConstraintBuilder) {
             const subboard = board.subboardClone();
 
             // In the ith branch, the first cell of the xsum has value i
-            if (subboard.newApplyCellMask(initialCellIndex, valueBit(digit)) === ConstraintResult.INVALID) {
+            if (subboard.applyCellMask(initialCellIndex, valueBit(digit)) === ConstraintResult.INVALID) {
                 subboard.release();
                 continue;
             }

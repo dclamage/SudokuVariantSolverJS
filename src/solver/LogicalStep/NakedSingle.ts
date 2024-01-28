@@ -17,7 +17,7 @@ export class NakedSingle extends LogicalStep {
             const mask = board.cells[cellIndex];
             if (mask & (mask - 1)) continue;
             const value = minValue(mask);
-            if (board.newApplySingle(board.candidateIndex(cellIndex, value)) === ConstraintResult.INVALID) {
+            if (board.applySingle(board.candidateIndex(cellIndex, value)) === ConstraintResult.INVALID) {
                 if (desc) {
                     desc.push(`Naked Single: ${cellName(cellIndex, size)} cannot be set to ${value}.`);
                 }

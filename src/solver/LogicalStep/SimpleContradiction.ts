@@ -39,11 +39,11 @@ export class SimpleContradiction extends LogicalStep {
 
                 // Check if this value is a contradiction
                 const newBoard = board.clone();
-                if (newBoard.newApplySingle(board.candidateIndex(cellIndex, value)) === ConstraintResult.INVALID) {
+                if (newBoard.applySingle(board.candidateIndex(cellIndex, value)) === ConstraintResult.INVALID) {
                     if (desc) {
                         desc.push(`Simple Contradiction: ${board.describeCandidates([candidateIndex])} causes a trivial contradiction.`);
                     }
-                    if (board.newApplyElim(board.candidateIndex(cellIndex, value)) === ConstraintResult.INVALID) {
+                    if (board.applyElim(board.candidateIndex(cellIndex, value)) === ConstraintResult.INVALID) {
                         return LogicResult.INVALID;
                     }
                     return LogicResult.CHANGED;
@@ -62,7 +62,7 @@ export class SimpleContradiction extends LogicalStep {
                                     ])} causes the following contradiction:\n • ${subDesc!.join('\n • ')}`
                                 );
                             }
-                            if (board.newApplyElim(board.candidateIndex(cellIndex, value)) === ConstraintResult.INVALID) {
+                            if (board.applyElim(board.candidateIndex(cellIndex, value)) === ConstraintResult.INVALID) {
                                 return LogicResult.INVALID;
                             }
                             return LogicResult.CHANGED;

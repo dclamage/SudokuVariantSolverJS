@@ -125,7 +125,7 @@ export class Fish extends LogicalStep {
                                         }${columnOrRowIndices} [${board.describeCandidates(fishCandidates.flat())}] => ${board.describeElims(elims)}.`
                                     );
                                 }
-                                return board.newApplyElims(elims) as number as LogicResult;
+                                return board.applyElims(elims) as number as LogicResult;
                             }
                         }
                     }

@@ -43,7 +43,7 @@ export class Skyscraper extends LogicalStep {
                                     ? board.candidateIndexRC(rows[1].row, col1, value)
                                     : board.candidateIndexRC(col1, rows[1].row, value);
                             const elims = board.calcElimsForCandidateIndices([candidate0, candidate1]);
-                            const result = board.newApplyElims(elims);
+                            const result = board.applyElims(elims);
                             if (result !== ConstraintResult.UNCHANGED) {
                                 if (desc) {
                                     const sharedCol = ctz(rowMask0 & rowMask1);

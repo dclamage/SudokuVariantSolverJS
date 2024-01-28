@@ -31,7 +31,7 @@ export class CellForcing extends LogicalStep {
                 if (desc) {
                     desc.push(`Cell Forcing: ${maskToString(cellMask, size)}${cellName(cellIndex, size)} => ${board.describeElims(elims)}.`);
                 }
-                return board.newApplyElims(elims) as number as LogicResult;
+                return board.applyElims(elims) as number as LogicResult;
             }
         }
     }

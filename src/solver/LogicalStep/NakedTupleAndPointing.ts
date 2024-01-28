@@ -85,7 +85,7 @@ export class NakedTupleAndPointing extends LogicalStep {
                     }
 
                     // Perform the eliminations
-                    return board.newApplyElims(elims) as number as LogicResult;
+                    return board.applyElims(elims) as number as LogicResult;
                 }
             }
 
@@ -121,7 +121,7 @@ export class NakedTupleAndPointing extends LogicalStep {
                     }
 
                     // Perform the eliminations
-                    return board.newApplyElims(elims) as number as LogicResult;
+                    return board.applyElims(elims) as number as LogicResult;
                 }
             }
         }

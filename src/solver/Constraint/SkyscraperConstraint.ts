@@ -61,7 +61,7 @@ export class SkyscraperConstraint extends Constraint {
         if (this.clue === 1) {
             const keepMask = valueBit(board.size);
             return {
-                result: board.newApplyCellMask(this.cells[0], keepMask),
+                result: board.applyCellMask(this.cells[0], keepMask),
                 deleteConstraints: [this],
             };
         }
@@ -72,7 +72,7 @@ export class SkyscraperConstraint extends Constraint {
         if (this.clue === board.size) {
             for (let v = 1; v <= board.size; ++v) {
                 const keepMask = valueBit(v);
-                const result = board.newApplyCellMask(this.cells[v - 1], keepMask);
+                const result = board.applyCellMask(this.cells[v - 1], keepMask);
                 if (result === ConstraintResult.INVALID) {
                     return ConstraintResult.INVALID;
                 }
@@ -86,7 +86,7 @@ export class SkyscraperConstraint extends Constraint {
                 const maxValue = board.size - this.clue + 1 + cellIndex;
                 if (maxValue < board.size) {
                     const keepMask = maskLowerOrEqual(maxValue);
-                    const result = board.newApplyCellMask(cell, keepMask);
+                    const result = board.applyCellMask(cell, keepMask);
                     if (result === ConstraintResult.INVALID) {
                         return ConstraintResult.INVALID;
                     }
@@ -312,7 +312,7 @@ export class SkyscraperConstraint extends Constraint {
             }
         }
 
-        return board.newApplyCellMasks(this.cells, keepMasks);
+        return board.applyCellMasks(this.cells, keepMasks);
     }
 
     static seenCount(values: CellValue[]): number {

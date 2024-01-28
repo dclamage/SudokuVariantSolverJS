@@ -34,7 +34,7 @@ export class OrConstraint extends Constraint {
         this.subboards = this.subboards.filter(subboard => {
             // Copy state downwards
             if (
-                subboard.newApplyCellMasks(
+                subboard.applyCellMasks(
                     Array.from({ length: this.numCells }, (_, i) => i),
                     board.cells
                 ) === ConstraintResult.INVALID
@@ -80,7 +80,7 @@ export class OrConstraint extends Constraint {
         this.subboardsChanged = true;
         let invalidSubboards: Board[] | null = null;
         for (const subboard of this.subboards) {
-            if (subboard.newApplySingle(board.candidateIndex(cellIndex, value)) === ConstraintResult.INVALID) {
+            if (subboard.applySingle(board.candidateIndex(cellIndex, value)) === ConstraintResult.INVALID) {
                 if (invalidSubboards === null) {
                     invalidSubboards = [];
                 }
@@ -99,7 +99,7 @@ export class OrConstraint extends Constraint {
         this.subboardsChanged = true;
         let invalidSubboards: Board[] | null = null;
         for (const subboard of this.subboards) {
-            if (subboard.newApplyElim(board.candidateIndex(cellIndex, value)) === ConstraintResult.INVALID) {
+            if (subboard.applyElim(board.candidateIndex(cellIndex, value)) === ConstraintResult.INVALID) {
                 if (invalidSubboards === null) {
                     invalidSubboards = [];
                 }
@@ -275,7 +275,7 @@ export class OrConstraint extends Constraint {
             sharedMasks.push(cellMask);
         }
 
-        return board.newApplyCellMasks(
+        return board.applyCellMasks(
             Array.from({ length: this.numCells }, (_, i) => i),
             sharedMasks
         );

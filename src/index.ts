@@ -340,7 +340,7 @@ class SudokuVariantSolver {
                 const cellIndex = board.cellIndex(i, j);
                 if (keepPencilMarks) {
                     if (srcCell.value) {
-                        if (board.newApplyCellMask(cellIndex, valueBit(srcCell.value)) === ConstraintResult.INVALID) {
+                        if (board.applyCellMask(cellIndex, valueBit(srcCell.value)) === ConstraintResult.INVALID) {
                             return null;
                         }
                         givenSingles.push([cellIndex, srcCell.value]);
@@ -360,7 +360,7 @@ class SudokuVariantSolver {
                     }
                 } else {
                     if (srcCell.given) {
-                        if (board.newApplyCellMask(cellIndex, valueBit(srcCell.value)) === ConstraintResult.INVALID) {
+                        if (board.applyCellMask(cellIndex, valueBit(srcCell.value)) === ConstraintResult.INVALID) {
                             return null;
                         }
                         givenSingles.push([cellIndex, srcCell.value]);
@@ -431,7 +431,7 @@ class SudokuVariantSolver {
 
         // setAsGiven the given singles to set givenBit / enforce constraints
         for (const [given, value] of givenSingles) {
-            board.newApplySingle(board.candidateIndex(given, value));
+            board.applySingle(board.candidateIndex(given, value));
         }
 
         return board;

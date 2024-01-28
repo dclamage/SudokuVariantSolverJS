@@ -348,7 +348,7 @@ export class SumGroup {
     }
 
     applySumResult(board: Board, resultMasks: CellMask[]): boolean {
-        return board.newApplyCellMasks(this.cells, resultMasks) !== ConstraintResult.INVALID;
+        return board.applyCellMasks(this.cells, resultMasks) !== ConstraintResult.INVALID;
     }
 
     possibleSums(board: Board): number[] {

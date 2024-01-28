@@ -46,7 +46,7 @@ export class HiddenSingle extends LogicalStep {
                 const newCellMask = cellMask & exactlyOnce;
                 if (newCellMask !== 0 && newCellMask != cellMask) {
                     const cellValue = minValue(newCellMask);
-                    if (board.newApplySingle(board.candidateIndex(cellIndex, cellValue)) === ConstraintResult.INVALID) {
+                    if (board.applySingle(board.candidateIndex(cellIndex, cellValue)) === ConstraintResult.INVALID) {
                         if (desc) {
                             desc.push(`Hidden Single in ${region.name}: ${cellName(cellIndex, size)} cannot be set to ${cellValue}.`);
                         }

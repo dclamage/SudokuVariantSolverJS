@@ -123,7 +123,7 @@ class RenbanConstraint extends Constraint {
         }
 
         let changed = ConstraintResult.UNCHANGED;
-        const result = board.newApplyCellMasks(
+        const result = board.applyCellMasks(
             this.cells,
             Array.from({ length: this.cells.length }, () => expand)
         );

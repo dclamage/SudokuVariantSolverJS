@@ -26,7 +26,7 @@ export function register(constraintBuilder: ConstraintBuilder) {
                 // we are helping out the subboard by doing naked pair logic for them because tactics aren't run on subboards by default
                 // so it will not see this without our help. doing the naked pair logic lets subboards be pruned during a solve.
                 if (
-                    subboard.newApplyCellMasks(
+                    subboard.applyCellMasks(
                         allCells,
                         allCells.map((_, i) => (i === firstPos || i === secondPos ? crustsMask : nonCrustsMask))
                     ) === ConstraintResult.INVALID

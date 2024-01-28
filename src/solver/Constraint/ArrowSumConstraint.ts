@@ -58,7 +58,7 @@ export class ArrowSumConstraint extends Constraint {
             const subboards = [];
             for (let tensDigit = 1; tensDigit <= board.size; ++tensDigit) {
                 const subboard = board.subboardClone();
-                subboard.newApplyCellMask(this.circleCells[0], valueBit(tensDigit));
+                subboard.applyCellMask(this.circleCells[0], valueBit(tensDigit));
                 subboard.addConstraint(
                     new EqualSumConstraint(
                         `Hypothetical ${this.toString()}`,
@@ -106,7 +106,7 @@ export class ArrowSumConstraint extends Constraint {
             }
 
             const firstCircleCell = this.circleCells[0];
-            return board.newApplyCellMask(firstCircleCell, board.maskBetweenInclusive(minSumLeadingDigit, maxSumLeadingDigit));
+            return board.applyCellMask(firstCircleCell, board.maskBetweenInclusive(minSumLeadingDigit, maxSumLeadingDigit));
         }
 
         const maxDigitLength = board.size.toString().length;
