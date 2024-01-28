@@ -432,7 +432,7 @@ export function sequenceUnionDefaultCompare<T>(arr1: readonly T[], arr2: readonl
 }
 
 // Assumes arr1 and arr2 are sorted according to the default compare
-export function sequenceIntersectionUpdateDefaultCompare<T>(arr1Inout: T[], arr2: readonly T[]) {
+export function sequenceIntersectionUpdateDefaultCompare<T>(arr1Inout: T[], arr2: readonly T[]): T[] {
     let iWrite = 0;
     let j = 0;
 
@@ -448,6 +448,7 @@ export function sequenceIntersectionUpdateDefaultCompare<T>(arr1Inout: T[], arr2
         }
     }
     arr1Inout.length = iWrite;
+    return arr1Inout;
 }
 
 // Assumes arr1 and arr2 are sorted according to the default compare

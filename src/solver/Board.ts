@@ -19,6 +19,8 @@ import {
     sequenceRemoveUpdateDefaultCompare,
     sequenceExtend,
     CandidateLiteral,
+    sequenceUnionDefaultCompare,
+    sequenceIntersectionUpdateDefaultCompare,
 } from './SolveUtility';
 import { NakedSingle } from './LogicalStep/NakedSingle';
 import { HiddenSingle } from './LogicalStep/HiddenSingle';
@@ -1110,14 +1112,14 @@ export class Board {
             }
         } while (result === LogicResult.CHANGED);
 
-        if (isDepth0) {
-            // Remove transitive implications
-            for (const [trueCandidateIndex, consequents] of this.removedTransitiveImplications.entries()) {
-                for (const consequent of consequents) {
-                    this.binaryImplications.unsafeRemoveImplicationOneway(trueCandidateIndex, consequent);
-                }
-            }
-        }
+        // if (isDepth0) {
+        //     // Remove transitive implications
+        //     for (const [trueCandidateIndex, consequents] of this.removedTransitiveImplications.entries()) {
+        //         for (const consequent of consequents) {
+        //             this.binaryImplications.unsafeRemoveImplicationOneway(trueCandidateIndex, consequent);
+        //         }
+        //     }
+        // }
 
         return result === LogicResult.UNCHANGED ? prevResult : result;
     }
@@ -1605,6 +1607,59 @@ export class Board {
                         .sort((a, b) => a - b)
                 );
                 this.removedTransitiveImplications.set(candidateIndex, newBoard.transitiveConsequents);
+
+                // const nonTransitiveConsequents = newBoard.transitiveConsequents.slice();
+                // const posVisited: boolean[] = [];
+                // const negVisited: boolean[] = [];
+                // const posReachable: CandidateIndex[] = this.binaryImplications.getPosConsequences(candidateIndex);
+                // const negReachable: CandidateIndex[] = this.binaryImplications.getNegConsequences(candidateIndex);
+                // for (const pos of posReachable) {
+                //     posVisited[pos] = true;
+                // }
+                // for (const neg of negReachable) {
+                //     negVisited[neg] = true;
+                // }
+                // while (posReachable.length > 0 || negReachable.length > 0) {
+                //     while (posReachable.length > 0) {
+                //         const pos = posReachable.pop();
+                //         const pospos = this.binaryImplications.getPosConsequencesSorted(pos);
+                //         const posneg = this.binaryImplications.getNegConsequencesSorted(pos);
+                //         for (const pos of pospos) {
+                //             if (posVisited[pos] !== true) {
+                //                 posReachable.push(pos);
+                //                 posVisited[pos] = true;
+                //             }
+                //         }
+                //         for (const neg of posneg) {
+                //             if (negVisited[neg] !== true) {
+                //                 negReachable.push(neg);
+                //                 negVisited[neg] = true;
+                //             }
+                //         }
+                //         sequenceRemoveUpdateDefaultCompare(nonTransitiveConsequents, pospos);
+                //         sequenceRemoveUpdateDefaultCompare(nonTransitiveConsequents, posneg.map(x => ~x).reverse());
+                //     }
+                //     while (negReachable.length > 0) {
+                //         const neg = negReachable.pop();
+                //         const negpos = this.binaryImplications.getPosConsequencesSorted(neg);
+                //         const negneg = this.binaryImplications.getNegConsequencesSorted(neg);
+                //         for (const pos of negpos) {
+                //             if (posVisited[pos] !== true) {
+                //                 posReachable.push(pos);
+                //                 posVisited[pos] = true;
+                //             }
+                //         }
+                //         for (const neg of negneg) {
+                //             if (negVisited[neg] !== true) {
+                //                 negReachable.push(neg);
+                //                 negVisited[neg] = true;
+                //             }
+                //         }
+                //         sequenceRemoveUpdateDefaultCompare(nonTransitiveConsequents, negpos);
+                //         sequenceRemoveUpdateDefaultCompare(nonTransitiveConsequents, negneg.map(x => ~x).reverse());
+                //     }
+                // }
+                // if (nonTransitiveConsequents.length > 0) debugger;
 
                 if (bruteForceResult !== LogicResult.UNCHANGED) {
                     if (this.addBinaryImplicationsFromTruth(candidateIndex, newBoard)) {
