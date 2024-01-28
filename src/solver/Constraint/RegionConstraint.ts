@@ -12,7 +12,7 @@ export class RegionConstraint extends Constraint {
     cells: CellIndex[];
 
     constructor(board: Board, params: RegionConstraintParams, name: string, specificName: string) {
-        super(name, specificName);
+        super(name, specificName, params.cells.slice());
 
         this.cells = params.cells.slice();
     }

@@ -11,7 +11,7 @@ class RenbanConstraint extends Constraint {
     alreadyAddedCardinalityConstraints: Uint8Array;
 
     constructor(board: Board, params: { cells: CellIndex[] }, constraintName: string, specificName: string) {
-        super(constraintName, specificName);
+        super(constraintName, specificName, params.cells.slice());
         this.cells = params.cells.slice();
         // TODO: When cardinality constraints can be added natively to the board, we should be able to deduplicate better
         this.alreadyAddedCardinalityConstraints = new Uint8Array(board.size + 1);

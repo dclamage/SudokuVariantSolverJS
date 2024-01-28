@@ -21,14 +21,15 @@ export class ArrowSumConstraint extends Constraint {
 
     constructor(board: Board, params: ArrowSumConstraintParams) {
         const specificName = `Arrow at ${cellName(params.circleCells[0], board.size)}`;
-        super('Arrow', specificName);
+        const allCells = [...params.circleCells, ...params.arrowCells];
+        super('Arrow', specificName, allCells);
 
         this.circleCells = params.circleCells.slice();
 
         this.arrowCells = params.arrowCells.slice();
         this.arrowCellsSum = new SumCellsHelper(board, this.arrowCells);
 
-        this.allCells = [...this.circleCells, ...this.arrowCells];
+        this.allCells = allCells;
         this.allCellsSet = new Set(this.allCells);
     }
 
@@ -70,7 +71,7 @@ export class ArrowSumConstraint extends Constraint {
             }
             return {
                 result: ConstraintResult.UNCHANGED,
-                addConstraints: [new OrConstraint(this.constraintName, this.specificName, board, { subboards })],
+                addConstraints: [new OrConstraint(this.constraintName, this.specificName, board, { subboards, cells: this.allCells.slice() })],
                 deleteConstraints: [this],
             };
         }

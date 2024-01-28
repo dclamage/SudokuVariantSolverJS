@@ -118,7 +118,7 @@ export function register(constraintBuilder: ConstraintBuilder) {
                 )
             );
 
-            return new OrConstraint('Lockout', `Lockout at ${line[0]}`, board, { subboards: [subboard1, subboard2] });
+            return new OrConstraint('Lockout', `Lockout at ${line[0]}`, board, { subboards: [subboard1, subboard2], cells: [...outer, ...middle] });
         })
     );
 }

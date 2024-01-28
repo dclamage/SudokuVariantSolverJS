@@ -40,15 +40,16 @@ export class SkyscraperConstraint extends Constraint {
         const firstCellIndex = board.cellIndex(params.directionalCoords.row, params.directionalCoords.col);
         const directionOffset = board.cellIndex(params.directionalCoords.dRow, params.directionalCoords.dCol);
         const specificName = `Skyscraper ${params.clue} at ${cellName(firstCellIndex, board.size)}`;
-        super('Skyscraper', specificName);
+        const cells = [];
+        for (let i = 0; i < board.size; ++i) {
+            cells.push(firstCellIndex + i * directionOffset);
+        }
+        super('Skyscraper', specificName, cells.slice());
 
         this.clue = params.clue;
         this.cellStart = firstCellIndex;
 
-        this.cells = [];
-        for (let i = 0; i < board.size; ++i) {
-            this.cells.push(this.cellStart + i * directionOffset);
-        }
+        this.cells = cells;
         this.cellsLookup = new Set(this.cells);
 
         this.memoPrefix = `Skyscraper|${this.clue}|${this.cellStart}`;

@@ -1,5 +1,5 @@
 import { Board, ReadonlyBoard } from '../Board';
-import { CandidateIndex, CellIndex, CellValue, StateKey, valueBit } from '../SolveUtility';
+import { CandidateIndex, CellIndex, CellValue, StateKey, removeDuplicates, valueBit } from '../SolveUtility';
 import { Constraint, ConstraintResult, InitResult, LogicalDeduction } from './Constraint';
 
 class CardinalityConstraintState {
@@ -35,7 +35,11 @@ export class CardinalityConstraint extends Constraint {
     stateKey: StateKey<CardinalityConstraintState>;
 
     constructor(constraintName: string, specificName: string, board: Board, params: CardinalityConstraintParams) {
-        super(constraintName, specificName);
+        super(
+            constraintName,
+            specificName,
+            params.candidates.map(candidate => board.cellIndexFromCandidate(candidate))
+        );
 
         // Check that candidates contains no duplicates
         for (let i = 0; i < params.candidates.length - 1; ++i) {
@@ -79,6 +83,7 @@ export class CardinalityConstraint extends Constraint {
             // Naked singles will get enforced later, so it's ok to ignore them for now
             return true;
         });
+        this.constraintCells = removeDuplicates(state.candidates.map(candidate => board.cellIndexFromCandidate(candidate)).sort((a, b) => a - b));
 
         if (state.candidates.length === 0) {
             // No candidates means we're either always satisfied or we're always broken. Either way we can delete ourselves.
@@ -298,6 +303,4 @@ export class CardinalityConstraint extends Constraint {
 
         return [];
     }
-
-    // TODO: Implement bruteForceStep and make it skip clause forcing (check if this speeds up solves)
 }

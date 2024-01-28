@@ -52,6 +52,9 @@ export function register(constraintBuilder: ConstraintBuilder) {
             }
         }
 
-        return new OrConstraint('Sandwich Sum', `Sandwich Sum ${params.value} at ${params.cell}`, board, { subboards: subboards });
+        return new OrConstraint('Sandwich Sum', `Sandwich Sum ${params.value} at ${params.cell}`, board, {
+            subboards: subboards,
+            cells: allCells.slice(),
+        });
     });
 }

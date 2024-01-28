@@ -208,8 +208,11 @@ export class Board {
     cells64: BigUint64Array | null;
     invalidInit: boolean;
     nonGivenCount: number;
-    reducedCells: CellIndex[];
-    cellIsReduced: Uint8Array;
+    pendingCellForcing: CellIndex[];
+    isPendingCellForcing: Uint8Array;
+    hasPendingCellStep: boolean;
+    isPendingCellStep: Uint8Array;
+    pendingConstraints: Set<Constraint>;
     binaryImplications: BinaryImplicationLayeredGraph;
     regions: Region[];
     constraints: Constraint[];
@@ -232,8 +235,11 @@ export class Board {
             this.cells.fill(this.allValues);
             this.invalidInit = false;
             this.nonGivenCount = size * size;
-            this.reducedCells = [];
-            this.cellIsReduced = new Uint8Array(size * size);
+            this.pendingCellForcing = [];
+            this.isPendingCellForcing = new Uint8Array(size * size);
+            this.hasPendingCellStep = false;
+            this.isPendingCellStep = new Uint8Array(size * size);
+            this.pendingConstraints = new Set();
             this.binaryImplications = new BinaryImplicationLayeredGraph(
                 size * size * size,
                 Array.from({ length: size * size }, (_, cellIndex) => Array.from({ length: size }, (_, i) => cellIndex * size + i))
@@ -288,8 +294,11 @@ export class Board {
 
         clone.invalidInit = this.invalidInit;
         clone.nonGivenCount = this.nonGivenCount;
-        clone.reducedCells = this.reducedCells.slice(); // Deep copy
-        clone.cellIsReduced = new Uint8Array(this.cellIsReduced);
+        clone.pendingCellForcing = this.pendingCellForcing.slice(); // Deep copy
+        clone.isPendingCellForcing = new Uint8Array(this.isPendingCellForcing);
+        clone.hasPendingCellStep = this.hasPendingCellStep;
+        clone.isPendingCellStep = new Uint8Array(this.isPendingCellStep);
+        clone.pendingConstraints = new Set(this.pendingConstraints);
         clone.binaryImplications = this.binaryImplications;
         clone.regions = this.regions;
         clone.constraints = this.constraints.map(constraint => constraint.clone()); // Clone constraints that need backtracking state
@@ -324,8 +333,11 @@ export class Board {
 
         clone.invalidInit = this.invalidInit;
         clone.nonGivenCount = this.nonGivenCount;
-        clone.reducedCells = this.reducedCells.slice(); // Deep copy
-        clone.cellIsReduced = new Uint8Array(this.cellIsReduced);
+        clone.pendingCellForcing = this.pendingCellForcing.slice(); // Deep copy
+        clone.isPendingCellForcing = new Uint8Array(this.isPendingCellForcing);
+        clone.hasPendingCellStep = this.hasPendingCellStep;
+        clone.isPendingCellStep = new Uint8Array(this.isPendingCellStep);
+        clone.pendingConstraints = new Set(this.pendingConstraints);
         clone.binaryImplications = this.binaryImplications.subboardClone(); // Deep copy
         clone.regions = this.regions.slice(); // Deep copy
         clone.constraints = []; // Don't inherit constraints
@@ -434,6 +446,9 @@ export class Board {
         if (!this.binaryImplications.addImplication(index1, ~index2)) {
             return false;
         }
+        for (const constraint of this.constraints) {
+            constraint.constraintCells[0] !== undefined && this.markCellAsModified(constraint.constraintCells[0]);
+        }
 
         // Enforce weak link now if one of the candidates is already set
         if (this.isGiven(cellIndex1) && (this.cells[cellIndex1] & this.allValues) === valueBit(value1)) {
@@ -509,6 +524,7 @@ export class Board {
         if (constraint.enforceCandidateElim !== Constraint.prototype.enforceCandidateElim) {
             this.constraintsWithEnforceCandidateElim.push(constraint);
         }
+        constraint.constraintCells[0] !== undefined && this.markCellAsModified(constraint.constraintCells[0]);
     }
 
     // Calls `func` on all constraints in a loop
@@ -565,6 +581,9 @@ export class Board {
             for (const implication of deduction.implications) {
                 this.binaryImplications.addImplication(implication[0], implication[1]);
             }
+            for (const constraint of this.constraints) {
+                constraint.constraintCells[0] !== undefined && this.markCellAsModified(constraint.constraintCells[0]);
+            }
             haveChange = true;
         }
         return haveChange ? ConstraintResult.CHANGED : ConstraintResult.UNCHANGED;
@@ -585,6 +604,8 @@ export class Board {
                 return false;
             }
 
+            constraint.constraintCells[0] !== undefined && this.markCellAsModified(constraint.constraintCells[0]);
+
             if (payload) {
                 if (payload.weakLinks && payload.weakLinks.length > 0) {
                     for (const link of payload.weakLinks) {
@@ -595,6 +616,9 @@ export class Board {
                 if (payload.implications && payload.implications.length > 0) {
                     for (const implication of payload.implications) {
                         this.binaryImplications.addImplication(implication[0], implication[1]);
+                    }
+                    for (const constraint of this.constraints) {
+                        constraint.constraintCells[0] !== undefined && this.markCellAsModified(constraint.constraintCells[0]);
                     }
                     this.binaryImplications.sortGraph();
                 }
@@ -622,6 +646,9 @@ export class Board {
             }
         }
         this.binaryImplications.preprocess(this);
+        for (const constraint of this.constraints) {
+            constraint.constraintCells[0] !== undefined && this.markCellAsModified(constraint.constraintCells[0]);
+        }
         return true;
     }
 
@@ -703,20 +730,31 @@ export class Board {
         this.memos.set(key, val);
     }
 
+    markCellAsModified(cellIndex: CellIndex): void {
+        if (!this.isPendingCellForcing[cellIndex]) {
+            this.pendingCellForcing.push(cellIndex);
+            this.isPendingCellForcing[cellIndex] = 1;
+        }
+
+        this.hasPendingCellStep = true;
+        this.isPendingCellStep[cellIndex] = 1;
+    }
+
+    markCellAsSingle(cellIndex: CellIndex): void {
+        this.hasPendingCellStep = true;
+        this.isPendingCellStep[cellIndex] = 1;
+    }
+
     private addElim(elim: CandidateIndex, elims: CandidateIndex[]): boolean {
         const [cellIndex, value] = this.candidateToIndexAndValue(elim);
 
         const valueMask = valueBit(value);
         if ((this.cells[cellIndex] & valueMask) === 0) return true;
 
-        this.cells[cellIndex] &= ~valueMask;
-        if ((this.cells[cellIndex] & this.allValues) === 0) return false;
+        const mask = (this.cells[cellIndex] &= ~valueMask);
+        if ((mask & this.allValues) === 0) return false;
 
-        // TODO: get rid of this
-        if (!this.cellIsReduced[cellIndex]) {
-            this.reducedCells.push(cellIndex);
-            this.cellIsReduced[cellIndex] = 1;
-        }
+        this.markCellAsModified(cellIndex);
 
         elims.push(elim);
         return true;
@@ -734,6 +772,8 @@ export class Board {
 
         this.cells[cellIndex] = givenValueMask;
         this.nonGivenCount--;
+
+        this.markCellAsSingle(cellIndex);
 
         for (let elimsMask = mask & ~valueMask; elimsMask !== 0; elimsMask &= elimsMask - 1) {
             const elimValue = minValue(elimsMask);
@@ -846,10 +886,7 @@ export class Board {
 
         this.cells[cellIndex] &= newMask | this.givenBit;
 
-        if (!this.cellIsReduced[cellIndex]) {
-            this.reducedCells.push(cellIndex);
-            this.cellIsReduced[cellIndex] = 1;
-        }
+        this.markCellAsModified(cellIndex);
 
         return this.applyAndPropagateMainLoop(elims, singles);
     }
@@ -882,10 +919,7 @@ export class Board {
 
             this.cells[cellIndex] &= newMask | this.givenBit;
 
-            if (!this.cellIsReduced[cellIndex]) {
-                this.reducedCells.push(cellIndex);
-                this.cellIsReduced[cellIndex] = 1;
-            }
+            this.markCellAsModified(cellIndex);
         }
 
         return this.applyAndPropagateMainLoop(elims, singles);
@@ -1067,6 +1101,10 @@ export class Board {
                 if (result === LogicResult.CHANGED) {
                     // Recompute cell forcing
                     this.binaryImplications.preprocess(this);
+                    // Constraints may benefit from the cell forcing, so enqueue all of them
+                    for (const constraint of this.constraints) {
+                        constraint.constraintCells[0] !== undefined && this.markCellAsModified(constraint.constraintCells[0]);
+                    }
                 }
                 if (result !== LogicResult.UNCHANGED) continue;
             }
@@ -1341,13 +1379,37 @@ export class Board {
     private applyConstraintsBruteForce(): LogicResult {
         const initialNonGivenCount = this.nonGivenCount;
 
-        for (const constraint of this.constraints) {
+        if (!this.hasPendingCellStep && this.pendingConstraints.size === 0) return LogicResult.UNCHANGED;
+
+        if (this.hasPendingCellStep) {
+            for (const constraint of this.constraints) {
+                if (constraint.constraintCells.some(cell => this.isPendingCellStep[cell] === 1)) {
+                    this.pendingConstraints.add(constraint);
+                }
+            }
+
+            this.hasPendingCellStep = false;
+            this.isPendingCellStep.fill(0);
+        }
+
+        const processedConstraints = [];
+        for (const constraint of this.pendingConstraints) {
+            if (!this.constraints.includes(constraint)) {
+                processedConstraints.push(constraint);
+                continue;
+            }
+
             const result = constraint.bruteForceStep(this);
             this.solveStats.bruteForceSteps++;
             if (result !== ConstraintResult.UNCHANGED) {
+                for (const processedConstraint of processedConstraints) {
+                    this.pendingConstraints.delete(processedConstraint);
+                }
                 return result as number as LogicResult;
             }
+            processedConstraints.push(constraint);
         }
+        this.pendingConstraints.clear();
 
         if (initialNonGivenCount !== this.nonGivenCount) throw new Error('Constraints all report unchanged, but board changed');
 
@@ -1357,7 +1419,26 @@ export class Board {
     private applyConstraintsPreprocessing(): LogicResult {
         const initialNonGivenCount = this.nonGivenCount;
 
-        for (const constraint of this.constraints.slice()) {
+        if (!this.hasPendingCellStep && this.pendingConstraints.size === 0) return LogicResult.UNCHANGED;
+
+        if (this.hasPendingCellStep) {
+            for (const constraint of this.constraints) {
+                if (constraint.constraintCells.some(cell => this.isPendingCellStep[cell] === 1)) {
+                    this.pendingConstraints.add(constraint);
+                }
+            }
+
+            this.hasPendingCellStep = false;
+            this.isPendingCellStep.fill(0);
+        }
+
+        const processedConstraints = [];
+        for (const constraint of this.pendingConstraints) {
+            if (!this.constraints.includes(constraint)) {
+                processedConstraints.push(constraint);
+                continue;
+            }
+
             const result = constraint.preprocessingStep(this);
             this.solveStats.preprocessingSteps++;
             const payload = typeof result === 'object' ? result : null;
@@ -1395,12 +1476,20 @@ export class Board {
                         this.binaryImplications.addImplication(index1, index2);
                     }
                     changed = true;
+                    for (const constraint of this.constraints) {
+                        constraint.constraintCells[0] !== undefined && this.markCellAsModified(constraint.constraintCells[0]);
+                    }
                 }
             }
             if (changed) {
+                for (const processedConstraint of processedConstraints) {
+                    this.pendingConstraints.delete(processedConstraint);
+                }
                 return LogicResult.CHANGED;
             }
+            processedConstraints.push(constraint);
         }
+        this.pendingConstraints.clear();
 
         if (initialNonGivenCount !== this.nonGivenCount) throw new Error('Constraints all report unchanged, but board changed');
 
@@ -1410,9 +1499,9 @@ export class Board {
     private applyCellForcing(): LogicResult {
         let changed = false;
 
-        while (this.reducedCells.length > 0) {
-            const cellIndex = this.reducedCells.pop();
-            this.cellIsReduced[cellIndex] = 0;
+        while (this.pendingCellForcing.length > 0) {
+            const cellIndex = this.pendingCellForcing.pop();
+            this.isPendingCellForcing[cellIndex] = 0;
 
             const mask = this.cells[cellIndex] & this.allValues;
             const count = popcount(mask);

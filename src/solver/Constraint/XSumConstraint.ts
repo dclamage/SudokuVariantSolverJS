@@ -36,6 +36,6 @@ export function register(constraintBuilder: ConstraintBuilder) {
             subboards.push(subboard);
         }
 
-        return new OrConstraint('X-Sum', `X-Sum ${params.value} at ${params.cell}`, board, { subboards: subboards });
+        return new OrConstraint('X-Sum', `X-Sum ${params.value} at ${params.cell}`, board, { subboards: subboards, cells: sumCells.slice() });
     });
 }

@@ -1,5 +1,5 @@
 import { Board, ReadonlyBoard } from '../Board';
-import { CandidateIndex, CellCoords, CellIndex, CellValue, Implication, WeakLink } from '../SolveUtility';
+import { CandidateIndex, CellCoords, CellIndex, CellValue, Implication, WeakLink, removeDuplicates } from '../SolveUtility';
 
 // Reflects what has happened to the board
 export enum ConstraintResult {
@@ -55,15 +55,15 @@ export class ConstraintState {
 export class Constraint {
     constraintName: string;
     specificName: string;
-    isConstraintV2: true; // Temporary hack that we'll remove once everything is on ConstraintV2
+    constraintCells: CellIndex[];
 
     // The constraintName is a string that is used to identify the constraint
     // The specificName is a string that is specific to this constraint instance
     // board should NOT be modified at this time. Initialization should happen in `init` instead.
-    constructor(constraintName: string, specificName: string) {
+    constructor(constraintName: string, specificName: string, constraintCells: CellIndex[]) {
         this.constraintName = constraintName;
         this.specificName = specificName;
-        this.isConstraintV2 = true;
+        this.constraintCells = constraintCells === undefined ? undefined : removeDuplicates(constraintCells.toSorted((a, b) => a - b));
     }
 
     ///////////////

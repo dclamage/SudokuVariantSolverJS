@@ -4,6 +4,7 @@ import { Constraint, ConstraintResult, InitResult, LogicalDeduction } from './Co
 
 interface OrConstraintParams {
     subboards: Board[];
+    cells: CellIndex[];
 }
 
 export class OrConstraint extends Constraint {
@@ -14,14 +15,14 @@ export class OrConstraint extends Constraint {
 
     constructor(constraintName: string, specificName: string, board: Board, params: OrConstraintParams) {
         if (constraintName === undefined || specificName === undefined || board === undefined || params === undefined) {
-            super(undefined, undefined);
+            super(undefined, undefined, undefined);
             this.numCells = undefined;
             this.numCandidates = undefined;
             this.subboards = undefined;
             this.subboardsChanged = undefined;
         } else {
-            const { subboards } = params;
-            super(constraintName, specificName);
+            const { subboards, cells } = params;
+            super(constraintName, specificName, cells);
             this.numCells = board.size * board.size;
             this.numCandidates = board.size * board.size * board.size;
             this.subboards = subboards;
@@ -61,7 +62,7 @@ export class OrConstraint extends Constraint {
 
     clone() {
         // Shallow copy everything
-        const clone = Object.assign(new OrConstraint(undefined, undefined, undefined, undefined), this);
+        const clone: OrConstraint = Object.assign(new OrConstraint(undefined, undefined, undefined, undefined), this);
 
         // Clone each subboard
         clone.subboards = this.subboards.map(subboard => subboard.clone());
@@ -196,6 +197,11 @@ export class OrConstraint extends Constraint {
             for (const link of scratch) {
                 for (const subboard of this.subboards) {
                     subboard.binaryImplications.transferImplicationToParent(candidate, ~link);
+                }
+            }
+            if (scratch.length > 0) {
+                for (const constraint of board.constraints) {
+                    constraint.constraintCells[0] !== undefined && board.markCellAsModified(constraint.constraintCells[0]);
                 }
             }
             for (const link of newLinks) {
