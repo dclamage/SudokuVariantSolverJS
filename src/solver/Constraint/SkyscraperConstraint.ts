@@ -13,6 +13,9 @@ import {
     parseEdgeClueCoords,
     permutations,
     popcount,
+    removeDuplicates,
+    sequenceIntersectionUpdateDefaultCompare,
+    sequenceUnionDefaultCompare,
     valueBit,
     valuesList,
 } from '../SolveUtility';
@@ -28,13 +31,18 @@ interface LogicStepMemo {
     keepMasks: CellMask[] | null;
 }
 
+type SkyscraperState = number;
+
 export class SkyscraperConstraint extends Constraint {
     clue: number;
     cellStart: CellIndex;
     cells: CellIndex[];
     cellsLookup: Set<CellIndex>;
     memoPrefix: string;
-    bruteForceMemoPrefix: string;
+
+    static prevStateMaskToStates: SkyscraperState[][][];
+    static stateMaskToPrevStates: SkyscraperState[][][];
+    static stateStateToMask: CellMask[][];
 
     constructor(board: Board, params: SkyscraperConstraintParams) {
         const firstCellIndex = board.cellIndex(params.directionalCoords.row, params.directionalCoords.col);
@@ -52,7 +60,8 @@ export class SkyscraperConstraint extends Constraint {
         this.cellsLookup = new Set(this.cells);
 
         this.memoPrefix = `Skyscraper|${this.clue}|${this.cellStart}`;
-        this.bruteForceMemoPrefix = `SkyscraperBruteForce|${this.clue}`;
+
+        SkyscraperConstraint.computeTransitionTable(this.cells.length);
     }
 
     init(board: Board): InitResult {
@@ -242,84 +251,104 @@ export class SkyscraperConstraint extends Constraint {
         return this.bruteForceStep(board);
     }
 
-    bruteForceStep(board: Board): ConstraintResult {
-        let memoKey = this.bruteForceMemoPrefix;
-        const unsetCellIndexes: number[] = [];
-        const curVals: CellMask[] = [];
-        let unsetMask = board.allValues;
-        for (let cellIndex = 0; cellIndex < this.cells.length; cellIndex++) {
-            const cell = this.cells[cellIndex];
-            const cellMask = board.cells[cell];
-            memoKey += '|';
-            if (board.isGivenMask(cellMask)) {
-                memoKey += cellMask.toString(16);
-                unsetMask &= ~cellMask;
-                curVals.push(minValue(cellMask));
-            } else {
-                unsetCellIndexes.push(cellIndex);
-                curVals.push(0);
-            }
+    static computeTransitionTable(size: number) {
+        if (SkyscraperConstraint.prevStateMaskToStates === undefined) {
+            SkyscraperConstraint.prevStateMaskToStates = [];
+            SkyscraperConstraint.stateMaskToPrevStates = [];
+            SkyscraperConstraint.stateStateToMask = [];
         }
-        if (unsetCellIndexes.length === 0) {
-            return ConstraintResult.UNCHANGED;
+        if (SkyscraperConstraint.prevStateMaskToStates[size] !== undefined) {
+            return;
         }
 
-        let keepMasks: CellMask[];
-        const memo = board.getMemo(memoKey) as LogicStepMemo;
-        if (memo) {
-            keepMasks = memo.keepMasks;
-            if (keepMasks === null) {
-                return ConstraintResult.INVALID;
-            }
-        } else {
-            const unsetVals: number[] = valuesList(unsetMask);
+        const numMasks = 1 << size;
+        const maxState = (size + 1) * (size + 1) + (size + 1);
+        const numStates = maxState + 1;
+        SkyscraperConstraint.prevStateMaskToStates[size] = Array.from({ length: numStates * numMasks }, () => []);
+        SkyscraperConstraint.stateMaskToPrevStates[size] = Array.from({ length: numStates * numMasks }, () => []);
+        SkyscraperConstraint.stateStateToMask[size] = Array.from({ length: numStates * numStates }, () => 0);
 
-            let haveValidPerm = false;
-            keepMasks = [];
-            const numUnsetCells = unsetCellIndexes.length;
-            for (const perm of permutations(unsetVals)) {
-                for (let unsetCellIndex = 0; unsetCellIndex < numUnsetCells; ++unsetCellIndex) {
-                    const cellIndex = unsetCellIndexes[unsetCellIndex];
-                    curVals[cellIndex] = perm[unsetCellIndex];
-                }
-                if (SkyscraperConstraint.seenCount(curVals) !== this.clue) {
-                    continue;
-                }
-
-                let needCheck = false;
-                for (let cellIndex = 0; cellIndex < this.cells.length; ++cellIndex) {
-                    if ((keepMasks[cellIndex] & valueBit(curVals[cellIndex])) === 0) {
-                        needCheck = true;
-                        break;
+        for (let state = 0; state < numStates; state++) {
+            const numVisible = state % (size + 1);
+            const maxSeen = (state - numVisible) / (size + 1);
+            for (let mask = 0; mask < numMasks; mask++) {
+                for (const value of valuesList(mask)) {
+                    if (value < maxSeen) {
+                        SkyscraperConstraint.prevStateMaskToStates[size][state * numMasks + mask].push(state);
+                        SkyscraperConstraint.stateMaskToPrevStates[size][state * numMasks + mask].push(state);
+                        SkyscraperConstraint.stateStateToMask[size][state * numStates + state] |= valueBit(value);
+                    } else if (value > maxSeen) {
+                        const newState = value * (size + 1) + numVisible + 1;
+                        SkyscraperConstraint.prevStateMaskToStates[size][state * numMasks + mask].push(newState);
+                        SkyscraperConstraint.stateMaskToPrevStates[size][newState * numMasks + mask].push(state);
+                        SkyscraperConstraint.stateStateToMask[size][state * numStates + newState] |= valueBit(value);
                     }
                 }
-                if (!needCheck) {
-                    continue;
-                }
-
-                for (let cellIndex = 0; cellIndex < this.cells.length; ++cellIndex) {
-                    keepMasks[cellIndex] |= valueBit(curVals[cellIndex]);
-                }
-                haveValidPerm = true;
-            }
-
-            if (!haveValidPerm) {
-                board.storeMemo(memoKey, { keepMasks: null });
-                return ConstraintResult.INVALID;
-            } else {
-                board.storeMemo(memoKey, { keepMasks });
             }
         }
 
+        for (let i = 0; i < numStates * numMasks; i++) {
+            removeDuplicates(SkyscraperConstraint.prevStateMaskToStates[size][i].sort((a, b) => a - b));
+            removeDuplicates(SkyscraperConstraint.stateMaskToPrevStates[size][i].sort((a, b) => a - b));
+        }
+    }
+
+    bruteForceStep(board: Board): ConstraintResult {
+        const size = this.cells.length;
+        const numMasks = 1 << size;
+        const maxState = (size + 1) * (size + 1) + (size + 1);
+        const numStates = maxState + 1;
+
+        const reachableStates: SkyscraperState[][] = [[0]];
+        for (let i = 0; i < size - 1; i++) {
+            reachableStates.push([]);
+        }
+
+        // Forward pass
+        for (let i = 0; i < size - 1; i++) {
+            const cellIndex = this.cells[i];
+            const mask = board.cells[cellIndex] & board.allValues;
+            for (const prevState of reachableStates[i]) {
+                reachableStates[i + 1] = sequenceUnionDefaultCompare(
+                    reachableStates[i + 1],
+                    SkyscraperConstraint.prevStateMaskToStates[size][prevState * numMasks + mask]
+                );
+            }
+        }
+
+        // Backward pass
+        let curStates: SkyscraperState[] = [size * (size + 1) + this.clue];
+        let possiblePrevStates: SkyscraperState[] = [];
         let changed = ConstraintResult.UNCHANGED;
-        for (let cellIndex = 0; cellIndex < this.cells.length; ++cellIndex) {
-            const result = board.keepCellMask(this.cells[cellIndex], keepMasks[cellIndex]);
-            if (result === ConstraintResult.INVALID) {
-                return ConstraintResult.INVALID;
+        for (let i = size - 1; i >= 0; i--) {
+            const cellIndex = this.cells[i];
+            const mask = board.cells[cellIndex] & board.allValues;
+            const prevStates: SkyscraperState[] = reachableStates[i];
+            let newMask: CellMask = 0;
+
+            possiblePrevStates.length = 0;
+
+            for (const curState of curStates) {
+                possiblePrevStates = sequenceUnionDefaultCompare(
+                    possiblePrevStates,
+                    SkyscraperConstraint.stateMaskToPrevStates[size][curState * numMasks + mask]
+                );
             }
-            if (result === ConstraintResult.CHANGED) {
-                changed = ConstraintResult.CHANGED;
+            sequenceIntersectionUpdateDefaultCompare(possiblePrevStates, prevStates);
+
+            for (const prevState of possiblePrevStates) {
+                for (const curState of curStates) {
+                    newMask |= SkyscraperConstraint.stateStateToMask[size][prevState * numStates + curState];
+                }
             }
+            switch (board.keepCellMask(cellIndex, newMask)) {
+                case ConstraintResult.INVALID:
+                    return ConstraintResult.INVALID;
+                case ConstraintResult.CHANGED:
+                    changed = ConstraintResult.CHANGED;
+            }
+
+            [possiblePrevStates, curStates] = [curStates, possiblePrevStates];
         }
 
         return changed;

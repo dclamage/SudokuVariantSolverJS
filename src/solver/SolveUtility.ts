@@ -399,6 +399,32 @@ export function sequenceIntersectionDefaultCompare<T>(arr1: readonly T[], arr2: 
 }
 
 // Assumes arr1 and arr2 are sorted according to the default compare
+// Appends the intersection of arr1 and arr2 to out
+// Returns the number of elements inserted
+export function sequenceIntersectionExtendDefaultCompare<T>(arr1: readonly T[], arr2: readonly T[], out: T[]): number {
+    let i = 0;
+    let j = 0;
+    let numInserted = 0;
+
+    while (i < arr1.length && j < arr2.length) {
+        const arr1val = arr1[i];
+        const arr2val = arr2[j];
+        if (arr1val < arr2val) {
+            ++i;
+        } else if (arr1val > arr2val) {
+            ++j;
+        } else {
+            out.push(arr1val);
+            ++numInserted;
+            ++i;
+            ++j;
+        }
+    }
+
+    return numInserted;
+}
+
+// Assumes arr1 and arr2 are sorted according to the default compare
 export function sequenceUnionDefaultCompare<T>(arr1: readonly T[], arr2: readonly T[]): T[] {
     let i = 0;
     let j = 0;
@@ -429,6 +455,44 @@ export function sequenceUnionDefaultCompare<T>(arr1: readonly T[], arr2: readonl
     }
 
     return out;
+}
+
+// Assumes arr1 and arr2 are sorted according to the default compare
+export function sequenceUnionExtendDefaultCompare<T>(arr1: readonly T[], arr2: readonly T[], out: T[]): number {
+    let i = 0;
+    let j = 0;
+    let numInserted = 0;
+
+    while (i < arr1.length && j < arr2.length) {
+        const arr1val = arr1[i];
+        const arr2val = arr2[j];
+        if (arr1val < arr2val) {
+            out.push(arr1val);
+            ++numInserted;
+            ++i;
+        } else if (arr1val > arr2val) {
+            out.push(arr2val);
+            ++numInserted;
+            ++j;
+        } else {
+            out.push(arr1val);
+            ++numInserted;
+            ++i;
+            ++j;
+        }
+    }
+    while (i < arr1.length) {
+        out.push(arr1[i]);
+        ++numInserted;
+        ++i;
+    }
+    while (j < arr2.length) {
+        out.push(arr2[j]);
+        ++numInserted;
+        ++j;
+    }
+
+    return numInserted;
 }
 
 // Assumes arr1 and arr2 are sorted according to the default compare
