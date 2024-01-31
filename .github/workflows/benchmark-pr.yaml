@@ -19,29 +19,17 @@ jobs:
                 python-version: '3.9'
                 cache: 'pip' # caching pip dependencies
 
-            - run: npm ci
-            - run: pip install -r scripts/requirements.txt
-
-            - name: Run Build
-              run: npm run build
-            - name: Run Prettier
-              run: npx prettier --check src
-            - name: Run ESLint
-              run: npm run lint
-
-            - name: Checkout gh_pages
+            - name: Setup
               run: |
-                  git fetch origin gh_pages:gh_pages
-                  git fetch origin $GITHUB_BASE_REF:basebranch
-                  git fetch origin $GITHUB_HEAD_REF:headbranch
-                  git clone . -b gh_pages gh_pages
-
-            - name: Setup env vars
-              run: |
+                  npm ci &
+                  pip install -r scripts/requirements.txt &
+                  (
+                    git fetch origin gh_pages:gh_pages $GITHUB_BASE_REF:basebranch $GITHUB_HEAD_REF:headbranch
+                    git clone . -b gh_pages gh_pages
+                    mkdir -p "gh_pages/benchmarks/pull_requests/$(echo $GITHUB_REF_NAME | sed 's_/_._g')"
+                  ) &
                   echo "BENCHMARK_RESULT_DIR=benchmarks/pull_requests/$(echo $GITHUB_REF_NAME | sed 's_/_._g')" >> "$GITHUB_ENV"
-            - name: mkdir benchmarks dir
-              run: |
-                  mkdir -p "gh_pages/$BENCHMARK_RESULT_DIR"
+                  wait
 
             - name: Run benchmarks (1)
               run: |
@@ -70,10 +58,8 @@ jobs:
 
             - name: Generate chart
               run: |
-                  jq '[.[], input[], input[]]' "gh_pages/$BENCHMARK_RESULT_DIR/base1.json" "gh_pages/$BENCHMARK_RESULT_DIR/base2.json" "gh_pages/$BENCHMARK_RESULT_DIR/base3.json" > "gh_pages/$BENCHMARK_RESULT_DIR/basecombined.json"
-                  jq '[.[], input[], input[]]' "gh_pages/$BENCHMARK_RESULT_DIR/head1.json" "gh_pages/$BENCHMARK_RESULT_DIR/head2.json" "gh_pages/$BENCHMARK_RESULT_DIR/head3.json" > "gh_pages/$BENCHMARK_RESULT_DIR/headcombined.json"
-                  python3 scripts/gengraph.py 'lambda x: x["guesses"]' "gh_pages/$BENCHMARK_RESULT_DIR/basecombined.json" "gh_pages/$BENCHMARK_RESULT_DIR/headcombined.json" "gh_pages/$BENCHMARK_RESULT_DIR/guesses_chart.png"
-                  python3 scripts/gengraph.py 'lambda x: x["solveElapsedTimeMs"] + x["createElapsedTimeMs"]' "gh_pages/$BENCHMARK_RESULT_DIR/basecombined.json" "gh_pages/$BENCHMARK_RESULT_DIR/headcombined.json" "gh_pages/$BENCHMARK_RESULT_DIR/time_chart.png"
+                  jq -s 'transpose' <(jq -s 'transpose' "gh_pages/$BENCHMARK_RESULT_DIR/base1.json" "gh_pages/$BENCHMARK_RESULT_DIR/base2.json" "gh_pages/$BENCHMARK_RESULT_DIR/base3.json") <(jq -s 'transpose' "gh_pages/$BENCHMARK_RESULT_DIR/head1.json" "gh_pages/$BENCHMARK_RESULT_DIR/head2.json" "gh_pages/$BENCHMARK_RESULT_DIR/head3.json") | python3 scripts/gengraph.py 'lambda x: x["guesses"]' "gh_pages/$BENCHMARK_RESULT_DIR/guesses_chart.png"
+                  jq -s 'transpose' <(jq -s 'transpose' "gh_pages/$BENCHMARK_RESULT_DIR/base1.json" "gh_pages/$BENCHMARK_RESULT_DIR/base2.json" "gh_pages/$BENCHMARK_RESULT_DIR/base3.json") <(jq -s 'transpose' "gh_pages/$BENCHMARK_RESULT_DIR/head1.json" "gh_pages/$BENCHMARK_RESULT_DIR/head2.json" "gh_pages/$BENCHMARK_RESULT_DIR/head3.json") | python3 scripts/gengraph.py 'lambda x: x["solveElapsedTimeMs"] + x["createElapsedTimeMs"]' "gh_pages/$BENCHMARK_RESULT_DIR/time_chart.png"
 
             - name: Generate summary
               run: |
@@ -104,6 +90,10 @@ jobs:
                       else continue
                     fi
                   done
+                  {
+                    echo -n 'BENCHMARK_RESULT_GIT_HASH='
+                    git rev-parse gh_pages
+                  } >> "$GITHUB_ENV"
 
             - name: Find Comment
               uses: peter-evans/find-comment@v1
@@ -120,11 +110,11 @@ jobs:
                 issue-number: ${{ github.event.pull_request.number }}
                 body: |
                   # Benchmark results for PR ${{ github.pull_request.number }}
-                  [Link to gh_pages tree](https://github.com/dclamage/SudokuVariantSolverJS/tree/gh_pages/${{ env.BENCHMARK_RESULT_DIR }})
+                  [Link to gh_pages tree](https://github.com/dclamage/SudokuVariantSolverJS/tree/${{ env.BENCHMARK_RESULT_GIT_HASH }}/${{ env.BENCHMARK_RESULT_DIR }})
                   ## Guesses
-                  ![Guesses chart](https://raw.githubusercontent.com/dclamage/SudokuVariantSolverJS/gh_pages/${{ env.BENCHMARK_RESULT_DIR }}/guesses_chart.png)
+                  ![Guesses chart](https://raw.githubusercontent.com/dclamage/SudokuVariantSolverJS/${{ env.BENCHMARK_RESULT_GIT_HASH }}/${{ env.BENCHMARK_RESULT_DIR }}/guesses_chart.png)
                   ## Time
-                  ![Time chart](https://raw.githubusercontent.com/dclamage/SudokuVariantSolverJS/gh_pages/${{ env.BENCHMARK_RESULT_DIR }}/time_chart.png)
+                  ![Time chart](https://raw.githubusercontent.com/dclamage/SudokuVariantSolverJS/${{ env.BENCHMARK_RESULT_GIT_HASH }}/${{ env.BENCHMARK_RESULT_DIR }}/time_chart.png)
 
             - name: Update comment
               if: steps.fc.outputs.comment-id != ''
@@ -134,13 +124,13 @@ jobs:
                 edit-mode: replace
                 body: |
                   # Benchmark results for PR ${{ github.pull_request.number }}
-                  [Link to gh_pages tree](https://github.com/dclamage/SudokuVariantSolverJS/tree/gh_pages/${{ env.BENCHMARK_RESULT_DIR }})
+                  [Link to gh_pages tree](https://github.com/dclamage/SudokuVariantSolverJS/tree/${{ env.BENCHMARK_RESULT_GIT_HASH }}/${{ env.BENCHMARK_RESULT_DIR }})
 
                   ${{ env.SUMMARY_TEXT }}
 
                   ## Guesses chart
-                  ![Guesses chart](https://raw.githubusercontent.com/dclamage/SudokuVariantSolverJS/gh_pages/${{ env.BENCHMARK_RESULT_DIR }}/guesses_chart.png)
+                  ![Guesses chart](https://raw.githubusercontent.com/dclamage/SudokuVariantSolverJS/${{ env.BENCHMARK_RESULT_GIT_HASH }}/${{ env.BENCHMARK_RESULT_DIR }}/guesses_chart.png)
                   ## Time chart
-                  ![Time chart](https://raw.githubusercontent.com/dclamage/SudokuVariantSolverJS/gh_pages/${{ env.BENCHMARK_RESULT_DIR }}/time_chart.png)
+                  ![Time chart](https://raw.githubusercontent.com/dclamage/SudokuVariantSolverJS/${{ env.BENCHMARK_RESULT_GIT_HASH }}/${{ env.BENCHMARK_RESULT_DIR }}/time_chart.png)
 
 
