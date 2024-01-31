@@ -11,7 +11,7 @@ class RenbanConstraint extends Constraint {
     alreadyAddedCardinalityConstraints: Uint8Array;
 
     constructor(board: Board, params: { cells: CellIndex[] }, constraintName: string, specificName: string) {
-        super(constraintName, specificName);
+        super(constraintName, specificName, params.cells.slice());
         this.cells = params.cells.slice();
         // TODO: When cardinality constraints can be added natively to the board, we should be able to deduplicate better
         this.alreadyAddedCardinalityConstraints = new Uint8Array(board.size + 1);
@@ -123,15 +123,12 @@ class RenbanConstraint extends Constraint {
         }
 
         let changed = ConstraintResult.UNCHANGED;
-        for (const cell of this.cells) {
-            const result = board.keepCellMask(cell, expand);
-            if (result === ConstraintResult.INVALID) {
-                return ConstraintResult.INVALID;
-            }
-            if (result === ConstraintResult.CHANGED) {
-                changed = ConstraintResult.CHANGED;
-            }
-        }
+        const result = board.applyCellMasks(
+            this.cells,
+            Array.from({ length: this.cells.length }, () => expand)
+        );
+        if (result === ConstraintResult.INVALID) return ConstraintResult.INVALID;
+        if (result === ConstraintResult.CHANGED) changed = ConstraintResult.CHANGED;
         return changed;
     }
 }

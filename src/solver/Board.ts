@@ -17,6 +17,7 @@ import {
     CellValue,
     CandidateIndex,
     sequenceRemoveUpdateDefaultCompare,
+    sequenceExtend,
 } from './SolveUtility';
 import { NakedSingle } from './LogicalStep/NakedSingle';
 import { HiddenSingle } from './LogicalStep/HiddenSingle';
@@ -207,12 +208,15 @@ export class Board {
     cells64: BigUint64Array | null;
     invalidInit: boolean;
     nonGivenCount: number;
-    nakedSingles: CellIndex[];
-    reducedCells: CellIndex[];
-    reducedCellsBoolean: Uint8Array;
+    pendingCellForcing: CellIndex[];
+    isPendingCellForcing: Uint8Array;
+    hasPendingCellStep: boolean;
+    isPendingCellStep: Uint8Array;
+    pendingConstraints: Set<Constraint>;
     binaryImplications: BinaryImplicationLayeredGraph;
     regions: Region[];
     constraints: Constraint[];
+    constraintsWithEnforceCandidateElim: Constraint[];
     constraintStates: Cloneable[];
     constraintStateIsCloned: (undefined | true)[];
     memos: Map<string, unknown>;
@@ -231,15 +235,18 @@ export class Board {
             this.cells.fill(this.allValues);
             this.invalidInit = false;
             this.nonGivenCount = size * size;
-            this.nakedSingles = [];
-            this.reducedCells = [];
-            this.reducedCellsBoolean = new Uint8Array(size * size);
+            this.pendingCellForcing = [];
+            this.isPendingCellForcing = new Uint8Array(size * size);
+            this.hasPendingCellStep = false;
+            this.isPendingCellStep = new Uint8Array(size * size);
+            this.pendingConstraints = new Set();
             this.binaryImplications = new BinaryImplicationLayeredGraph(
                 size * size * size,
                 Array.from({ length: size * size }, (_, cellIndex) => Array.from({ length: size }, (_, i) => cellIndex * size + i))
             );
             this.regions = [];
             this.constraints = [];
+            this.constraintsWithEnforceCandidateElim = [];
             this.constraintStates = [];
             this.constraintStateIsCloned = [];
             this.memos = new Map();
@@ -287,12 +294,17 @@ export class Board {
 
         clone.invalidInit = this.invalidInit;
         clone.nonGivenCount = this.nonGivenCount;
-        clone.nakedSingles = this.nakedSingles.slice(); // Deep copy
-        clone.reducedCells = this.reducedCells.slice(); // Deep copy
-        clone.reducedCellsBoolean = new Uint8Array(this.reducedCellsBoolean);
+        clone.pendingCellForcing = this.pendingCellForcing.slice(); // Deep copy
+        clone.isPendingCellForcing = new Uint8Array(this.isPendingCellForcing);
+        clone.hasPendingCellStep = this.hasPendingCellStep;
+        clone.isPendingCellStep = new Uint8Array(this.isPendingCellStep);
+        clone.pendingConstraints = new Set(this.pendingConstraints);
         clone.binaryImplications = this.binaryImplications;
         clone.regions = this.regions;
         clone.constraints = this.constraints.map(constraint => constraint.clone()); // Clone constraints that need backtracking state
+        clone.constraintsWithEnforceCandidateElim = clone.constraints.filter((_, i) =>
+            this.constraintsWithEnforceCandidateElim.includes(this.constraints[i])
+        );
         clone.constraintStates = this.constraintStates.slice();
         clone.constraintStateIsCloned = [];
         // We can't mutate `this` state either as there may be a clone which references it
@@ -321,12 +333,15 @@ export class Board {
 
         clone.invalidInit = this.invalidInit;
         clone.nonGivenCount = this.nonGivenCount;
-        clone.nakedSingles = this.nakedSingles.slice(); // Deep copy
-        clone.reducedCells = this.reducedCells.slice(); // Deep copy
-        clone.reducedCellsBoolean = new Uint8Array(this.reducedCellsBoolean);
+        clone.pendingCellForcing = this.pendingCellForcing.slice(); // Deep copy
+        clone.isPendingCellForcing = new Uint8Array(this.isPendingCellForcing);
+        clone.hasPendingCellStep = this.hasPendingCellStep;
+        clone.isPendingCellStep = new Uint8Array(this.isPendingCellStep);
+        clone.pendingConstraints = new Set(this.pendingConstraints);
         clone.binaryImplications = this.binaryImplications.subboardClone(); // Deep copy
         clone.regions = this.regions.slice(); // Deep copy
         clone.constraints = []; // Don't inherit constraints
+        clone.constraintsWithEnforceCandidateElim = []; // Don't inherit constraints
         clone.constraintStates = [];
         clone.memos = new Map(); // Don't inherit memos
         clone.logicalSteps = this.logicalSteps;
@@ -417,9 +432,7 @@ export class Board {
     addWeakLink(index1: CandidateIndex, index2: CandidateIndex): boolean {
         if (index1 === index2) {
             // Special case: If a weak link points at itself, we should eliminate it instead
-            const [cellIndex, value] = this.candidateToIndexAndValue(index1);
-            const valueMask = valueBit(value);
-            const result = this.clearCellMask(cellIndex, valueMask);
+            const result = this.applyElim(index1);
             if (result === ConstraintResult.INVALID) {
                 this.invalidInit = true;
             }
@@ -433,15 +446,18 @@ export class Board {
         if (!this.binaryImplications.addImplication(index1, ~index2)) {
             return false;
         }
+        for (const constraint of this.constraints) {
+            constraint.constraintCells[0] !== undefined && this.markCellAsModified(constraint.constraintCells[0]);
+        }
 
         // Enforce weak link now if one of the candidates is already set
         if (this.isGiven(cellIndex1) && (this.cells[cellIndex1] & this.allValues) === valueBit(value1)) {
-            if (!this.clearCandidate(index2)) {
+            if (this.applyElim(index2) === ConstraintResult.INVALID) {
                 this.invalidInit = true;
             }
         }
         if (this.isGiven(cellIndex2) && (this.cells[cellIndex2] & this.allValues) === valueBit(value2)) {
-            if (!this.clearCandidate(index1)) {
+            if (this.applyElim(index1) === ConstraintResult.INVALID) {
                 this.invalidInit = true;
             }
         }
@@ -505,6 +521,10 @@ export class Board {
 
     addConstraint(constraint: Constraint) {
         this.constraints.push(constraint);
+        if (constraint.enforceCandidateElim !== Constraint.prototype.enforceCandidateElim) {
+            this.constraintsWithEnforceCandidateElim.push(constraint);
+        }
+        constraint.constraintCells[0] !== undefined && this.markCellAsModified(constraint.constraintCells[0]);
     }
 
     // Calls `func` on all constraints in a loop
@@ -532,17 +552,10 @@ export class Board {
         if (deduction.invalid) {
             return ConstraintResult.INVALID;
         }
-        if (deduction.singles && deduction.singles.length > 0) {
-            if (!this.enforceCandidates(deduction.singles)) {
-                return ConstraintResult.INVALID;
-            }
-            haveChange = true;
-        }
-        if (deduction.eliminations && deduction.eliminations.length > 0) {
-            if (!this.clearCandidates(deduction.eliminations)) {
-                return ConstraintResult.INVALID;
-            }
-            haveChange = true;
+        if ((deduction.singles && deduction.singles.length > 0) || (deduction.eliminations && deduction.eliminations.length > 0)) {
+            const result = this.applyAndPropagate(deduction.eliminations ?? [], deduction.singles ?? []);
+            if (result === ConstraintResult.INVALID) return ConstraintResult.INVALID;
+            if (result === ConstraintResult.CHANGED) haveChange = true;
         }
         if (deduction.addConstraints && deduction.addConstraints.length > 0) {
             for (const constraint of deduction.addConstraints) {
@@ -552,6 +565,9 @@ export class Board {
         }
         if (deduction.deleteConstraints && deduction.deleteConstraints.length > 0) {
             this.constraints = this.constraints.filter(constraint => !deduction.deleteConstraints.includes(constraint));
+            this.constraintsWithEnforceCandidateElim = this.constraintsWithEnforceCandidateElim.filter(
+                constraint => !deduction.deleteConstraints.includes(constraint)
+            );
             haveChange = true;
         }
         if (deduction.weakLinks && deduction.weakLinks.length > 0) {
@@ -564,6 +580,9 @@ export class Board {
         if (deduction.implications && deduction.implications.length > 0) {
             for (const implication of deduction.implications) {
                 this.binaryImplications.addImplication(implication[0], implication[1]);
+            }
+            for (const constraint of this.constraints) {
+                constraint.constraintCells[0] !== undefined && this.markCellAsModified(constraint.constraintCells[0]);
             }
             haveChange = true;
         }
@@ -585,6 +604,8 @@ export class Board {
                 return false;
             }
 
+            constraint.constraintCells[0] !== undefined && this.markCellAsModified(constraint.constraintCells[0]);
+
             if (payload) {
                 if (payload.weakLinks && payload.weakLinks.length > 0) {
                     for (const link of payload.weakLinks) {
@@ -596,14 +617,22 @@ export class Board {
                     for (const implication of payload.implications) {
                         this.binaryImplications.addImplication(implication[0], implication[1]);
                     }
+                    for (const constraint of this.constraints) {
+                        constraint.constraintCells[0] !== undefined && this.markCellAsModified(constraint.constraintCells[0]);
+                    }
                     this.binaryImplications.sortGraph();
                 }
                 if (payload.addConstraints && payload.addConstraints.length > 0) {
-                    this.constraints.push(...payload.addConstraints);
+                    for (const constraint of payload.addConstraints) {
+                        this.addConstraint(constraint);
+                    }
                     uninitedConstraints.push(...payload.addConstraints);
                 }
                 if (payload.deleteConstraints && payload.deleteConstraints.length > 0) {
                     this.constraints = this.constraints.filter(constraint => !payload.deleteConstraints.includes(constraint));
+                    this.constraintsWithEnforceCandidateElim = this.constraintsWithEnforceCandidateElim.filter(
+                        constraint => !payload.deleteConstraints.includes(constraint)
+                    );
                 }
             }
         }
@@ -617,6 +646,9 @@ export class Board {
             }
         }
         this.binaryImplications.preprocess(this);
+        for (const constraint of this.constraints) {
+            constraint.constraintCells[0] !== undefined && this.markCellAsModified(constraint.constraintCells[0]);
+        }
         return true;
     }
 
@@ -698,132 +730,199 @@ export class Board {
         this.memos.set(key, val);
     }
 
-    enforceNewMask(cellIndex: CellIndex, origMask: CellMask): boolean {
-        const cellMask = this.cells[cellIndex] & this.allValues;
-        if (cellMask === 0) {
-            return false;
+    markCellAsModified(cellIndex: CellIndex): void {
+        if (!this.isPendingCellForcing[cellIndex]) {
+            this.pendingCellForcing.push(cellIndex);
+            this.isPendingCellForcing[cellIndex] = 1;
         }
 
-        if (cellMask === origMask) {
-            return true;
+        this.hasPendingCellStep = true;
+        this.isPendingCellStep[cellIndex] = 1;
+    }
+
+    markCellAsSingle(cellIndex: CellIndex): void {
+        this.hasPendingCellStep = true;
+        this.isPendingCellStep[cellIndex] = 1;
+    }
+
+    private addElim(elim: CandidateIndex, elims: CandidateIndex[]): boolean {
+        const [cellIndex, value] = this.candidateToIndexAndValue(elim);
+
+        const valueMask = valueBit(value);
+        if ((this.cells[cellIndex] & valueMask) === 0) return true;
+
+        const mask = (this.cells[cellIndex] &= ~valueMask);
+        if ((mask & this.allValues) === 0) return false;
+
+        this.markCellAsModified(cellIndex);
+
+        elims.push(elim);
+        return true;
+    }
+
+    private addSingle(single: CandidateIndex, elims: CandidateIndex[], singles: CandidateIndex[]): boolean {
+        const [cellIndex, value] = this.candidateToIndexAndValue(single);
+        const mask = this.cells[cellIndex];
+
+        const valueMask = valueBit(value);
+        if ((mask & valueMask) === 0) return false;
+
+        const givenValueMask = this.givenBit | valueMask;
+        if (mask === givenValueMask) return true;
+
+        this.cells[cellIndex] = givenValueMask;
+        this.nonGivenCount--;
+
+        this.markCellAsSingle(cellIndex);
+
+        for (let elimsMask = mask & ~valueMask; elimsMask !== 0; elimsMask &= elimsMask - 1) {
+            const elimValue = minValue(elimsMask);
+            elims.push(this.candidateIndex(cellIndex, elimValue));
         }
+        singles.push(single);
+        return true;
+    }
 
-        this.solveStats.masksEnforced++;
+    private applyAndPropagateMainLoop(elims: CandidateIndex[], singles: CandidateIndex[]): ConstraintResult.CHANGED | ConstraintResult.INVALID {
+        const { solveStats, binaryImplications, constraints, constraintsWithEnforceCandidateElim } = this;
 
-        if (popcount(cellMask) === 1) {
-            this.nakedSingles.push(cellIndex);
-        } else {
-            if (!this.reducedCellsBoolean[cellIndex]) {
-                this.reducedCells.push(cellIndex);
-                this.reducedCellsBoolean[cellIndex] = 1;
+        while (elims.length > 0 || singles.length > 0) {
+            while (elims.length > 0) {
+                const elim = elims.pop();
+                solveStats.masksEnforced++;
+
+                // Disable propagating negative literals
+                // for (const newElim of binaryImplications.getNegConsequences(~elim)) {
+                //     if (!this.addElim(newElim, elims)) return ConstraintResult.INVALID;
+                // }
+                // for (const newSingle of binaryImplications.getPosConsequences(~elim)) {
+                //     if (!this.addSingle(newSingle, elims, singles)) return ConstraintResult.INVALID;
+                // }
+
+                const [cellIndex, value] = this.candidateToIndexAndValue(elim);
+                for (const constraint of constraintsWithEnforceCandidateElim) {
+                    solveStats.constraintEliminationsEnforced++;
+                    if (!constraint.enforceCandidateElim(this, cellIndex, value)) {
+                        return ConstraintResult.INVALID;
+                    }
+                }
             }
-        }
 
-        // // Check for binary implications
-        // // Disable for now. For some reason, running this is actually slower when cell forcing is enabled.
-        // // However that shouldn't make complete sense because cell forcing is not necessarily more powerful!
-        // // Revisit this after transitive reduction is implemented, so the deductions made here should get deduplicated
-        // // if they also always happen in cell forcing as well, or vice versa.
-        // {
-        //     let removedMask = origMask & ~cellMask;
-        //     while (removedMask !== 0) {
-        //         const value = minValue(removedMask);
-        //         removedMask &= ~valueBit(value);
-        //         const candidateIndex = this.candidateIndex(cellIndex, value);
+            if (singles.length > 0) {
+                const single = singles.pop();
+                solveStats.masksEnforced++;
 
-        //         const negConsequences = this.binaryImplications.getNegConsequences(~candidateIndex);
-        //         for (const negConsequence of negConsequences) {
-        //             const [cellIndex2, value2] = this.candidateToIndexAndValue(negConsequence);
-        //             if (!this.clearValue(cellIndex2, value2)) {
-        //                 return false;
-        //             }
-        //         }
+                for (const newElim of binaryImplications.getNegConsequences(single)) {
+                    if (!this.addElim(newElim, elims)) return ConstraintResult.INVALID;
+                }
+                for (const newSingle of binaryImplications.getPosConsequences(single)) {
+                    if (!this.addSingle(newSingle, elims, singles)) return ConstraintResult.INVALID;
+                }
 
-        //         const posConsequences = this.binaryImplications.getPosConsequences(~candidateIndex);
-        //         for (const posConsequence of posConsequences) {
-        //             const [cellIndex2, value2] = this.candidateToIndexAndValue(posConsequence);
-        //             if (!this.setAsGiven(cellIndex2, value2)) {
-        //                 return false;
-        //             }
-        //         }
-        //     }
-        // }
-
-        // Check for constraint implications
-        let removedMask = origMask & ~cellMask;
-        while (removedMask !== 0) {
-            const value = minValue(removedMask);
-            removedMask &= ~valueBit(value);
-
-            for (const constraint of this.constraints) {
-                this.solveStats.constraintEliminationsEnforced++;
-                if (!constraint.enforceCandidateElim(this, cellIndex, value)) {
-                    return false;
+                const [cellIndex, value] = this.candidateToIndexAndValue(single);
+                for (const constraint of constraints) {
+                    solveStats.constraintSinglesEnforced++;
+                    if (!constraint.enforce(this, cellIndex, value)) {
+                        return ConstraintResult.INVALID;
+                    }
                 }
             }
         }
 
-        return true;
-    }
-
-    keepCellMask(cellIndex: CellIndex, cellMask: CellMask) {
-        const origMask = this.cells[cellIndex] & this.allValues;
-        const newMask = origMask & cellMask;
-        if (newMask === origMask) {
-            return ConstraintResult.UNCHANGED;
-        }
-
-        this.cells[cellIndex] = newMask;
-        if (!this.enforceNewMask(cellIndex, origMask)) {
-            return ConstraintResult.INVALID;
-        }
         return ConstraintResult.CHANGED;
     }
 
-    clearCellMask(cellIndex: CellIndex, cellMask: CellMask) {
-        return this.keepCellMask(cellIndex, this.allValues & ~cellMask);
-    }
+    // initialElims / initialSingles should not have been applied on the board yet
+    // Applies the given elims/singles and also ensures transitive implications are enforced and applied
+    applyAndPropagate(initialElims: CandidateIndex[], initialSingles: CandidateIndex[]): ConstraintResult {
+        // Invariants:
+        // - If a single is added while `this.cells` still has other values for it, those elims are added and processed before the single is
+        // - Masks in `this.cells` are always reduced before the corresponding elim/single is popped
+        // - All elims and singles must be processed before any cell is processed for cell forcing, which ensures we never unnecessarily process cell forcing twice
+        if (initialElims.length === 0 && initialSingles.length === 0) return ConstraintResult.UNCHANGED;
 
-    clearValue(cellIndex: CellIndex, value: CellValue) {
-        const origMask = this.cells[cellIndex] & this.allValues;
-        this.cells[cellIndex] &= ~valueBit(value);
-        return this.enforceNewMask(cellIndex, origMask);
-    }
-
-    clearCandidate(candidate: CandidateIndex) {
-        const [cellIndex, value] = this.candidateToIndexAndValue(candidate);
-        return this.clearValue(cellIndex, value);
-    }
-
-    clearCandidates(candidates: CandidateIndex[]) {
-        let valid = true;
-        for (const candidate of candidates) {
-            if (!this.clearCandidate(candidate)) {
-                valid = false;
-            }
+        const elims: CandidateIndex[] = [];
+        const singles: CandidateIndex[] = [];
+        for (const elim of initialElims) {
+            if (!this.addElim(elim, elims)) return ConstraintResult.INVALID;
         }
-        return valid;
-    }
-
-    enforceValue(cellIndex: CellIndex, value: CellValue) {
-        const origMask = this.cells[cellIndex] & this.allValues;
-        this.cells[cellIndex] &= valueBit(value);
-        return this.enforceNewMask(cellIndex, origMask);
-    }
-
-    enforceCandidate(candidate: CandidateIndex) {
-        const [cellIndex, value] = this.candidateToIndexAndValue(candidate);
-        return this.enforceValue(cellIndex, value);
-    }
-
-    enforceCandidates(candidates: CandidateIndex[]) {
-        let valid = true;
-        for (const candidate of candidates) {
-            if (!this.enforceCandidate(candidate)) {
-                valid = false;
-            }
+        for (const single of initialSingles) {
+            if (!this.addSingle(single, elims, singles)) return ConstraintResult.INVALID;
         }
-        return valid;
+
+        if (elims.length === 0 && singles.length === 0) return ConstraintResult.UNCHANGED;
+
+        return this.applyAndPropagateMainLoop(elims, singles);
+    }
+
+    applySingle(single: CandidateIndex): ConstraintResult {
+        return this.applyAndPropagate([], [single]);
+    }
+
+    applyElim(elim: CandidateIndex): ConstraintResult {
+        return this.applyAndPropagate([elim], []);
+    }
+
+    applySingles(singles: CandidateIndex[]): ConstraintResult {
+        return this.applyAndPropagate([], singles);
+    }
+
+    applyElims(elims: CandidateIndex[]): ConstraintResult {
+        return this.applyAndPropagate(elims, []);
+    }
+
+    applyCellMask(cellIndex: CellIndex, newMask: CellMask): ConstraintResult {
+        if ((this.cells[cellIndex] & ~newMask & this.allValues) === 0) return ConstraintResult.UNCHANGED;
+        if ((this.cells[cellIndex] & newMask & this.allValues) === 0) return ConstraintResult.INVALID;
+
+        const elims: CandidateIndex[] = [];
+        const singles: CandidateIndex[] = [];
+
+        for (let elimsMask = this.cells[cellIndex] & ~newMask & this.allValues; elimsMask !== 0; elimsMask &= elimsMask - 1) {
+            const elimValue = minValue(elimsMask);
+            const elim = this.candidateIndex(cellIndex, elimValue);
+            elims.push(elim);
+        }
+
+        this.cells[cellIndex] &= newMask | this.givenBit;
+
+        this.markCellAsModified(cellIndex);
+
+        return this.applyAndPropagateMainLoop(elims, singles);
+    }
+
+    applyCellMasks(cellIndices: CellIndex[], newMasks: CellMask[] | Uint16Array | Uint32Array): ConstraintResult {
+        let i = 0;
+        for (; i < cellIndices.length; i++) {
+            const cellIndex = cellIndices[i];
+            const newMask = newMasks[i];
+            if ((this.cells[cellIndex] & ~newMask & this.allValues) === 0) continue;
+            if ((this.cells[cellIndex] & newMask & this.allValues) === 0) return ConstraintResult.INVALID;
+            break;
+        }
+
+        if (i === cellIndices.length) return ConstraintResult.UNCHANGED;
+
+        const elims: CandidateIndex[] = [];
+        const singles: CandidateIndex[] = [];
+        for (let i = 0; i < cellIndices.length; i++) {
+            const cellIndex = cellIndices[i];
+            const newMask = newMasks[i];
+            if ((this.cells[cellIndex] & ~newMask & this.allValues) === 0) continue;
+            if ((this.cells[cellIndex] & newMask & this.allValues) === 0) return ConstraintResult.INVALID;
+
+            for (let elimsMask = this.cells[cellIndex] & ~newMask & this.allValues; elimsMask !== 0; elimsMask &= elimsMask - 1) {
+                const value = minValue(elimsMask);
+                const elim = this.candidateIndex(cellIndex, value);
+                elims.push(elim);
+            }
+
+            this.cells[cellIndex] &= newMask | this.givenBit;
+
+            this.markCellAsModified(cellIndex);
+        }
+
+        return this.applyAndPropagateMainLoop(elims, singles);
     }
 
     // TODO: Move this into BIG and possibly cache cliques there
@@ -994,15 +1093,18 @@ export class Board {
             result = this.applyPairs();
             if (result !== LogicResult.UNCHANGED) continue;
 
-            if (initialNonGivenCount !== this.nonGivenCount || this.nakedSingles.length !== 0)
-                throw new Error('Constraints/Tactics all report unchanged, but board changed');
+            if (initialNonGivenCount !== this.nonGivenCount) throw new Error('Constraints/Tactics all report unchanged, but board changed');
 
             if (isInitialPreprocessing && discoverBinaryImplicationsUnprobedCells.length > 0) {
                 result = this.discoverBinaryImplications(discoverBinaryImplicationsUnprobedCells);
                 // Recompute cell forcing if something changed, unless we're basically done here
-                if (result === LogicResult.CHANGED && this.nakedSingles.length !== this.nonGivenCount) {
+                if (result === LogicResult.CHANGED) {
                     // Recompute cell forcing
                     this.binaryImplications.preprocess(this);
+                    // Constraints may benefit from the cell forcing, so enqueue all of them
+                    for (const constraint of this.constraints) {
+                        constraint.constraintCells[0] !== undefined && this.markCellAsModified(constraint.constraintCells[0]);
+                    }
                 }
                 if (result !== LogicResult.UNCHANGED) continue;
             }
@@ -1144,19 +1246,6 @@ export class Board {
         return valuesString + groups.join(groupSep);
     }
 
-    // TODO: Is this probably the same thing as clearCandidates
-    performElims(elims: CandidateIndex[]) {
-        let changed = false;
-        for (const elim of elims) {
-            const [cellIndex, value] = this.candidateToIndexAndValue(elim);
-            if (!this.clearValue(cellIndex, value)) {
-                return LogicResult.INVALID;
-            }
-            changed = true;
-        }
-        return changed ? LogicResult.CHANGED : LogicResult.UNCHANGED;
-    }
-
     describeCandidates(candidates: CandidateIndex[], isElim: boolean = false) {
         const minusSign = isElim ? '-' : '';
         // If all candidates are for the same cell, describe it as a single cell
@@ -1225,14 +1314,20 @@ export class Board {
 
     private applyNakedSingles() {
         let changed = false;
-        while (this.nakedSingles.length > 0) {
-            const cellIndex = this.nakedSingles.pop();
-            const value = this.getValue(cellIndex);
-
-            if (!this.setAsGiven(cellIndex, value)) {
-                return LogicResult.INVALID;
+        while (true) {
+            let changedThisRound = false;
+            for (let cellIndex = 0; cellIndex < this.size * this.size; cellIndex++) {
+                const mask = this.cells[cellIndex];
+                if ((mask & (mask - 1)) !== 0) continue;
+                if (this.applySingle(this.candidateIndex(cellIndex, minValue(mask))) === ConstraintResult.INVALID) {
+                    return LogicResult.INVALID;
+                }
+                changed = true;
+                changedThisRound = true;
             }
-            changed = true;
+            if (!changedThisRound) {
+                break;
+            }
         }
 
         return this.nonGivenCount === 0 ? LogicResult.COMPLETE : changed ? LogicResult.CHANGED : LogicResult.UNCHANGED;
@@ -1270,7 +1365,7 @@ export class Board {
             for (const cellIndex of regionCells) {
                 const cellMask = cells[cellIndex] & exactlyOnce;
                 if (cellMask) {
-                    if (!this.setAsGiven(cellIndex, minValue(cellMask))) {
+                    if (this.applySingle(this.candidateIndex(cellIndex, minValue(cellMask))) === ConstraintResult.INVALID) {
                         return LogicResult.INVALID;
                     }
                     changed = true;
@@ -1283,27 +1378,67 @@ export class Board {
 
     private applyConstraintsBruteForce(): LogicResult {
         const initialNonGivenCount = this.nonGivenCount;
-        if (this.nakedSingles.length !== 0) throw new Error('Should not be applying constraints if there are naked singles to find');
 
-        for (const constraint of this.constraints) {
+        if (!this.hasPendingCellStep && this.pendingConstraints.size === 0) return LogicResult.UNCHANGED;
+
+        if (this.hasPendingCellStep) {
+            for (const constraint of this.constraints) {
+                if (constraint.constraintCells.some(cell => this.isPendingCellStep[cell] === 1)) {
+                    this.pendingConstraints.add(constraint);
+                }
+            }
+
+            this.hasPendingCellStep = false;
+            this.isPendingCellStep.fill(0);
+        }
+
+        const processedConstraints = [];
+        for (const constraint of this.pendingConstraints) {
+            if (!this.constraints.includes(constraint)) {
+                processedConstraints.push(constraint);
+                continue;
+            }
+
             const result = constraint.bruteForceStep(this);
             this.solveStats.bruteForceSteps++;
             if (result !== ConstraintResult.UNCHANGED) {
+                for (const processedConstraint of processedConstraints) {
+                    this.pendingConstraints.delete(processedConstraint);
+                }
                 return result as number as LogicResult;
             }
+            processedConstraints.push(constraint);
         }
+        this.pendingConstraints.clear();
 
-        if (initialNonGivenCount !== this.nonGivenCount || this.nakedSingles.length !== 0)
-            throw new Error('Constraints all report unchanged, but board changed');
+        if (initialNonGivenCount !== this.nonGivenCount) throw new Error('Constraints all report unchanged, but board changed');
 
         return LogicResult.UNCHANGED;
     }
 
     private applyConstraintsPreprocessing(): LogicResult {
         const initialNonGivenCount = this.nonGivenCount;
-        if (this.nakedSingles.length !== 0) throw new Error('Should not be applying constraints if there are naked singles to find');
 
-        for (const constraint of this.constraints.slice()) {
+        if (!this.hasPendingCellStep && this.pendingConstraints.size === 0) return LogicResult.UNCHANGED;
+
+        if (this.hasPendingCellStep) {
+            for (const constraint of this.constraints) {
+                if (constraint.constraintCells.some(cell => this.isPendingCellStep[cell] === 1)) {
+                    this.pendingConstraints.add(constraint);
+                }
+            }
+
+            this.hasPendingCellStep = false;
+            this.isPendingCellStep.fill(0);
+        }
+
+        const processedConstraints = [];
+        for (const constraint of this.pendingConstraints) {
+            if (!this.constraints.includes(constraint)) {
+                processedConstraints.push(constraint);
+                continue;
+            }
+
             const result = constraint.preprocessingStep(this);
             this.solveStats.preprocessingSteps++;
             const payload = typeof result === 'object' ? result : null;
@@ -1318,13 +1453,16 @@ export class Board {
             if (payload) {
                 if (payload.addConstraints && payload.addConstraints.length > 0) {
                     for (const constraint of payload.addConstraints) {
-                        this.constraints.push(constraint);
+                        this.addConstraint(constraint);
                         this.initSingleConstraint(constraint);
                     }
                     changed = true;
                 }
                 if (payload.deleteConstraints && payload.deleteConstraints.length > 0) {
                     this.constraints = this.constraints.filter(constraint => !payload.deleteConstraints.includes(constraint));
+                    this.constraintsWithEnforceCandidateElim = this.constraintsWithEnforceCandidateElim.filter(
+                        constraint => !payload.deleteConstraints.includes(constraint)
+                    );
                 }
                 if (payload.weakLinks && payload.weakLinks.length > 0) {
                     for (const [index1, index2] of payload.weakLinks) {
@@ -1338,15 +1476,22 @@ export class Board {
                         this.binaryImplications.addImplication(index1, index2);
                     }
                     changed = true;
+                    for (const constraint of this.constraints) {
+                        constraint.constraintCells[0] !== undefined && this.markCellAsModified(constraint.constraintCells[0]);
+                    }
                 }
             }
             if (changed) {
+                for (const processedConstraint of processedConstraints) {
+                    this.pendingConstraints.delete(processedConstraint);
+                }
                 return LogicResult.CHANGED;
             }
+            processedConstraints.push(constraint);
         }
+        this.pendingConstraints.clear();
 
-        if (initialNonGivenCount !== this.nonGivenCount || this.nakedSingles.length !== 0)
-            throw new Error('Constraints all report unchanged, but board changed');
+        if (initialNonGivenCount !== this.nonGivenCount) throw new Error('Constraints all report unchanged, but board changed');
 
         return LogicResult.UNCHANGED;
     }
@@ -1354,9 +1499,9 @@ export class Board {
     private applyCellForcing(): LogicResult {
         let changed = false;
 
-        while (this.reducedCells.length > 0) {
-            const cellIndex = this.reducedCells.pop();
-            this.reducedCellsBoolean[cellIndex] = 0;
+        while (this.pendingCellForcing.length > 0) {
+            const cellIndex = this.pendingCellForcing.pop();
+            this.isPendingCellForcing[cellIndex] = 0;
 
             const mask = this.cells[cellIndex] & this.allValues;
             const count = popcount(mask);
@@ -1364,24 +1509,12 @@ export class Board {
             if (count === 1) continue;
             // Cell clauses are registered with clauseId = cellIndex
             const cellForcingVariable = this.binaryImplications.clauseIdAndMaskToVariable(cellIndex, mask);
-            for (const elim of this.binaryImplications.getNegConsequences(cellForcingVariable)) {
-                const [cellIndex, value] = this.candidateToIndexAndValue(elim);
-                if (hasValue(this.cells[cellIndex], value)) {
-                    if (!this.clearValue(cellIndex, value)) {
-                        return LogicResult.INVALID;
-                    }
-                    changed = true;
-                }
-            }
-            for (const single of this.binaryImplications.getPosConsequences(cellForcingVariable)) {
-                const [cellIndex, value] = this.candidateToIndexAndValue(single);
-                if (this.cells[cellIndex] !== (valueBit(value) | this.givenBit)) {
-                    if (!this.setAsGiven(cellIndex, value)) {
-                        return LogicResult.INVALID;
-                    }
-                    changed = true;
-                }
-            }
+            const result = this.applyAndPropagate(
+                this.binaryImplications.getNegConsequences(cellForcingVariable),
+                this.binaryImplications.getPosConsequences(cellForcingVariable)
+            );
+            if (result === ConstraintResult.INVALID) return LogicResult.INVALID;
+            if (result === ConstraintResult.CHANGED) changed = true;
         }
 
         return changed ? LogicResult.CHANGED : LogicResult.UNCHANGED;
@@ -1438,29 +1571,14 @@ export class Board {
                     const candidate1v1 = this.candidateIndex(cellIndex1, pairValue1);
 
                     if (this.isWeakLink(candidate0v0, candidate1v0) && this.isWeakLink(candidate0v1, candidate1v1)) {
-                        const elims1 = this.calcElimsForCandidateIndices([candidate0v0, candidate1v0]);
-                        if (elims1.length > 0) {
-                            const result = this.performElims(elims1);
-                            if (result === LogicResult.INVALID) {
-                                return result;
-                            }
-
-                            if (result === LogicResult.CHANGED) {
-                                changed = true;
-                            }
-                        }
-
-                        const elims2 = this.calcElimsForCandidateIndices([candidate0v1, candidate1v1]);
-                        if (elims2.length > 0) {
-                            const result = this.performElims(elims2);
-                            if (result === LogicResult.INVALID) {
-                                return result;
-                            }
-
-                            if (result === LogicResult.CHANGED) {
-                                changed = true;
-                            }
-                        }
+                        const result = this.applyElims(
+                            sequenceExtend(
+                                this.calcElimsForCandidateIndices([candidate0v0, candidate1v0]),
+                                this.calcElimsForCandidateIndices([candidate0v1, candidate1v1])
+                            )
+                        );
+                        if (result === ConstraintResult.INVALID) return LogicResult.INVALID;
+                        if (result === ConstraintResult.CHANGED) changed = true;
                     }
                 }
             }
@@ -1478,7 +1596,6 @@ export class Board {
         // which could then lead to more eliminations on the main board, this is heuristically quite rare,
         // so we don't exit early in that case.
         let foundEliminations = false;
-        // const alwaysTrueCandidates: CandidateIndex[] = [];
         while (cellsToProbe.length > 0) {
             const cellIndex = cellsToProbe.pop();
             const cellMask = cells[cellIndex];
@@ -1494,8 +1611,8 @@ export class Board {
                 const candidateIndex = this.candidateIndex(cellIndex, value);
 
                 const newBoard = this.clone();
-                if (!newBoard.setAsGiven(cellIndex, value)) {
-                    if (!this.clearValue(cellIndex, value)) {
+                if (newBoard.applySingle(candidateIndex) === ConstraintResult.INVALID) {
+                    if (this.applyElim(candidateIndex) === ConstraintResult.INVALID) {
                         return LogicResult.INVALID;
                     }
                     foundEliminations = true;
@@ -1505,7 +1622,7 @@ export class Board {
 
                 const bruteForceResult = newBoard.applyBruteForceLogic(false, false);
                 if (bruteForceResult === LogicResult.INVALID) {
-                    if (!this.clearValue(cellIndex, value)) {
+                    if (this.applyElim(candidateIndex) === ConstraintResult.INVALID) {
                         return LogicResult.INVALID;
                     }
                     foundEliminations = true;
@@ -1526,44 +1643,10 @@ export class Board {
             }
 
             // Find false implications
-            // Disable this for now, since it seems most puzzles don't benefit from this at all.
+            // Don't do this for now, since it seems most puzzles don't benefit from this at all.
             // If we do want to reenable this, use TreeLook so we share propagations with a true implication
             // https://www.cs.utexas.edu/~marijn/publications/NHBR.pdf
-            // for (let value = 1; value <= size; value++) {
-            //     if ((cellMask & valueBit(value)) === 0) {
-            //         continue;
-            //     }
-            //     const candidateIndex = this.candidateIndex(cellIndex, value);
-
-            //     const newBoard = this.clone();
-            //     if (!newBoard.clearValue(cellIndex, value)) {
-            //         alwaysTrueCandidates.push(candidateIndex);
-            //         continue;
-            //     }
-
-            //     const bruteForceResult = newBoard.applyBruteForceLogic(false, false);
-            //     if (bruteForceResult === LogicResult.INVALID) {
-            //         alwaysTrueCandidates.push(candidateIndex);
-            //         continue;
-            //     }
-
-            //     if (bruteForceResult !== LogicResult.UNCHANGED) {
-            //         if (this.addBinaryImplicationsFromFalse(candidateIndex, newBoard)) {
-            //             this.binaryImplications.sortGraph();
-            //             addedImplications = true;
-            //         }
-            //     }
-            // }
         }
-
-        // let changed = addedImplications;
-        // for (const alwaysTrueCandidate of alwaysTrueCandidates) {
-        //     const [cellIndex, value] = this.candidateToIndexAndValue(alwaysTrueCandidate);
-        //     if (!this.setAsGiven(cellIndex, value)) {
-        //         return LogicResult.INVALID;
-        //     }
-        //     changed = true;
-        // }
 
         return changed ? LogicResult.CHANGED : LogicResult.UNCHANGED;
     }
@@ -1695,60 +1778,6 @@ export class Board {
         return Array.from({ length: this.size * this.size }, (_, i) => (this.isGiven(i) ? this.getValue(i) : 0));
     }
 
-    setAsGiven(cellIndex: CellIndex, value: CellValue): boolean {
-        const valueMask = valueBit(value);
-        const { givenBit } = this;
-        const cellMask = this.cells[cellIndex];
-
-        if (cellMask & givenBit) {
-            return cellMask === (valueMask | givenBit);
-        }
-
-        if ((cellMask & valueMask) === 0) {
-            return false;
-        }
-
-        // Set the given bit and the value bit for the cell
-        const origMask = this.cells[cellIndex] & this.allValues;
-        this.cells[cellIndex] = valueMask | givenBit;
-        if (!this.enforceNewMask(cellIndex, origMask)) {
-            return false;
-        }
-        this.nonGivenCount--;
-
-        // Apply any binary implications
-        const candidateIndex = this.candidateIndex(cellIndex, value);
-        for (const otherCandidateIndex of this.binaryImplications.getNegConsequences(candidateIndex)) {
-            const otherCellIndex = this.cellIndexFromCandidate(otherCandidateIndex);
-            if (otherCellIndex === cellIndex) {
-                continue;
-            }
-
-            if (!this.clearCandidate(otherCandidateIndex)) {
-                // Board is invalid
-                return false;
-            }
-        }
-        for (const otherCandidateIndex of this.binaryImplications.getPosConsequences(candidateIndex)) {
-            const otherCellIndex = this.cellIndexFromCandidate(otherCandidateIndex);
-            const otherValue = this.valueFromCandidate(otherCandidateIndex);
-            if (!this.setAsGiven(otherCellIndex, otherValue)) {
-                // Board is invalid
-                return false;
-            }
-        }
-
-        // Enforce all constraints
-        for (const constraint of this.constraints) {
-            this.solveStats.constraintSinglesEnforced++;
-            if (!constraint.enforce(this, cellIndex, value)) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
     applyGivenPencilMarks(cellIndex: CellIndex, pencilMarks: CellValue[]): boolean {
         const pencilMarkBits = pencilMarks.reduce((bits, value) => bits | valueBit(value), 0);
 
@@ -1756,9 +1785,7 @@ export class Board {
             return (this.cells[cellIndex] & pencilMarkBits) !== 0;
         }
 
-        const origMask = this.cells[cellIndex] & this.allValues;
-        this.cells[cellIndex] &= pencilMarkBits;
-        return this.enforceNewMask(cellIndex, origMask);
+        return this.applyCellMask(cellIndex, pencilMarkBits) !== ConstraintResult.INVALID;
     }
 
     findUnassignedLocation(ignoreMasks: CellMask[] | Uint16Array | Uint32Array | null = null): CellIndex {
@@ -1924,14 +1951,16 @@ export class Board {
             const newCellBits = cellMask & ~valueBit(chosenValue);
             if (newCellBits !== 0) {
                 const newBoard = currentBoard.clone();
-                if (newBoard.clearValue(unassignedIndex, chosenValue)) {
+                if (newBoard.applyElim(this.candidateIndex(unassignedIndex, chosenValue)) !== ConstraintResult.INVALID) {
                     jobStack.push(newBoard);
+                } else {
+                    newBoard.release();
                 }
             }
 
             // Push the version where the cell is set to the chosen value
             {
-                if (currentBoard.setAsGiven(unassignedIndex, chosenValue)) {
+                if (currentBoard.applySingle(this.candidateIndex(unassignedIndex, chosenValue)) !== ConstraintResult.INVALID) {
                     jobStack.push(currentBoard);
                 } else {
                     currentBoard.release();
@@ -2106,14 +2135,16 @@ export class Board {
             const newCellBits = cellMask & ~valueBit(chosenValue);
             if (newCellBits !== 0) {
                 const newBoard = currentBoard.clone();
-                if (newBoard.clearValue(unassignedIndex, chosenValue)) {
+                if (newBoard.applyElim(this.candidateIndex(unassignedIndex, chosenValue)) !== ConstraintResult.INVALID) {
                     jobStack.push(newBoard);
+                } else {
+                    newBoard.release();
                 }
             }
 
             // Push the version where the cell is set to the chosen value
             {
-                if (currentBoard.setAsGiven(unassignedIndex, chosenValue)) {
+                if (currentBoard.applySingle(this.candidateIndex(unassignedIndex, chosenValue)) !== ConstraintResult.INVALID) {
                     jobStack.push(currentBoard);
                 } else {
                     currentBoard.release();
@@ -2323,14 +2354,16 @@ export class Board {
                 const newCellBits = cellMask & ~valueBit(chosenValue);
                 if (newCellBits !== 0) {
                     const newBoard = currentBoard.clone();
-                    if (newBoard.clearValue(unassignedIndex, chosenValue)) {
+                    if (newBoard.applyElim(this.candidateIndex(unassignedIndex, chosenValue)) !== ConstraintResult.INVALID) {
                         jobStack.push(newBoard);
+                    } else {
+                        newBoard.release();
                     }
                 }
 
                 // Push the version where the cell is set to the chosen value
                 {
-                    if (currentBoard.setAsGiven(unassignedIndex, chosenValue)) {
+                    if (currentBoard.applySingle(this.candidateIndex(unassignedIndex, chosenValue)) !== ConstraintResult.INVALID) {
                         jobStack.push(currentBoard);
                     } else {
                         currentBoard.release();

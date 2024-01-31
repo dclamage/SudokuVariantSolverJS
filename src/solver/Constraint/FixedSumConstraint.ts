@@ -15,7 +15,7 @@ export class FixedSumConstraint extends Constraint {
     sumHelper: SumCellsHelper;
 
     constructor(constraintName: string, specificName: string, board: Board, params: FixedSumConstraintParams) {
-        super(constraintName, specificName);
+        super(constraintName, specificName, params.cells.slice());
 
         this.sum = params.sum;
         this.cells = params.cells.toSorted((a: number, b: number) => a - b);
@@ -32,7 +32,7 @@ export class FixedSumConstraint extends Constraint {
 
             const cell = this.cells[0];
             return {
-                result: board.keepCellMask(cell, valueBit(this.sum)),
+                result: board.applyCellMask(cell, valueBit(this.sum)),
                 deleteConstraints: [this],
             };
         }

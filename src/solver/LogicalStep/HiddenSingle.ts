@@ -1,4 +1,5 @@
 import { Board } from '../Board';
+import { ConstraintResult } from '../Constraint/Constraint';
 import { LogicResult } from '../Enums/LogicResult';
 import { cellName, maskToString, minValue } from '../SolveUtility';
 import { LogicalStep } from './LogicalStep';
@@ -45,7 +46,7 @@ export class HiddenSingle extends LogicalStep {
                 const newCellMask = cellMask & exactlyOnce;
                 if (newCellMask !== 0 && newCellMask != cellMask) {
                     const cellValue = minValue(newCellMask);
-                    if (!board.setAsGiven(cellIndex, cellValue)) {
+                    if (board.applySingle(board.candidateIndex(cellIndex, cellValue)) === ConstraintResult.INVALID) {
                         if (desc) {
                             desc.push(`Hidden Single in ${region.name}: ${cellName(cellIndex, size)} cannot be set to ${cellValue}.`);
                         }

@@ -4,6 +4,7 @@ import { Constraint, ConstraintResult, InitResult, LogicalDeduction } from './Co
 
 interface OrConstraintParams {
     subboards: Board[];
+    cells: CellIndex[];
 }
 
 export class OrConstraint extends Constraint {
@@ -14,14 +15,14 @@ export class OrConstraint extends Constraint {
 
     constructor(constraintName: string, specificName: string, board: Board, params: OrConstraintParams) {
         if (constraintName === undefined || specificName === undefined || board === undefined || params === undefined) {
-            super(undefined, undefined);
+            super(undefined, undefined, undefined);
             this.numCells = undefined;
             this.numCandidates = undefined;
             this.subboards = undefined;
             this.subboardsChanged = undefined;
         } else {
-            const { subboards } = params;
-            super(constraintName, specificName);
+            const { subboards, cells } = params;
+            super(constraintName, specificName, cells);
             this.numCells = board.size * board.size;
             this.numCandidates = board.size * board.size * board.size;
             this.subboards = subboards;
@@ -32,8 +33,13 @@ export class OrConstraint extends Constraint {
     init(board: Board): InitResult {
         this.subboards = this.subboards.filter(subboard => {
             // Copy state downwards
-            for (let cellIndex = 0; cellIndex < this.numCells; ++cellIndex) {
-                subboard.keepCellMask(cellIndex, board.cells[cellIndex]);
+            if (
+                subboard.applyCellMasks(
+                    Array.from({ length: this.numCells }, (_, i) => i),
+                    board.cells
+                ) === ConstraintResult.INVALID
+            ) {
+                return false;
             }
             for (const { name, fromConstraint, type, cells } of board.regions) {
                 subboard.addRegion(name, cells, type, fromConstraint, false);
@@ -56,7 +62,7 @@ export class OrConstraint extends Constraint {
 
     clone() {
         // Shallow copy everything
-        const clone = Object.assign(new OrConstraint(undefined, undefined, undefined, undefined), this);
+        const clone: OrConstraint = Object.assign(new OrConstraint(undefined, undefined, undefined, undefined), this);
 
         // Clone each subboard
         clone.subboards = this.subboards.map(subboard => subboard.clone());
@@ -74,7 +80,7 @@ export class OrConstraint extends Constraint {
         this.subboardsChanged = true;
         let invalidSubboards: Board[] | null = null;
         for (const subboard of this.subboards) {
-            if (!subboard.setAsGiven(cellIndex, value)) {
+            if (subboard.applySingle(board.candidateIndex(cellIndex, value)) === ConstraintResult.INVALID) {
                 if (invalidSubboards === null) {
                     invalidSubboards = [];
                 }
@@ -93,7 +99,7 @@ export class OrConstraint extends Constraint {
         this.subboardsChanged = true;
         let invalidSubboards: Board[] | null = null;
         for (const subboard of this.subboards) {
-            if (!subboard.clearValue(cellIndex, value)) {
+            if (subboard.applyElim(board.candidateIndex(cellIndex, value)) === ConstraintResult.INVALID) {
                 if (invalidSubboards === null) {
                     invalidSubboards = [];
                 }
@@ -193,6 +199,11 @@ export class OrConstraint extends Constraint {
                     subboard.binaryImplications.transferImplicationToParent(candidate, ~link);
                 }
             }
+            if (scratch.length > 0) {
+                for (const constraint of board.constraints) {
+                    constraint.constraintCells[0] !== undefined && board.markCellAsModified(constraint.constraintCells[0]);
+                }
+            }
             for (const link of newLinks) {
                 weakLinks.push([candidate, link]);
             }
@@ -255,22 +266,19 @@ export class OrConstraint extends Constraint {
         this.subboardsChanged = false;
 
         // Transfer deductions shared by all subboards upward
-        let changed = ConstraintResult.UNCHANGED;
+        const sharedMasks = [];
         for (let cellIndex = 0; cellIndex < this.numCells; ++cellIndex) {
             let cellMask = 0;
             for (const subboard of this.subboards) {
                 cellMask |= subboard.cells[cellIndex];
             }
-            const result = board.keepCellMask(cellIndex, cellMask);
-            if (result === ConstraintResult.INVALID) {
-                return ConstraintResult.INVALID;
-            }
-            if (result === ConstraintResult.CHANGED) {
-                changed = ConstraintResult.CHANGED;
-            }
+            sharedMasks.push(cellMask);
         }
 
-        return changed;
+        return board.applyCellMasks(
+            Array.from({ length: this.numCells }, (_, i) => i),
+            sharedMasks
+        );
     }
 }
 

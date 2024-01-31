@@ -11,7 +11,7 @@ export class Fish extends LogicalStep {
         this._enabledFish = enabledFish;
     }
 
-    step(board: Board, desc: string[] | null = null) {
+    step(board: Board, desc: string[] | null = null): LogicResult {
         const { size, cells } = board;
 
         // Construct a transformed lookup of which values are in which rows/cols
@@ -125,7 +125,7 @@ export class Fish extends LogicalStep {
                                         }${columnOrRowIndices} [${board.describeCandidates(fishCandidates.flat())}] => ${board.describeElims(elims)}.`
                                     );
                                 }
-                                return board.performElims(elims);
+                                return board.applyElims(elims) as number as LogicResult;
                             }
                         }
                     }

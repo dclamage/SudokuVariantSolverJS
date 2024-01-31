@@ -1,4 +1,5 @@
 import { Board } from '../Board';
+import { ConstraintResult } from '../Constraint/Constraint';
 import { LogicResult } from '../Enums/LogicResult';
 import { cellName, minValue } from '../SolveUtility';
 import { LogicalStep } from './LogicalStep';
@@ -9,38 +10,25 @@ export class NakedSingle extends LogicalStep {
     }
 
     step(board: Board, desc: string[] | null = null): LogicResult {
-        if (board.nakedSingles.length === 0) {
-            return LogicResult.UNCHANGED;
-        }
-
         const { size } = board;
 
         // Get the first naked single
-        board.nakedSingles.sort((a, b) => a - b);
-        const cellIndex = board.nakedSingles[0];
-        board.nakedSingles.shift();
-
-        // Get the value
-        const cellMask = board.cells[cellIndex];
-
-        // If this cell is already given then don't report it
-        if (cellMask & board.givenBit) {
-            return this.step(board, desc);
-        }
-
-        const cellValue = minValue(cellMask);
-
-        // Set the cell to the value
-        if (!board.setAsGiven(cellIndex, cellValue)) {
-            if (desc) {
-                desc.push(`Naked Single: ${cellName(cellIndex, size)} cannot be set to ${cellValue}.`);
+        for (let cellIndex = 0; cellIndex < size * size; cellIndex++) {
+            const mask = board.cells[cellIndex];
+            if (mask & (mask - 1)) continue;
+            const value = minValue(mask);
+            if (board.applySingle(board.candidateIndex(cellIndex, value)) === ConstraintResult.INVALID) {
+                if (desc) {
+                    desc.push(`Naked Single: ${cellName(cellIndex, size)} cannot be set to ${value}.`);
+                }
+                return LogicResult.INVALID;
             }
-            return LogicResult.INVALID;
+            if (desc) {
+                desc.push(`Naked Single: ${cellName(cellIndex, size)} = ${value}.`);
+            }
+            return LogicResult.CHANGED;
         }
 
-        if (desc) {
-            desc.push(`Naked Single: ${cellName(cellIndex, size)} = ${cellValue}.`);
-        }
-        return LogicResult.CHANGED;
+        return LogicResult.UNCHANGED;
     }
 }

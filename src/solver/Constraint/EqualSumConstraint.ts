@@ -19,7 +19,7 @@ export class EqualSumConstraint extends Constraint {
     helpers: SumCellsHelper[];
 
     constructor(constraintName: string, specificName: string, board: Board, params: { cells: CellIndex[][]; offsets?: number[] }) {
-        super(constraintName, specificName);
+        super(constraintName, specificName, params.cells.flat());
 
         this.cells = [];
         this.offsets = [];
@@ -63,7 +63,7 @@ export class EqualSumConstraint extends Constraint {
                     })
                 );
             }
-            return { result: ConstraintResult.UNCHANGED, addConstraints, deleteConstraints: [this] };
+            return { result: ConstraintResult.UNCHANGED, addConstraints, deleteConstraints: [this] as Constraint[] };
         }
 
         return ConstraintResult.UNCHANGED;

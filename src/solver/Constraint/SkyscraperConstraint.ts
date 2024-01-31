@@ -40,15 +40,16 @@ export class SkyscraperConstraint extends Constraint {
         const firstCellIndex = board.cellIndex(params.directionalCoords.row, params.directionalCoords.col);
         const directionOffset = board.cellIndex(params.directionalCoords.dRow, params.directionalCoords.dCol);
         const specificName = `Skyscraper ${params.clue} at ${cellName(firstCellIndex, board.size)}`;
-        super('Skyscraper', specificName);
+        const cells = [];
+        for (let i = 0; i < board.size; ++i) {
+            cells.push(firstCellIndex + i * directionOffset);
+        }
+        super('Skyscraper', specificName, cells.slice());
 
         this.clue = params.clue;
         this.cellStart = firstCellIndex;
 
-        this.cells = [];
-        for (let i = 0; i < board.size; ++i) {
-            this.cells.push(this.cellStart + i * directionOffset);
-        }
+        this.cells = cells;
         this.cellsLookup = new Set(this.cells);
 
         this.memoPrefix = `Skyscraper|${this.clue}|${this.cellStart}`;
@@ -60,7 +61,7 @@ export class SkyscraperConstraint extends Constraint {
         if (this.clue === 1) {
             const keepMask = valueBit(board.size);
             return {
-                result: board.keepCellMask(this.cells[0], keepMask) ? ConstraintResult.CHANGED : ConstraintResult.UNCHANGED,
+                result: board.applyCellMask(this.cells[0], keepMask),
                 deleteConstraints: [this],
             };
         }
@@ -71,7 +72,7 @@ export class SkyscraperConstraint extends Constraint {
         if (this.clue === board.size) {
             for (let v = 1; v <= board.size; ++v) {
                 const keepMask = valueBit(v);
-                const result = board.keepCellMask(this.cells[v - 1], keepMask);
+                const result = board.applyCellMask(this.cells[v - 1], keepMask);
                 if (result === ConstraintResult.INVALID) {
                     return ConstraintResult.INVALID;
                 }
@@ -85,7 +86,7 @@ export class SkyscraperConstraint extends Constraint {
                 const maxValue = board.size - this.clue + 1 + cellIndex;
                 if (maxValue < board.size) {
                     const keepMask = maskLowerOrEqual(maxValue);
-                    const result = board.keepCellMask(cell, keepMask);
+                    const result = board.applyCellMask(cell, keepMask);
                     if (result === ConstraintResult.INVALID) {
                         return ConstraintResult.INVALID;
                     }
@@ -311,18 +312,7 @@ export class SkyscraperConstraint extends Constraint {
             }
         }
 
-        let changed = ConstraintResult.UNCHANGED;
-        for (let cellIndex = 0; cellIndex < this.cells.length; ++cellIndex) {
-            const result = board.keepCellMask(this.cells[cellIndex], keepMasks[cellIndex]);
-            if (result === ConstraintResult.INVALID) {
-                return ConstraintResult.INVALID;
-            }
-            if (result === ConstraintResult.CHANGED) {
-                changed = ConstraintResult.CHANGED;
-            }
-        }
-
-        return changed;
+        return board.applyCellMasks(this.cells, keepMasks);
     }
 
     static seenCount(values: CellValue[]): number {

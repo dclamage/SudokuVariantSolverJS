@@ -18,7 +18,7 @@ class BetweenLineConstraint extends Constraint {
 
     constructor(board: Board, params: BetweenLineParams) {
         const specificName = `Between Line at ${cellName(params.ends[0], board.size)} - ${cellName(params.ends[1], board.size)}`;
-        super('Between Line', specificName);
+        super('Between Line', specificName, [...params.ends, ...params.middle]);
 
         this.ends = params.ends;
         this.middle = params.middle.slice();
@@ -93,7 +93,10 @@ export function register(constraintBuilder: ConstraintBuilder) {
             const subboard2 = board.subboardClone();
             subboard2.addConstraint(new BetweenLineConstraint(board, { ends: [outer[1], outer[0]], middle: middle }));
             return [
-                new OrConstraint('Between Line', `Between Line at ${line[0]}-${line[line.length - 1]}`, board, { subboards: [subboard1, subboard2] }),
+                new OrConstraint('Between Line', `Between Line at ${line[0]}-${line[line.length - 1]}`, board, {
+                    subboards: [subboard1, subboard2],
+                    cells: [...outer, ...middle],
+                }),
             ];
         })
     );

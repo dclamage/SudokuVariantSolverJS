@@ -8,7 +8,7 @@ export class NakedTupleAndPointing extends LogicalStep {
         super('Naked Tuple and Pointing');
     }
 
-    step(board: Board, desc: string[] | null = null) {
+    step(board: Board, desc: string[] | null = null): LogicResult {
         const { size, cells } = board;
         for (let tupleSize = 2; tupleSize < size; tupleSize++) {
             for (const region of board.regions) {
@@ -85,7 +85,7 @@ export class NakedTupleAndPointing extends LogicalStep {
                     }
 
                     // Perform the eliminations
-                    return board.performElims(elims);
+                    return board.applyElims(elims) as number as LogicResult;
                 }
             }
 
@@ -121,7 +121,7 @@ export class NakedTupleAndPointing extends LogicalStep {
                     }
 
                     // Perform the eliminations
-                    return board.performElims(elims);
+                    return board.applyElims(elims) as number as LogicResult;
                 }
             }
         }

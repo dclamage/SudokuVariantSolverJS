@@ -1,6 +1,7 @@
 import { Board } from '../Board';
 import ConstraintBuilder from '../ConstraintBuilder';
 import { CellIndex, parseEdgeClueCoords, valueBit } from '../SolveUtility';
+import { ConstraintResult } from './Constraint';
 import { FPuzzlesCell } from './FPuzzlesInterfaces';
 import { FixedSumConstraint } from './FixedSumConstraint';
 import { OrConstraint } from './OrConstraint';
@@ -19,7 +20,11 @@ export function register(constraintBuilder: ConstraintBuilder) {
             const subboard = board.subboardClone();
 
             // In the ith branch, the first cell of the xsum has value i
-            subboard.keepCellMask(initialCellIndex, valueBit(digit));
+            if (subboard.applyCellMask(initialCellIndex, valueBit(digit)) === ConstraintResult.INVALID) {
+                subboard.release();
+                continue;
+            }
+
             // And the first i cells sum to the given total
             subboard.addConstraint(
                 new FixedSumConstraint(`Hypothetical X-Sum`, `Hypothetical X-Sum ${params.value} at ${params.cell} if X = ${digit}`, subboard, {
@@ -31,6 +36,6 @@ export function register(constraintBuilder: ConstraintBuilder) {
             subboards.push(subboard);
         }
 
-        return new OrConstraint('X-Sum', `X-Sum ${params.value} at ${params.cell}`, board, { subboards: subboards });
+        return new OrConstraint('X-Sum', `X-Sum ${params.value} at ${params.cell}`, board, { subboards: subboards, cells: sumCells.slice() });
     });
 }

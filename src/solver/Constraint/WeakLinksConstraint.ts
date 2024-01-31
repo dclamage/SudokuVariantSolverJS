@@ -10,7 +10,11 @@ export class WeakLinksConstraint extends Constraint {
     weakLinks: [CandidateIndex, CandidateIndex][];
 
     constructor(board: Board, params: WeakLinksConstraintParams, name: string, specificName: string) {
-        super(name, specificName);
+        super(
+            name,
+            specificName,
+            params.weakLinks.flatMap(candidates => candidates.map(candidate => board.cellIndexFromCandidate(candidate)))
+        );
         this.weakLinks = params.weakLinks.slice();
     }
 
